@@ -1,0 +1,30 @@
+{
+  "name": "@lessonquest/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lessonquest/auth": "workspace:*",
+    "@lessonquest/contracts": "workspace:*",
+    "@lessonquest/db": "workspace:*",
+    "hono": "4.13.5",
+    "zod": "4.5.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}
