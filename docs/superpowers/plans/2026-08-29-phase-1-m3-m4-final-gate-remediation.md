@@ -213,7 +213,7 @@
 
   Commit on `codex/phase1-m3-m4-complete`. Do not push, merge, or deploy.
 
-- [ ] **Step 3: Assign a fresh independent reviewer**
+- [x] **Step 3: Assign a fresh independent reviewer**
 
   A new agent that did not implement or perform Attempt 1 must inspect the source documents (using their provided `/Users/ranha/Downloads` paths), approved plan, complete base-to-head diff, tests, and verification. It reruns relevant checks and appends an independent Attempt 2 score to the existing final review report. Acceptance requires at least 86/100 and no critical blocker.
 
