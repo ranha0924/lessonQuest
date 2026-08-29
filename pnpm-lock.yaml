@@ -11,6 +11,7 @@ catalogs:
       version: 1.41.5
 
 importers:
+
   .:
     devDependencies:
       '@eslint/js':
@@ -59,6 +60,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/gamification:
+    dependencies:
+      '@lessonquest/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.5.2
+        version: 4.5.2
+
   services/api:
     dependencies:
       '@lessonquest/auth':
@@ -82,6 +92,7 @@ importers:
         version: 0.5.8
 
 packages:
+
   '@electric-sql/pglite@0.5.8':
     resolution: {integrity: sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q==}
 
@@ -881,6 +892,7 @@ packages:
     resolution: {integrity: sha512-XkYXCol10+ba/6F/cueWV+TezUeOqXW0hdeJt5CdXjTYeAgAQg5N03RQdJ80mhfFE72+pblvYMW4wy2Qp4Qbrg==}
 
 snapshots:
+
   '@electric-sql/pglite@0.5.8': {}
 
   '@eslint-community/eslint-utils@4.10.1(eslint@10.9.1)':

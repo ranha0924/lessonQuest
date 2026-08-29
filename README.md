@@ -2,7 +2,7 @@
 
 LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학생들이 그 안에서 미션·실험·탐험·이야기·공동 보스를 함께 플레이하며 배우는 플랫폼입니다. Rasa는 정답 대신 스스로 답을 찾는 길을 안내하고, 교사는 학생의 과정과 성장을 확인합니다.
 
-현재 구현 단계는 Phase 1의 기반 계약과 기관·반·역할 경계입니다. 승인된 Experience, 학습 이벤트, Rasa Context/Action, 격리 runner 메시지뿐 아니라 합성 로컬 인증, PostgreSQL 호환 tenant 저장소, 기관·반 API까지 검증합니다.
+현재 구현 범위는 Phase 1의 기반 계약·기관·반·역할 경계와 Phase 2의 첫 번째 순수 게임화 단위입니다. 승인된 Experience, 학습 이벤트, Rasa Context/Action, 격리 runner 메시지뿐 아니라 합성 로컬 인증, PostgreSQL 호환 tenant 저장소, 기관·반 API, WordQuest에서 선별 이식한 공동 보스 규칙을 검증합니다. 보스 규칙은 아직 API나 데이터베이스에 연결하지 않았습니다.
 
 ## 개발 환경
 
@@ -23,6 +23,7 @@ pnpm check
 - `packages/contracts` — Experience Manifest, LearningEvent, Rasa, sandbox bridge, identity와 요청 runtime schema
 - `packages/auth` — 불투명한 개발용 bearer token을 서버 소유 Actor로 해석하는 로컬 인증 경계
 - `packages/db` — PGlite 기반 PostgreSQL 호환 기관·반·학생 소속, tenant guard와 최소 감사 로그
+- `packages/gamification` — WordQuest parity를 유지하는 보스 kill switch, 반별 key, HP, 중복 합산과 서버 검증 결과 기반 기여 projection
 - `services/api` — Hono 기반 보안 미들웨어와 기관·반 API application
 - 각 `test` 디렉터리 — 위조 입력, 권한 상승, IDOR, 비활성 상태, rollback과 오류 redaction 회귀 테스트
 
@@ -54,6 +55,7 @@ GET  /organizations/:organizationId/classes/:classId
 - [통합 설계서](docs/INTEGRATION_PLAN_V2.md)
 - [Phase 1 기반 계약 구현 계획](docs/superpowers/plans/2026-08-29-phase-1-foundation-contracts.md)
 - [Phase 1 기관·반·역할 구현 계획](docs/superpowers/plans/2026-08-29-phase-1-identity-tenancy.md)
+- [Phase 2 WordQuest 보스 규칙 구현 계획](docs/superpowers/plans/2026-08-29-phase-2-wordquest-boss-rules.md)
 - [기관·반·역할 사전 검증 기록](docs/reviews/2026-08-29-phase-1-identity-tenancy-plan-review.md)
 - [소스 이식 원장](docs/SOURCE_PROVENANCE.md)
 
