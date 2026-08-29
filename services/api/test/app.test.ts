@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { LocalAuthProvider } from '@lessonquest/auth';
 import type { Actor } from '@lessonquest/contracts';
-import { initializeSchema, TenantRepository } from '@lessonquest/db';
+import { initializeSchema, LearningRepository, TenantRepository } from '@lessonquest/db';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
@@ -63,18 +63,20 @@ function expectSafeErrorEnvelope(value: unknown): void {
 describe('LessonQuest tenant API', () => {
   let database: PGlite;
   let repository: TenantRepository;
+  let learningRepository: LearningRepository;
   let auth: LocalAuthProvider;
   let diagnosticEvents: Array<Record<string, unknown>>;
   let diagnostics: { record(event: unknown): void };
 
   function buildApp() {
-    return createApp({ auth, repository, trustedOrigin, diagnostics });
+    return createApp({ auth, repository, learningRepository, trustedOrigin, diagnostics });
   }
 
   beforeEach(async () => {
     database = new PGlite();
     await initializeSchema(database);
     repository = new TenantRepository(database);
+    learningRepository = new LearningRepository(database);
     await repository.upsertUser(teacher);
     await repository.upsertUser(otherTeacher);
     await repository.upsertUser(student);
@@ -141,6 +143,28 @@ describe('LessonQuest tenant API', () => {
       { method: 'POST', path: `/organizations/${organizationId}/classes` },
       { method: 'POST', path: `/organizations/${organizationId}/classes/${classId}/members` },
       { method: 'GET', path: `/organizations/${organizationId}/classes/${classId}` },
+      { method: 'POST', path: `/organizations/${organizationId}/experiences/science` },
+      {
+        method: 'POST',
+        path: `/organizations/${organizationId}/experience-versions/${classId}/validate`,
+      },
+      {
+        method: 'GET',
+        path: `/organizations/${organizationId}/experience-versions/${classId}/preview`,
+      },
+      {
+        method: 'POST',
+        path: `/organizations/${organizationId}/experience-versions/${classId}/review`,
+      },
+      { method: 'POST', path: `/organizations/${organizationId}/classes/${classId}/assignments` },
+      { method: 'GET', path: `/organizations/${organizationId}/student/assignments` },
+      { method: 'POST', path: `/organizations/${organizationId}/assignments/${classId}/attempts` },
+      { method: 'GET', path: `/organizations/${organizationId}/assignments/${classId}/player` },
+      { method: 'POST', path: `/organizations/${organizationId}/learning-events` },
+      {
+        method: 'GET',
+        path: `/organizations/${organizationId}/classes/${classId}/assignments/${classId}/progress`,
+      },
     ] as const;
     const credentials = [
       undefined,
@@ -198,7 +222,7 @@ describe('LessonQuest tenant API', () => {
     const oversized = await app.request('/organizations', {
       method: 'POST',
       headers: requestHeaders(teacherToken),
-      body: JSON.stringify({ name: '가'.repeat(9_000) }),
+      body: JSON.stringify({ name: '가'.repeat(70_000) }),
     });
 
     expect(unsupported.status).toBe(415);
@@ -408,6 +432,7 @@ describe('LessonQuest tenant API', () => {
     const app = createApp({
       auth,
       repository,
+      learningRepository,
       trustedOrigin,
       diagnostics: {
         record() {
@@ -434,12 +459,20 @@ describe('LessonQuest tenant API', () => {
       createApp({
         auth,
         repository,
+        learningRepository,
         trustedOrigin: `${trustedOrigin}/path`,
         diagnostics,
       }),
     ).toThrow();
     expect(() =>
-      createApp({ auth, repository, trustedOrigin, diagnostics, maxBodyBytes: 0 }),
+      createApp({
+        auth,
+        repository,
+        learningRepository,
+        trustedOrigin,
+        diagnostics,
+        maxBodyBytes: 0,
+      }),
     ).toThrow();
   });
 });

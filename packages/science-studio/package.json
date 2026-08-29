@@ -1,5 +1,5 @@
 {
-  "name": "@lessonquest/api",
+  "name": "@lessonquest/science-studio",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -18,14 +18,10 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@lessonquest/auth": "workspace:*",
     "@lessonquest/contracts": "workspace:*",
-    "@lessonquest/db": "workspace:*",
-    "@lessonquest/science-studio": "workspace:*",
-    "hono": "4.13.5",
     "zod": "4.5.2"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8"
+    "@types/node": "24.13.3"
   }
 }
