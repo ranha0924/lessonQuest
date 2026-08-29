@@ -29,16 +29,32 @@ const defineEvent = <Type extends string, Payload extends z.ZodType>(
 
 const emptyPayloadSchema = z.strictObject({});
 const passiveElapsedPayloadSchema = z.strictObject({ elapsedMs: elapsedMsSchema.optional() });
-const answerPayloadSchema = z.strictObject({
-  correct: z.boolean(),
+const answerSubmissionPayloadSchema = z.strictObject({
+  optionId: boundedIdentifierSchema,
   attempt: z.int().min(1).max(100),
   elapsedMs: elapsedMsSchema,
 });
 
+const authoritativeAnswerPayloadSchema = z.strictObject({
+  ...answerSubmissionPayloadSchema.shape,
+  correct: z.boolean(),
+});
+
 const experienceStartedEventSchema = defineEvent('EXPERIENCE_STARTED', emptyPayloadSchema);
 const stepViewedEventSchema = defineEvent('STEP_VIEWED', passiveElapsedPayloadSchema);
-const questionAnsweredEventSchema = defineEvent('QUESTION_ANSWERED', answerPayloadSchema);
-const answerRetriedEventSchema = defineEvent('ANSWER_RETRIED', answerPayloadSchema);
+const clientQuestionAnsweredEventSchema = defineEvent(
+  'QUESTION_ANSWERED',
+  answerSubmissionPayloadSchema,
+);
+const clientAnswerRetriedEventSchema = defineEvent('ANSWER_RETRIED', answerSubmissionPayloadSchema);
+const serverQuestionAnsweredEventSchema = defineEvent(
+  'QUESTION_ANSWERED',
+  authoritativeAnswerPayloadSchema,
+);
+const serverAnswerRetriedEventSchema = defineEvent(
+  'ANSWER_RETRIED',
+  authoritativeAnswerPayloadSchema,
+);
 const hintUsedEventSchema = defineEvent(
   'HINT_USED',
   z.strictObject({ level: z.union([z.literal(1), z.literal(2), z.literal(3)]) }),
@@ -87,8 +103,8 @@ const bossDamageEarnedEventSchema = defineEvent(
 const clientEventVariants = [
   experienceStartedEventSchema,
   stepViewedEventSchema,
-  questionAnsweredEventSchema,
-  answerRetriedEventSchema,
+  clientQuestionAnsweredEventSchema,
+  clientAnswerRetriedEventSchema,
   hintUsedEventSchema,
   rasaOpenedEventSchema,
   choiceMadeEventSchema,
@@ -100,7 +116,16 @@ const clientEventVariants = [
 export const clientLearningEventSchema = z.discriminatedUnion('type', clientEventVariants);
 
 export const serverLearningEventSchema = z.discriminatedUnion('type', [
-  ...clientEventVariants,
+  experienceStartedEventSchema,
+  stepViewedEventSchema,
+  serverQuestionAnsweredEventSchema,
+  serverAnswerRetriedEventSchema,
+  hintUsedEventSchema,
+  rasaOpenedEventSchema,
+  choiceMadeEventSchema,
+  experienceCompletedEventSchema,
+  experienceExitedEventSchema,
+  errorReportedEventSchema,
   bossDamageEarnedEventSchema,
 ]);
 

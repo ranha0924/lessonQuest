@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
-    "@lessonquest/contracts": "workspace:*"
+    "@lessonquest/contracts": "workspace:*",
+    "@lessonquest/science-studio": "workspace:*"
   }
 }
