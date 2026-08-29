@@ -1,0 +1,29 @@
+{
+  "name": "lessonquest",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "contracts:build": "pnpm --filter @lessonquest/contracts build",
+    "deps:build": "pnpm --filter @lessonquest/contracts build && pnpm --filter @lessonquest/auth build && pnpm --filter @lessonquest/db build",
+    "lint": "eslint . --max-warnings=0",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm deps:build && tsc --noEmit -p tsconfig.json",
+    "test": "pnpm deps:build && vitest run",
+    "build": "pnpm -r --sort --if-present build",
+    "check": "pnpm deps:build && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/emscripten": "catalog:",
+    "@types/node": "24.13.3",
+    "eslint": "10.9.1",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

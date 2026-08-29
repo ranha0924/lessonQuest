@@ -1,0 +1,13 @@
+packages:
+  - packages/*
+  - apps/*
+  - services/*
+  - experiences/*
+
+catalog:
+  '@types/emscripten': 1.41.5
+
+catalogMode: strict
+
+minimumReleaseAgeExclude:
+  - zod@4.5.2
