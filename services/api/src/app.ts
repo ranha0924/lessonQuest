@@ -3,24 +3,33 @@ import { randomUUID } from 'node:crypto';
 import { AuthenticationError, type LocalAuthProvider } from '@lessonquest/auth';
 import {
   addClassMemberInputSchema,
+  clientLearningEventSchema,
+  createAssignmentInputSchema,
   createClassInputSchema,
   createOrganizationInputSchema,
+  createScienceExperienceInputSchema,
+  reviewExperienceVersionInputSchema,
   uuidSchema,
   type Actor,
 } from '@lessonquest/contracts';
 import {
   AuthorizationError,
   ConflictError,
+  ContentIntegrityError,
+  InvalidStateError,
+  type LearningRepository,
   ResourceNotFoundError,
   type TenantRepository,
 } from '@lessonquest/db';
+import { ScienceGenerationError } from '@lessonquest/science-studio';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { ZodError } from 'zod';
+import { z } from 'zod';
 
-const defaultMaxBodyBytes = 8 * 1024;
+const defaultMaxBodyBytes = 64 * 1024;
 
 type Variables = {
   actor: Actor;
@@ -31,7 +40,7 @@ type Variables = {
 type AppEnvironment = { Variables: Variables };
 type AppContext = Context<AppEnvironment>;
 
-type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 500;
+type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 500;
 
 interface ErrorDescriptor {
   status: ErrorStatus;
@@ -50,6 +59,7 @@ class ApiProblem extends Error {
 export interface CreateAppOptions {
   auth: LocalAuthProvider;
   repository: TenantRepository;
+  learningRepository: LearningRepository;
   trustedOrigin: string;
   diagnostics: DiagnosticSink;
   maxBodyBytes?: number;
@@ -158,6 +168,30 @@ function mapError(error: unknown): ErrorDescriptor {
       status: 409,
       code: 'RESOURCE_CONFLICT',
       message: '이미 처리된 요청입니다.',
+      retryable: false,
+    };
+  }
+  if (error instanceof InvalidStateError) {
+    return {
+      status: 422,
+      code: 'EXPERIENCE_STATE_INVALID',
+      message: '먼저 검증과 교사 승인 단계를 확인해 주세요.',
+      retryable: false,
+    };
+  }
+  if (error instanceof ContentIntegrityError) {
+    return {
+      status: 422,
+      code: 'EXPERIENCE_CONTENT_INTEGRITY_FAILED',
+      message: '승인된 체험 내용을 확인할 수 없어 실행을 멈췄습니다.',
+      retryable: false,
+    };
+  }
+  if (error instanceof ScienceGenerationError) {
+    return {
+      status: 400,
+      code: 'EXPERIENCE_GENERATION_INVALID',
+      message: '생성된 과학 체험 형식을 확인해 주세요.',
       retryable: false,
     };
   }
@@ -339,6 +373,151 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
     );
     return context.json(lessonClass);
   });
+
+  app.post('/organizations/:organizationId/experiences/science', async (context) => {
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const input = createScienceExperienceInputSchema.parse(await readJson(context));
+    const created = await options.learningRepository.createScienceExperience(
+      context.get('actor'),
+      organizationId,
+      input.title,
+      input.generatedSpecText,
+    );
+    return context.json(created, 201);
+  });
+
+  app.post(
+    '/organizations/:organizationId/experience-versions/:versionId/validate',
+    async (context) => {
+      const organizationId = parseRouteUuid(context.req.param('organizationId'));
+      const versionId = parseRouteUuid(context.req.param('versionId'));
+      z.strictObject({}).parse(await readJson(context));
+      const result = await options.learningRepository.validateExperienceVersion(
+        context.get('actor'),
+        organizationId,
+        versionId,
+      );
+      return context.json(result);
+    },
+  );
+
+  app.get(
+    '/organizations/:organizationId/experience-versions/:versionId/preview',
+    async (context) => {
+      const organizationId = parseRouteUuid(context.req.param('organizationId'));
+      const versionId = parseRouteUuid(context.req.param('versionId'));
+      const preview = await options.learningRepository.getExperiencePreview(
+        context.get('actor'),
+        organizationId,
+        versionId,
+      );
+      return context.json(preview);
+    },
+  );
+
+  app.post(
+    '/organizations/:organizationId/experience-versions/:versionId/review',
+    async (context) => {
+      const organizationId = parseRouteUuid(context.req.param('organizationId'));
+      const versionId = parseRouteUuid(context.req.param('versionId'));
+      const input = reviewExperienceVersionInputSchema.parse(await readJson(context));
+      const reviewed = await options.learningRepository.reviewExperienceVersion(
+        context.get('actor'),
+        organizationId,
+        versionId,
+        input,
+      );
+      return context.json(reviewed);
+    },
+  );
+
+  app.post('/organizations/:organizationId/classes/:classId/assignments', async (context) => {
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const classId = parseRouteUuid(context.req.param('classId'));
+    const input = createAssignmentInputSchema.parse(await readJson(context));
+    const assignment = await options.learningRepository.createAssignment(
+      context.get('actor'),
+      organizationId,
+      classId,
+      input,
+    );
+    return context.json(assignment, 201);
+  });
+
+  app.get('/organizations/:organizationId/student/assignments', async (context) => {
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const assignments = await options.learningRepository.listStudentAssignments(
+      context.get('actor'),
+      organizationId,
+    );
+    return context.json(assignments);
+  });
+
+  app.post('/organizations/:organizationId/assignments/:assignmentId/attempts', async (context) => {
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const assignmentId = parseRouteUuid(context.req.param('assignmentId'));
+    z.strictObject({}).parse(await readJson(context));
+    const attempt = await options.learningRepository.startOrResumeAttempt(
+      context.get('actor'),
+      organizationId,
+      assignmentId,
+    );
+    return context.json(attempt, attempt.resumed ? 200 : 201);
+  });
+
+  app.get('/organizations/:organizationId/assignments/:assignmentId/player', async (context) => {
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const assignmentId = parseRouteUuid(context.req.param('assignmentId'));
+    const player = await options.learningRepository.getPlayerSession(
+      context.get('actor'),
+      organizationId,
+      assignmentId,
+    );
+    const specification = {
+      ...player.specification,
+      blocks: player.specification.blocks.map((block) =>
+        block.kind === 'QUIZ'
+          ? {
+              id: block.id,
+              kind: block.kind,
+              question: block.question,
+              options: block.options.map(({ id, label }) => ({ id, label })),
+              objectiveIds: block.objectiveIds,
+            }
+          : block,
+      ),
+    };
+    return context.json({ ...player, specification });
+  });
+
+  app.post('/organizations/:organizationId/learning-events', async (context) => {
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const event = clientLearningEventSchema.parse(await readJson(context));
+    if (event.organizationId !== organizationId) {
+      throw new ResourceNotFoundError();
+    }
+    const result = await options.learningRepository.ingestLearningEvent(
+      context.get('actor'),
+      event,
+    );
+    return context.json(result, result.accepted ? 202 : 200);
+  });
+
+  app.get(
+    '/organizations/:organizationId/classes/:classId/assignments/:assignmentId/progress',
+    async (context) => {
+      const organizationId = parseRouteUuid(context.req.param('organizationId'));
+      const classId = parseRouteUuid(context.req.param('classId'));
+      const assignmentId = parseRouteUuid(context.req.param('assignmentId'));
+      const progress = await options.learningRepository.listTeacherProgress(
+        context.get('actor'),
+        organizationId,
+        classId,
+        assignmentId,
+      );
+      return context.json(progress);
+    },
+  );
 
   app.notFound((context) =>
     errorResponse(
