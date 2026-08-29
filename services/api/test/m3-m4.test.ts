@@ -187,7 +187,7 @@ describe('M3 Science Studio to M4 student play API', () => {
         type: 'QUESTION_ANSWERED',
         stepId: 'quiz_force',
         sequence: 1,
-        payload: { correct: false, attempt: 1, elapsedMs: 1_000 },
+        payload: { optionId: 'heavy', attempt: 1, elapsedMs: 1_000 },
       },
       {
         ...eventBase,
@@ -195,7 +195,7 @@ describe('M3 Science Studio to M4 student play API', () => {
         type: 'ANSWER_RETRIED',
         stepId: 'quiz_force',
         sequence: 2,
-        payload: { correct: true, attempt: 2, elapsedMs: 600 },
+        payload: { optionId: 'light', attempt: 2, elapsedMs: 600 },
       },
       {
         ...eventBase,
@@ -206,12 +206,14 @@ describe('M3 Science Studio to M4 student play API', () => {
         payload: { elapsedMs: 7_500 },
       },
     ];
+    const eventResponses: Response[] = [];
     for (const event of events) {
       const response = await app.request(`/organizations/${organizationId}/learning-events`, {
         method: 'POST',
         headers: headers(studentToken),
         body: JSON.stringify(event),
       });
+      eventResponses.push(response);
       expect(response.status).toBe(202);
     }
     const duplicateResponse = await app.request(
@@ -246,7 +248,11 @@ describe('M3 Science Studio to M4 student play API', () => {
     expect(JSON.stringify(player['specification'])).not.toContain('"correct"');
     expect(JSON.stringify(player['specification'])).not.toContain('"explanation"');
     expect(duplicateResponse.status).toBe(200);
-    await expect(json(duplicateResponse)).resolves.toEqual({ accepted: false, duplicate: true });
+    await expect(json(duplicateResponse)).resolves.toEqual({
+      accepted: false,
+      duplicate: true,
+      answer: { stepId: 'quiz_force', attempt: 1, correct: false },
+    });
     expect(progressResponse.status).toBe(200);
     expect(progress).toEqual([
       expect.objectContaining({
@@ -258,6 +264,26 @@ describe('M3 Science Studio to M4 student play API', () => {
         projectionVersion: 4,
       }),
     ]);
+
+    const expectedAudits = [
+      [createdResponse, 'EXPERIENCE_CREATED', 'SUCCEEDED'],
+      [validationResponse, 'EXPERIENCE_VALIDATED', 'SUCCEEDED'],
+      [reviewResponse, 'EXPERIENCE_REVIEWED', 'SUCCEEDED'],
+      [assignmentResponse, 'ASSIGNMENT_CREATED', 'SUCCEEDED'],
+      [firstAttemptResponse, 'ATTEMPT_STARTED', 'SUCCEEDED'],
+      [eventResponses[0]!, 'LEARNING_EVENT_INGESTED', 'SUCCEEDED'],
+      [duplicateResponse, 'LEARNING_EVENT_INGESTED', 'CONFLICT'],
+      [progressResponse, 'PROGRESS_READ', 'SUCCEEDED'],
+    ] as const;
+    for (const [response, action, outcome] of expectedAudits) {
+      const traceId = response.headers.get('x-trace-id');
+      expect(traceId).not.toBeNull();
+      const audit = await database.query<{ action: string; outcome: string }>(
+        'SELECT action, outcome FROM audit_logs WHERE trace_id = $1',
+        [traceId],
+      );
+      expect(audit.rows).toEqual([{ action, outcome }]);
+    }
   });
 
   it('rejects student Studio access and failed-validation publication without leaking content', async () => {

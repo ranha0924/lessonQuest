@@ -20,7 +20,7 @@ describe('clientLearningEventSchema', () => {
     const event = {
       ...base,
       type: 'QUESTION_ANSWERED',
-      payload: { correct: false, attempt: 1, elapsedMs: 18_400 },
+      payload: { optionId: 'heavy', attempt: 1, elapsedMs: 18_400 },
     } as const;
 
     expect(clientLearningEventSchema.parse(event)).toEqual(event);
@@ -35,7 +35,7 @@ describe('clientLearningEventSchema', () => {
       clientLearningEventSchema.parse({
         ...base,
         type: 'QUESTION_ANSWERED',
-        payload: { correct: false, ...payload },
+        payload: { optionId: 'heavy', ...payload },
       }),
     ).toThrow();
   });
@@ -45,7 +45,17 @@ describe('clientLearningEventSchema', () => {
       clientLearningEventSchema.parse({
         ...base,
         type: 'QUESTION_ANSWERED',
-        payload: { correct: false, attempt: 1, elapsedMs: 100, answerText: '학생 원문' },
+        payload: { optionId: 'heavy', attempt: 1, elapsedMs: 100, answerText: '학생 원문' },
+      }),
+    ).toThrow();
+  });
+
+  it('rejects client-authored correctness', () => {
+    expect(() =>
+      clientLearningEventSchema.parse({
+        ...base,
+        type: 'QUESTION_ANSWERED',
+        payload: { optionId: 'heavy', correct: true, attempt: 1, elapsedMs: 100 },
       }),
     ).toThrow();
   });
@@ -87,6 +97,22 @@ describe('clientLearningEventSchema', () => {
 });
 
 describe('serverLearningEventSchema', () => {
+  it('requires the authoritative correctness on a stored answer event', () => {
+    const event = {
+      ...base,
+      type: 'QUESTION_ANSWERED',
+      payload: { optionId: 'heavy', correct: false, attempt: 1, elapsedMs: 18_400 },
+    } as const;
+
+    expect(serverLearningEventSchema.parse(event)).toEqual(event);
+    expect(() =>
+      serverLearningEventSchema.parse({
+        ...event,
+        payload: { optionId: 'heavy', attempt: 1, elapsedMs: 18_400 },
+      }),
+    ).toThrow();
+  });
+
   it('accepts bounded server-derived boss damage', () => {
     const event = {
       ...base,

@@ -89,6 +89,7 @@ const schemaSql = `
     version_id UUID NOT NULL,
     validator_policy_version TEXT NOT NULL,
     verdict TEXT NOT NULL CHECK (verdict IN ('PASS', 'FAIL')),
+    content_hash TEXT NOT NULL CHECK (content_hash ~ '^sha256:[0-9a-f]{64}$'),
     findings JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (organization_id, id),
@@ -102,6 +103,7 @@ const schemaSql = `
     version_id UUID NOT NULL,
     teacher_id UUID NOT NULL,
     decision TEXT NOT NULL CHECK (decision IN ('APPROVE', 'REJECT')),
+    content_hash TEXT NOT NULL CHECK (content_hash ~ '^sha256:[0-9a-f]{64}$'),
     note TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (organization_id, id),
@@ -228,16 +230,71 @@ const schemaSql = `
   CREATE INDEX IF NOT EXISTS learning_events_attempt_sequence_idx
     ON learning_events(attempt_id, sequence);
 
-  CREATE OR REPLACE FUNCTION reject_approved_version_mutation()
+  CREATE OR REPLACE FUNCTION enforce_experience_version_invariants()
   RETURNS TRIGGER AS $$
   BEGIN
-    IF OLD.status IN ('APPROVED', 'PUBLISHED', 'RETIRED') AND (
+    IF OLD.status IN ('VALIDATED', 'APPROVED', 'PUBLISHED', 'RETIRED') AND (
       NEW.specification IS DISTINCT FROM OLD.specification OR
       NEW.artifact IS DISTINCT FROM OLD.artifact OR
-      NEW.manifest IS DISTINCT FROM OLD.manifest OR
       NEW.content_hash IS DISTINCT FROM OLD.content_hash
     ) THEN
-      RAISE EXCEPTION 'approved experience version content is immutable';
+      RAISE EXCEPTION 'validated experience version content is immutable';
+    END IF;
+
+    IF OLD.status IN ('APPROVED', 'PUBLISHED', 'RETIRED') AND
+       NEW.manifest IS DISTINCT FROM OLD.manifest THEN
+      RAISE EXCEPTION 'approved experience version manifest is immutable';
+    END IF;
+
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      IF NOT (
+        (OLD.status = 'GENERATED' AND NEW.status IN ('VALIDATED', 'REJECTED')) OR
+        (OLD.status = 'VALIDATED' AND NEW.status IN ('APPROVED', 'REJECTED')) OR
+        (OLD.status = 'APPROVED' AND NEW.status = 'PUBLISHED') OR
+        (OLD.status = 'PUBLISHED' AND NEW.status = 'RETIRED')
+      ) THEN
+        RAISE EXCEPTION 'invalid experience version status transition';
+      END IF;
+
+      IF NEW.status = 'VALIDATED' AND NOT EXISTS (
+        SELECT 1 FROM experience_validations ev
+        WHERE ev.organization_id = NEW.organization_id
+          AND ev.version_id = NEW.id
+          AND ev.verdict = 'PASS'
+          AND ev.content_hash = NEW.content_hash
+      ) THEN
+        RAISE EXCEPTION 'validated status requires matching PASS evidence';
+      END IF;
+
+      IF OLD.status = 'GENERATED' AND NEW.status = 'REJECTED' AND NOT EXISTS (
+        SELECT 1 FROM experience_validations ev
+        WHERE ev.organization_id = NEW.organization_id
+          AND ev.version_id = NEW.id
+          AND ev.verdict = 'FAIL'
+          AND ev.content_hash = NEW.content_hash
+      ) THEN
+        RAISE EXCEPTION 'validation rejection requires matching FAIL evidence';
+      END IF;
+
+      IF NEW.status = 'APPROVED' AND NOT EXISTS (
+        SELECT 1 FROM experience_approvals ea
+        WHERE ea.organization_id = NEW.organization_id
+          AND ea.version_id = NEW.id
+          AND ea.decision = 'APPROVE'
+          AND ea.content_hash = NEW.content_hash
+      ) THEN
+        RAISE EXCEPTION 'approved status requires matching approval evidence';
+      END IF;
+
+      IF OLD.status = 'VALIDATED' AND NEW.status = 'REJECTED' AND NOT EXISTS (
+        SELECT 1 FROM experience_approvals ea
+        WHERE ea.organization_id = NEW.organization_id
+          AND ea.version_id = NEW.id
+          AND ea.decision = 'REJECT'
+          AND ea.content_hash = NEW.content_hash
+      ) THEN
+        RAISE EXCEPTION 'teacher rejection requires matching rejection evidence';
+      END IF;
     END IF;
     RETURN NEW;
   END;
@@ -245,8 +302,8 @@ const schemaSql = `
 
   DROP TRIGGER IF EXISTS protect_approved_version ON experience_versions;
   CREATE TRIGGER protect_approved_version
-    BEFORE UPDATE OF specification, artifact, manifest, content_hash ON experience_versions
-    FOR EACH ROW EXECUTE FUNCTION reject_approved_version_mutation();
+    BEFORE UPDATE ON experience_versions
+    FOR EACH ROW EXECUTE FUNCTION enforce_experience_version_invariants();
 
   CREATE OR REPLACE FUNCTION reject_append_only_mutation()
   RETURNS TRIGGER AS $$

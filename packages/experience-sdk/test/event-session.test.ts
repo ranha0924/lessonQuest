@@ -21,7 +21,7 @@ describe('createExperienceEventSession', () => {
     vi.unstubAllGlobals();
   });
 
-  it('builds literal start, wrong, retry, and completion envelopes with monotonic sequences', () => {
+  it('builds literal start, answer, retry, and completion envelopes with monotonic sequences', () => {
     let idIndex = 0;
     const session = createExperienceEventSession(context, {
       createId: () => ids[idIndex++]!,
@@ -38,7 +38,7 @@ describe('createExperienceEventSession', () => {
       occurredAt: '2026-08-29T12:00:00.000Z',
       payload: {},
     });
-    expect(session.wrongAnswer('quiz_force', 1, 1_200)).toEqual({
+    expect(session.answered('quiz_force', 'heavy', 1, 1_200)).toEqual({
       schemaVersion: 1,
       eventId: ids[1],
       type: 'QUESTION_ANSWERED',
@@ -46,9 +46,9 @@ describe('createExperienceEventSession', () => {
       stepId: 'quiz_force',
       sequence: 1,
       occurredAt: '2026-08-29T12:00:00.000Z',
-      payload: { correct: false, attempt: 1, elapsedMs: 1_200 },
+      payload: { optionId: 'heavy', attempt: 1, elapsedMs: 1_200 },
     });
-    expect(session.retriedAnswer('quiz_force', 2, 700)).toEqual({
+    expect(session.retried('quiz_force', 'light', 2, 700)).toEqual({
       schemaVersion: 1,
       eventId: ids[2],
       type: 'ANSWER_RETRIED',
@@ -56,7 +56,7 @@ describe('createExperienceEventSession', () => {
       stepId: 'quiz_force',
       sequence: 2,
       occurredAt: '2026-08-29T12:00:00.000Z',
-      payload: { correct: true, attempt: 2, elapsedMs: 700 },
+      payload: { optionId: 'light', attempt: 2, elapsedMs: 700 },
     });
     expect(session.completed('complete', 8_000)).toEqual({
       schemaVersion: 1,
@@ -77,8 +77,8 @@ describe('createExperienceEventSession', () => {
     const session = createExperienceEventSession(context);
 
     expect(() => session.started('../escape')).toThrow();
-    expect(() => session.wrongAnswer('quiz_force', 0, 100)).toThrow();
-    expect(() => session.retriedAnswer('quiz_force', 101, 100)).toThrow();
+    expect(() => session.answered('quiz_force', 'heavy', 0, 100)).toThrow();
+    expect(() => session.retried('quiz_force', 'light', 101, 100)).toThrow();
     expect(() => session.completed('complete', -1)).toThrow();
   });
 
@@ -86,7 +86,7 @@ describe('createExperienceEventSession', () => {
     const session = createExperienceEventSession(context);
     const keys = Object.keys(session).sort();
 
-    expect(keys).toEqual(['completed', 'retriedAnswer', 'started', 'wrongAnswer']);
+    expect(keys).toEqual(['answered', 'completed', 'retried', 'started']);
     expect(keys).not.toContain('setOrganizationId');
     expect(keys).not.toContain('bossDamage');
   });
@@ -95,5 +95,16 @@ describe('createExperienceEventSession', () => {
     vi.stubGlobal('crypto', { randomUUID: () => ids[0] });
 
     expect(createExperienceEventSession(context).started('start').eventId).toBe(ids[0]);
+  });
+
+  it('continues from a server-owned resume sequence', () => {
+    const session = createExperienceEventSession(context, {
+      initialSequence: 4,
+      createId: () => ids[0],
+      now: () => new Date('2026-08-29T12:00:00.000Z'),
+    });
+
+    expect(session.retried('quiz_force', 'light', 3, 500).sequence).toBe(4);
+    expect(() => createExperienceEventSession(context, { initialSequence: -1 })).toThrow();
   });
 });

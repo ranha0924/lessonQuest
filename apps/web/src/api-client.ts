@@ -1,146 +1,67 @@
-import type { ClientLearningEvent, StudentProgress } from '@lessonquest/contracts';
+import {
+  assignmentSchema,
+  attemptSessionSchema,
+  createdScienceExperienceSchema,
+  eventIngestionResultSchema,
+  experiencePreviewSchema,
+  experienceReviewResultSchema,
+  experienceValidationResultSchema,
+  playerSessionSchema,
+  studentAssignmentListSchema,
+  studentProgressListSchema,
+  type Assignment,
+  type AttemptSession,
+  type ClientLearningEvent,
+  type CreatedScienceExperience,
+  type EventIngestionResult,
+  type ExperiencePreview,
+  type ExperienceReviewResult,
+  type ExperienceValidationResult,
+  type PlayerSession,
+  type ScienceValidationReportContract,
+  type StudentAssignmentSummary as ContractStudentAssignmentSummary,
+  type StudentProgress,
+  type StudentScienceBlockSpec,
+} from '@lessonquest/contracts';
 
-export interface ValidationFinding {
-  readonly code: string;
-  readonly severity: 'ERROR';
-  readonly blockId: string | null;
-}
+export type ValidationReport = ScienceValidationReportContract;
+export type StudentScienceSpecification = StudentScienceBlockSpec;
+export type AssignmentSummary = Assignment;
+export type StudentAssignmentSummary = ContractStudentAssignmentSummary;
 
-export interface ValidationReport {
-  readonly policyVersion: string;
-  readonly verdict: 'PASS' | 'FAIL';
-  readonly findings: readonly ValidationFinding[];
-}
-
-export interface StudentScienceSpecification {
-  readonly schemaVersion: 1;
-  readonly title: string;
-  readonly gradeBand: string;
-  readonly unit: string;
-  readonly learningObjectives: readonly { readonly id: string; readonly text: string }[];
-  readonly blocks: readonly (
-    | {
-        readonly id: string;
-        readonly kind: 'CONCEPT_CARD';
-        readonly title: string;
-        readonly body: string;
-        readonly objectiveIds: readonly string[];
-      }
-    | {
-        readonly id: string;
-        readonly kind: 'PREDICTION';
-        readonly prompt: string;
-        readonly choices: readonly { readonly id: string; readonly label: string }[];
-        readonly objectiveIds: readonly string[];
-      }
-    | {
-        readonly id: string;
-        readonly kind: 'SIMULATION';
-        readonly model: 'FORCE_MOTION';
-        readonly prompt: string;
-        readonly parameters: {
-          readonly massKg: number;
-          readonly forceN: number;
-          readonly durationSec: number;
-        };
-        readonly objectiveIds: readonly string[];
-      }
-    | {
-        readonly id: string;
-        readonly kind: 'QUIZ';
-        readonly question: string;
-        readonly options: readonly { readonly id: string; readonly label: string }[];
-        readonly objectiveIds: readonly string[];
-      }
-    | {
-        readonly id: string;
-        readonly kind: 'REFLECTION';
-        readonly prompt: string;
-        readonly objectiveIds: readonly string[];
-      }
-  )[];
+interface RuntimeSchema<T> {
+  parse(value: unknown): T;
 }
 
 export interface LessonQuestApi {
   createScienceExperience(
     organizationId: string,
     input: { title: string; generatedSpecText: string },
-  ): Promise<{
-    experienceId: string;
-    publicId: string;
-    versionId: string;
-    version: number;
-    status: 'GENERATED';
-    contentHash: string;
-  }>;
+  ): Promise<CreatedScienceExperience>;
   validateExperienceVersion(
     organizationId: string,
     versionId: string,
-  ): Promise<{ versionId: string; status: 'VALIDATED' | 'REJECTED'; report: ValidationReport }>;
-  getExperiencePreview(
-    organizationId: string,
-    versionId: string,
-  ): Promise<{
-    versionId: string;
-    status: string;
-    contentHash: string;
-    specification: StudentScienceSpecification;
-    sandboxDocument: string;
-    validationReport: ValidationReport | null;
-  }>;
+  ): Promise<ExperienceValidationResult>;
+  getExperiencePreview(organizationId: string, versionId: string): Promise<ExperiencePreview>;
   reviewExperienceVersion(
     organizationId: string,
     versionId: string,
     input: { decision: 'APPROVE' | 'REJECT'; note?: string },
-  ): Promise<{ versionId: string; status: 'APPROVED' | 'REJECTED' }>;
+  ): Promise<ExperienceReviewResult>;
   createAssignment(
     organizationId: string,
     classId: string,
     input: { experienceVersionId: string },
   ): Promise<AssignmentSummary>;
   listStudentAssignments(organizationId: string): Promise<StudentAssignmentSummary[]>;
-  startAttempt(
-    organizationId: string,
-    assignmentId: string,
-  ): Promise<{
-    id: string;
-    assignmentId: string;
-    status: 'READY' | 'IN_PROGRESS' | 'COMPLETED';
-    resumed: boolean;
-  }>;
-  getPlayer(
-    organizationId: string,
-    assignmentId: string,
-  ): Promise<{
-    assignmentId: string;
-    attemptId: string;
-    experienceId: string;
-    experienceVersion: number;
-    contentHash: string;
-    specification: StudentScienceSpecification;
-    sandboxDocument: string;
-  }>;
-  ingestEvent(event: ClientLearningEvent): Promise<{ accepted: boolean; duplicate: boolean }>;
+  startAttempt(organizationId: string, assignmentId: string): Promise<AttemptSession>;
+  getPlayer(organizationId: string, assignmentId: string): Promise<PlayerSession>;
+  ingestEvent(event: ClientLearningEvent): Promise<EventIngestionResult>;
   listTeacherProgress(
     organizationId: string,
     classId: string,
     assignmentId: string,
   ): Promise<StudentProgress[]>;
-}
-
-export interface AssignmentSummary {
-  readonly id: string;
-  readonly organizationId: string;
-  readonly classId: string;
-  readonly experienceVersionId: string;
-  readonly startsAt: string;
-  readonly dueAt: string | null;
-  readonly status: 'ACTIVE';
-}
-
-export interface StudentAssignmentSummary extends AssignmentSummary {
-  readonly title: string;
-  readonly attemptStatus: 'READY' | 'IN_PROGRESS' | 'COMPLETED' | null;
 }
 
 export class LessonQuestApiError extends Error {
@@ -154,11 +75,31 @@ export class LessonQuestApiError extends Error {
   }
 }
 
+function readErrorEnvelope(value: unknown): { code: string; message: string } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return { code: 'UNKNOWN_ERROR', message: '요청을 처리하지 못했습니다.' };
+  }
+  const error = (value as Record<string, unknown>)['error'];
+  if (typeof error !== 'object' || error === null || Array.isArray(error)) {
+    return { code: 'UNKNOWN_ERROR', message: '요청을 처리하지 못했습니다.' };
+  }
+  const record = error as Record<string, unknown>;
+  return {
+    code: typeof record['code'] === 'string' ? record['code'] : 'UNKNOWN_ERROR',
+    message:
+      typeof record['message'] === 'string' ? record['message'] : '요청을 처리하지 못했습니다.',
+  };
+}
+
 export function createHttpLessonQuestApi(options: {
   readonly baseUrl: string;
   readonly getAuthorization: () => string | null;
 }): LessonQuestApi {
-  const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+  const request = async <T>(
+    path: string,
+    schema: RuntimeSchema<T>,
+    init: RequestInit = {},
+  ): Promise<T> => {
     const headers = new Headers(init.headers);
     const authorization = options.getAuthorization();
     if (authorization !== null) {
@@ -170,56 +111,67 @@ export function createHttpLessonQuestApi(options: {
     const response = await fetch(new URL(path, options.baseUrl), { ...init, headers });
     const value: unknown = await response.json();
     if (!response.ok) {
-      const envelope = value as { error?: { code?: string; message?: string } };
-      throw new LessonQuestApiError(
-        response.status,
-        envelope.error?.code ?? 'UNKNOWN_ERROR',
-        envelope.error?.message ?? '요청을 처리하지 못했습니다.',
-      );
+      const envelope = readErrorEnvelope(value);
+      throw new LessonQuestApiError(response.status, envelope.code, envelope.message);
     }
-    return value as T;
+    return schema.parse(value);
   };
 
   return {
     createScienceExperience: (organizationId, input) =>
-      request(`/organizations/${organizationId}/experiences/science`, {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+      request(
+        `/organizations/${organizationId}/experiences/science`,
+        createdScienceExperienceSchema,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      ),
     validateExperienceVersion: (organizationId, versionId) =>
-      request(`/organizations/${organizationId}/experience-versions/${versionId}/validate`, {
-        method: 'POST',
-        body: '{}',
-      }),
+      request(
+        `/organizations/${organizationId}/experience-versions/${versionId}/validate`,
+        experienceValidationResultSchema,
+        { method: 'POST', body: '{}' },
+      ),
     getExperiencePreview: (organizationId, versionId) =>
-      request(`/organizations/${organizationId}/experience-versions/${versionId}/preview`),
+      request(
+        `/organizations/${organizationId}/experience-versions/${versionId}/preview`,
+        experiencePreviewSchema,
+      ),
     reviewExperienceVersion: (organizationId, versionId, input) =>
-      request(`/organizations/${organizationId}/experience-versions/${versionId}/review`, {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+      request(
+        `/organizations/${organizationId}/experience-versions/${versionId}/review`,
+        experienceReviewResultSchema,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
     createAssignment: (organizationId, classId, input) =>
-      request(`/organizations/${organizationId}/classes/${classId}/assignments`, {
+      request(`/organizations/${organizationId}/classes/${classId}/assignments`, assignmentSchema, {
         method: 'POST',
         body: JSON.stringify(input),
       }),
     listStudentAssignments: (organizationId) =>
-      request(`/organizations/${organizationId}/student/assignments`),
+      request(`/organizations/${organizationId}/student/assignments`, studentAssignmentListSchema),
     startAttempt: (organizationId, assignmentId) =>
-      request(`/organizations/${organizationId}/assignments/${assignmentId}/attempts`, {
-        method: 'POST',
-        body: '{}',
-      }),
+      request(
+        `/organizations/${organizationId}/assignments/${assignmentId}/attempts`,
+        attemptSessionSchema,
+        { method: 'POST', body: '{}' },
+      ),
     getPlayer: (organizationId, assignmentId) =>
-      request(`/organizations/${organizationId}/assignments/${assignmentId}/player`),
+      request(
+        `/organizations/${organizationId}/assignments/${assignmentId}/player`,
+        playerSessionSchema,
+      ),
     ingestEvent: (event) =>
-      request(`/organizations/${event.organizationId}/learning-events`, {
-        method: 'POST',
-        body: JSON.stringify(event),
-      }),
+      request(
+        `/organizations/${event.organizationId}/learning-events`,
+        eventIngestionResultSchema,
+        { method: 'POST', body: JSON.stringify(event) },
+      ),
     listTeacherProgress: (organizationId, classId, assignmentId) =>
       request(
         `/organizations/${organizationId}/classes/${classId}/assignments/${assignmentId}/progress`,
+        studentProgressListSchema,
       ),
   };
 }

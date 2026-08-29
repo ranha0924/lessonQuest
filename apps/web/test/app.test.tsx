@@ -3,23 +3,25 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { scienceBlockSpecSchema } from '@lessonquest/contracts';
+
 import { StudioWorkbench } from '../src/components/studio-workbench.js';
 import { StudentPlay } from '../src/components/student-play.js';
 import { TeacherProgress } from '../src/components/teacher-progress.js';
-import type { LessonQuestApi } from '../src/api-client.js';
+import type { LessonQuestApi, StudentScienceSpecification } from '../src/api-client.js';
 
 const organizationId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c101';
 const classId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c102';
 const assignmentId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c103';
 const versionId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c104';
 const attemptId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c105';
-const submittedEventTypes: string[] = [];
+const submittedEvents: Array<{ type: string; sequence: number; optionId?: string }> = [];
 
 afterEach(() => {
   cleanup();
 });
 
-const specification = {
+const specification: StudentScienceSpecification = {
   schemaVersion: 1,
   title: '힘과 운동',
   gradeBand: 'middle1',
@@ -68,9 +70,27 @@ const specification = {
       objectiveIds: ['objective_force'],
     },
   ],
-} as const;
+};
 
-function createApi(): LessonQuestApi {
+const teacherSpecification = scienceBlockSpecSchema.parse({
+  ...specification,
+  blocks: specification.blocks.map((block) =>
+    block.kind === 'QUIZ'
+      ? {
+          ...block,
+          options: block.options.map((option, index) => ({ ...option, correct: index === 0 })),
+          explanation: '가벼운 물체가 같은 힘에서 더 크게 가속합니다.',
+        }
+      : block,
+  ),
+});
+
+function createApi(
+  options: {
+    attempt?: Awaited<ReturnType<LessonQuestApi['startAttempt']>>;
+    assignmentAttemptStatus?: 'READY' | 'IN_PROGRESS' | 'COMPLETED' | null;
+  } = {},
+): LessonQuestApi {
   return {
     createScienceExperience() {
       return Promise.resolve({
@@ -94,7 +114,7 @@ function createApi(): LessonQuestApi {
         versionId,
         status: 'VALIDATED',
         contentHash: `sha256:${'a'.repeat(64)}`,
-        specification,
+        specification: teacherSpecification,
         sandboxDocument: '<!doctype html><p>안전한 미리보기</p>',
         validationReport: { policyVersion: 'science-validator-1', verdict: 'PASS', findings: [] },
       });
@@ -124,12 +144,21 @@ function createApi(): LessonQuestApi {
           dueAt: null,
           status: 'ACTIVE',
           title: '힘과 운동',
-          attemptStatus: null,
+          attemptStatus: options.assignmentAttemptStatus ?? null,
         },
       ]);
     },
     startAttempt() {
-      return Promise.resolve({ id: attemptId, assignmentId, status: 'READY', resumed: false });
+      return Promise.resolve(
+        options.attempt ?? {
+          id: attemptId,
+          assignmentId,
+          status: 'READY',
+          resumed: false,
+          nextSequence: 0,
+          answers: [],
+        },
+      );
     },
     getPlayer() {
       return Promise.resolve({
@@ -143,8 +172,27 @@ function createApi(): LessonQuestApi {
       });
     },
     ingestEvent(event) {
-      submittedEventTypes.push(event.type);
-      return Promise.resolve({ accepted: true, duplicate: false });
+      const optionId =
+        event.type === 'QUESTION_ANSWERED' || event.type === 'ANSWER_RETRIED'
+          ? event.payload.optionId
+          : undefined;
+      submittedEvents.push(
+        optionId === undefined
+          ? { type: event.type, sequence: event.sequence }
+          : { type: event.type, sequence: event.sequence, optionId },
+      );
+      return Promise.resolve({
+        accepted: true,
+        duplicate: false,
+        answer:
+          event.type === 'QUESTION_ANSWERED' || event.type === 'ANSWER_RETRIED'
+            ? {
+                stepId: event.stepId,
+                attempt: event.payload.attempt,
+                correct: optionId === 'light',
+              }
+            : null,
+      });
     },
     listTeacherProgress() {
       return Promise.resolve([
@@ -188,12 +236,23 @@ describe('StudioWorkbench', () => {
     fireEvent.click(screen.getByRole('button', { name: '교사 결과 보기' }));
     expect(await screen.findByRole('heading', { name: '학습 과정 기록' })).toBeTruthy();
     expect(screen.getByText('오답 1회')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('체험 제목'), { target: { value: '새 초안' } });
+    fireEvent.change(screen.getByLabelText('생성된 과학 JSON'), {
+      target: { value: '{"schemaVersion":1,"title":"새 초안"}' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('초안이 생성됐습니다.'),
+    );
+    expect(screen.queryByTitle('과학 체험 격리 미리보기')).toBeNull();
+    expect(screen.getByRole('button', { name: '반에 배포' })).toHaveProperty('disabled', true);
   });
 });
 
 describe('StudentPlay', () => {
   it('shows student home, starts the player, records the retry path, and completes accessibly', async () => {
-    submittedEventTypes.length = 0;
+    submittedEvents.length = 0;
     render(<StudentPlay api={createApi()} organizationId={organizationId} />);
 
     const card = await screen.findByRole('article', { name: '힘과 운동' });
@@ -203,18 +262,60 @@ describe('StudentPlay', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '질량 6 kg 선택' }));
     expect(await screen.findByText('다시 생각해 볼까요?')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '다시 도전' }));
+    fireEvent.click(screen.getByRole('button', { name: '질량 2 kg 선택' }));
     expect(await screen.findByText('재도전 성공')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '탐험 완료' }));
     expect(await screen.findByText('탐험을 완료했습니다!')).toBeTruthy();
     await waitFor(() => {
-      expect(submittedEventTypes).toEqual([
-        'EXPERIENCE_STARTED',
-        'QUESTION_ANSWERED',
-        'ANSWER_RETRIED',
-        'EXPERIENCE_COMPLETED',
+      expect(submittedEvents).toEqual([
+        { type: 'EXPERIENCE_STARTED', sequence: 0 },
+        { type: 'QUESTION_ANSWERED', sequence: 1, optionId: 'heavy' },
+        { type: 'ANSWER_RETRIED', sequence: 2, optionId: 'light' },
+        { type: 'EXPERIENCE_COMPLETED', sequence: 3 },
       ]);
     });
+  });
+
+  it('resumes an in-progress wrong answer without sending a second start event', async () => {
+    submittedEvents.length = 0;
+    const api = createApi({
+      assignmentAttemptStatus: 'IN_PROGRESS',
+      attempt: {
+        id: attemptId,
+        assignmentId,
+        status: 'IN_PROGRESS',
+        resumed: true,
+        nextSequence: 2,
+        answers: [{ stepId: 'quiz_force', attempts: 1, correct: false }],
+      },
+    });
+    render(<StudentPlay api={api} organizationId={organizationId} />);
+
+    const card = await screen.findByRole('article', { name: '힘과 운동' });
+    fireEvent.click(within(card).getByRole('button', { name: '이어하기' }));
+    expect(await screen.findByText('다시 생각해 볼까요?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '질량 2 kg 선택' }));
+    expect(await screen.findByText('재도전 성공')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '탐험 완료' }));
+
+    await waitFor(() => {
+      expect(submittedEvents).toEqual([
+        { type: 'ANSWER_RETRIED', sequence: 2, optionId: 'light' },
+        { type: 'EXPERIENCE_COMPLETED', sequence: 3 },
+      ]);
+    });
+  });
+
+  it('marks completed assignments without reopening the player', async () => {
+    render(
+      <StudentPlay
+        api={createApi({ assignmentAttemptStatus: 'COMPLETED' })}
+        organizationId={organizationId}
+      />,
+    );
+
+    const card = await screen.findByRole('article', { name: '힘과 운동' });
+    expect(within(card).getByRole('button', { name: '완료됨' })).toHaveProperty('disabled', true);
   });
 });
 

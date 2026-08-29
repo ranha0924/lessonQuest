@@ -3,12 +3,22 @@ import { randomUUID } from 'node:crypto';
 import { AuthenticationError, type LocalAuthProvider } from '@lessonquest/auth';
 import {
   addClassMemberInputSchema,
+  assignmentSchema,
+  attemptSessionSchema,
   clientLearningEventSchema,
   createAssignmentInputSchema,
   createClassInputSchema,
   createOrganizationInputSchema,
   createScienceExperienceInputSchema,
+  createdScienceExperienceSchema,
+  eventIngestionResultSchema,
+  experiencePreviewSchema,
+  experienceReviewResultSchema,
+  experienceValidationResultSchema,
+  playerSessionSchema,
   reviewExperienceVersionInputSchema,
+  studentAssignmentListSchema,
+  studentProgressListSchema,
   uuidSchema,
   type Actor,
 } from '@lessonquest/contracts';
@@ -382,8 +392,9 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       organizationId,
       input.title,
       input.generatedSpecText,
+      context.get('traceId'),
     );
-    return context.json(created, 201);
+    return context.json(createdScienceExperienceSchema.parse(created), 201);
   });
 
   app.post(
@@ -396,8 +407,9 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
         context.get('actor'),
         organizationId,
         versionId,
+        context.get('traceId'),
       );
-      return context.json(result);
+      return context.json(experienceValidationResultSchema.parse(result));
     },
   );
 
@@ -411,7 +423,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
         organizationId,
         versionId,
       );
-      return context.json(preview);
+      return context.json(experiencePreviewSchema.parse(preview));
     },
   );
 
@@ -426,8 +438,9 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
         organizationId,
         versionId,
         input,
+        context.get('traceId'),
       );
-      return context.json(reviewed);
+      return context.json(experienceReviewResultSchema.parse(reviewed));
     },
   );
 
@@ -440,8 +453,9 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       organizationId,
       classId,
       input,
+      context.get('traceId'),
     );
-    return context.json(assignment, 201);
+    return context.json(assignmentSchema.parse(assignment), 201);
   });
 
   app.get('/organizations/:organizationId/student/assignments', async (context) => {
@@ -450,7 +464,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       context.get('actor'),
       organizationId,
     );
-    return context.json(assignments);
+    return context.json(studentAssignmentListSchema.parse(assignments));
   });
 
   app.post('/organizations/:organizationId/assignments/:assignmentId/attempts', async (context) => {
@@ -461,8 +475,9 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       context.get('actor'),
       organizationId,
       assignmentId,
+      context.get('traceId'),
     );
-    return context.json(attempt, attempt.resumed ? 200 : 201);
+    return context.json(attemptSessionSchema.parse(attempt), attempt.resumed ? 200 : 201);
   });
 
   app.get('/organizations/:organizationId/assignments/:assignmentId/player', async (context) => {
@@ -487,7 +502,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
           : block,
       ),
     };
-    return context.json({ ...player, specification });
+    return context.json(playerSessionSchema.parse({ ...player, specification }));
   });
 
   app.post('/organizations/:organizationId/learning-events', async (context) => {
@@ -499,8 +514,10 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
     const result = await options.learningRepository.ingestLearningEvent(
       context.get('actor'),
       event,
+      context.get('traceId'),
     );
-    return context.json(result, result.accepted ? 202 : 200);
+    const parsedResult = eventIngestionResultSchema.parse(result);
+    return context.json(parsedResult, parsedResult.accepted ? 202 : 200);
   });
 
   app.get(
@@ -514,8 +531,9 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
         organizationId,
         classId,
         assignmentId,
+        context.get('traceId'),
       );
-      return context.json(progress);
+      return context.json(studentProgressListSchema.parse(progress));
     },
   );
 

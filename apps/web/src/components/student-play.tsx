@@ -19,8 +19,10 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
   const [assignments, setAssignments] = useState<StudentAssignmentSummary[]>([]);
   const [specification, setSpecification] = useState<StudentScienceSpecification | null>(null);
   const [status, setStatus] = useState('내 탐험을 불러오는 중');
-  const [retryReady, setRetryReady] = useState(false);
-  const [retryComplete, setRetryComplete] = useState(false);
+  const [answerAttempts, setAnswerAttempts] = useState(0);
+  const [quizCorrect, setQuizCorrect] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const sessionRef = useRef<ExperienceEventSession | null>(null);
 
   useEffect(() => {
@@ -44,43 +46,70 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
   const start = (assignmentId: string) => {
     void (async () => {
       const attempt = await api.startAttempt(organizationId, assignmentId);
+      if (attempt.status === 'COMPLETED') {
+        setStatus('이미 완료한 탐험입니다.');
+        return;
+      }
       const player = await api.getPlayer(organizationId, assignmentId);
-      const session = createExperienceEventSession({
-        organizationId,
-        assignmentId,
-        attemptId: attempt.id,
-        experienceId: player.experienceId,
-        experienceVersion: player.experienceVersion,
-      });
+      const session = createExperienceEventSession(
+        {
+          organizationId,
+          assignmentId,
+          attemptId: attempt.id,
+          experienceId: player.experienceId,
+          experienceVersion: player.experienceVersion,
+        },
+        {
+          initialSequence: attempt.nextSequence,
+        },
+      );
       sessionRef.current = session;
-      await api.ingestEvent(session.started('start'));
+      const quiz = player.specification.blocks.find((block) => block.kind === 'QUIZ');
+      const answerState = attempt.answers.find(({ stepId }) => stepId === quiz?.id);
+      setAnswerAttempts(answerState?.attempts ?? 0);
+      setQuizCorrect(answerState?.correct ?? false);
+      setCompleted(false);
+      if (attempt.status === 'READY') {
+        await api.ingestEvent(session.started('start'));
+      }
       setSpecification(player.specification);
-      setStatus('탐험 진행 중');
+      setStatus(
+        answerState?.correct === true
+          ? '정답을 확인했습니다. 탐험을 완료해 보세요.'
+          : answerState === undefined
+            ? '탐험 진행 중'
+            : '다시 생각해 볼까요?',
+      );
     })().catch(() => setStatus('탐험을 시작하지 못했어요.'));
   };
 
-  const submitFirstChoice = (stepId: string) => {
+  const submitChoice = (stepId: string, optionId: string) => {
     const session = sessionRef.current;
-    if (session === null) return;
+    if (session === null || submitting || quizCorrect) return;
+    const nextAttempt = answerAttempts + 1;
+    const event =
+      nextAttempt === 1
+        ? session.answered(stepId, optionId, nextAttempt, 1_000)
+        : session.retried(stepId, optionId, nextAttempt, 700);
+    setSubmitting(true);
     void api
-      .ingestEvent(session.wrongAnswer(stepId, 1, 1_000))
-      .then(() => {
-        setRetryReady(true);
-        setStatus('다시 생각해 볼까요?');
+      .ingestEvent(event)
+      .then((result) => {
+        if (result.answer === null) {
+          throw new TypeError('Answer outcome missing');
+        }
+        setAnswerAttempts(result.answer.attempt);
+        setQuizCorrect(result.answer.correct);
+        setStatus(
+          result.answer.correct
+            ? result.answer.attempt === 1
+              ? '정답이에요!'
+              : '재도전 성공'
+            : '다시 생각해 볼까요?',
+        );
       })
-      .catch(() => setStatus('답을 기록하지 못했어요.'));
-  };
-
-  const retry = (stepId: string) => {
-    const session = sessionRef.current;
-    if (session === null) return;
-    void api
-      .ingestEvent(session.retriedAnswer(stepId, 2, 700))
-      .then(() => {
-        setRetryComplete(true);
-        setStatus('재도전 성공');
-      })
-      .catch(() => setStatus('재도전을 기록하지 못했어요.'));
+      .catch(() => setStatus('답을 기록하지 못했어요.'))
+      .finally(() => setSubmitting(false));
   };
 
   const complete = () => {
@@ -88,7 +117,10 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
     if (session === null) return;
     void api
       .ingestEvent(session.completed('complete', 8_000))
-      .then(() => setStatus('탐험을 완료했습니다!'))
+      .then(() => {
+        setCompleted(true);
+        setStatus('탐험을 완료했습니다!');
+      })
       .catch(() => setStatus('완료를 기록하지 못했어요.'));
   };
 
@@ -109,8 +141,17 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
               <span className="mission-tag">과학 미션</span>
               <h2>{assignment.title}</h2>
               <p>{assignment.attemptStatus === null ? '새 탐험' : '진행 중인 탐험'}</p>
-              <button className="primary" type="button" onClick={() => start(assignment.id)}>
-                {assignment.attemptStatus === null ? '탐험 시작' : '이어하기'}
+              <button
+                className="primary"
+                type="button"
+                onClick={() => start(assignment.id)}
+                disabled={assignment.attemptStatus === 'COMPLETED'}
+              >
+                {assignment.attemptStatus === null
+                  ? '탐험 시작'
+                  : assignment.attemptStatus === 'COMPLETED'
+                    ? '완료됨'
+                    : '이어하기'}
               </button>
             </article>
           ))}
@@ -161,17 +202,15 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
                       <button
                         key={option.id}
                         type="button"
-                        onClick={() => submitFirstChoice(block.id)}
-                        disabled={retryReady}
+                        onClick={() => submitChoice(block.id, option.id)}
+                        disabled={submitting || quizCorrect}
                       >
                         {option.label} 선택
                       </button>
                     ))}
                   </div>
-                  {retryReady && !retryComplete ? (
-                    <button className="retry" type="button" onClick={() => retry(block.id)}>
-                      다시 도전
-                    </button>
+                  {answerAttempts > 0 && !quizCorrect ? (
+                    <p className="retry">다른 답을 골라 다시 도전해 보세요.</p>
                   ) : null}
                 </>
               ) : null}
@@ -181,7 +220,7 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
             className="primary complete"
             type="button"
             onClick={complete}
-            disabled={quiz !== undefined && !retryComplete}
+            disabled={completed || (quiz !== undefined && !quizCorrect)}
           >
             탐험 완료
           </button>

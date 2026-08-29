@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { scienceBlockSpecSchema } from '../src/science.js';
+import {
+  scienceBlockSpecSchema,
+  studentScienceBlockSpecSchema,
+  supportedGradeBandSchema,
+} from '../src/science.js';
 
 const validScienceSpec = {
   schemaVersion: 1,
@@ -62,6 +66,29 @@ const validScienceSpec = {
 describe('scienceBlockSpecSchema', () => {
   it('accepts the bounded five-block Phase 1 science specification', () => {
     expect(scienceBlockSpecSchema.parse(validScienceSpec)).toEqual(validScienceSpec);
+    expect(supportedGradeBandSchema.parse('middle1')).toBe('middle1');
+    expect(supportedGradeBandSchema.safeParse('college').success).toBe(false);
+  });
+
+  it('validates a student-safe specification without accepting an answer key', () => {
+    const quiz = validScienceSpec.blocks[3];
+    const safe = {
+      ...validScienceSpec,
+      blocks: [
+        ...validScienceSpec.blocks.slice(0, 3),
+        {
+          id: quiz.id,
+          kind: quiz.kind,
+          question: quiz.question,
+          options: quiz.options.map(({ id, label }) => ({ id, label })),
+          objectiveIds: quiz.objectiveIds,
+        },
+        validScienceSpec.blocks[4],
+      ],
+    };
+
+    expect(studentScienceBlockSpecSchema.parse(safe)).toEqual(safe);
+    expect(studentScienceBlockSpecSchema.safeParse(validScienceSpec).success).toBe(false);
   });
 
   it('rejects missing, duplicate, and out-of-order required blocks', () => {

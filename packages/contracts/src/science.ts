@@ -65,6 +65,11 @@ const quizOptionSchema = z.strictObject({
   correct: z.boolean(),
 });
 
+const studentQuizOptionSchema = z.strictObject({
+  id: boundedIdentifierSchema,
+  label: textSchema(240),
+});
+
 const quizSchema = z
   .strictObject({
     ...blockBaseShape,
@@ -85,11 +90,26 @@ const reflectionSchema = z.strictObject({
   prompt: textSchema(600),
 });
 
+const studentQuizSchema = z.strictObject({
+  ...blockBaseShape,
+  kind: z.literal('QUIZ'),
+  question: textSchema(600),
+  options: withUniqueIds(studentQuizOptionSchema, 2).max(6),
+});
+
 export const scienceBlockSchema = z.discriminatedUnion('kind', [
   conceptCardSchema,
   predictionSchema,
   simulationSchema,
   quizSchema,
+  reflectionSchema,
+]);
+
+export const studentScienceBlockSchema = z.discriminatedUnion('kind', [
+  conceptCardSchema,
+  predictionSchema,
+  simulationSchema,
+  studentQuizSchema,
   reflectionSchema,
 ]);
 
@@ -101,41 +121,88 @@ const requiredBlockOrder = [
   'REFLECTION',
 ] as const;
 
+export const supportedGradeBandSchema = z.enum([
+  'elementary1',
+  'elementary2',
+  'elementary3',
+  'elementary4',
+  'elementary5',
+  'elementary6',
+  'middle1',
+  'middle2',
+  'middle3',
+  'high1',
+  'high2',
+  'high3',
+]);
+
+function validateSpecReferences(
+  blocks: readonly { id: string; kind: string; objectiveIds: readonly string[] }[],
+  learningObjectives: readonly { id: string }[],
+  context: z.RefinementCtx,
+): void {
+  const blockIds = blocks.map(({ id }) => id);
+  if (new Set(blockIds).size !== blockIds.length) {
+    context.addIssue({ code: 'custom', message: 'Block identifiers must be unique' });
+  }
+
+  for (const [index, requiredKind] of requiredBlockOrder.entries()) {
+    if (blocks[index]?.kind !== requiredKind) {
+      context.addIssue({ code: 'custom', message: 'Required blocks are out of order' });
+      break;
+    }
+  }
+
+  const objectiveIds = new Set(learningObjectives.map(({ id }) => id));
+  if (
+    blocks.some(({ objectiveIds: references }) =>
+      references.some((reference) => !objectiveIds.has(reference)),
+    )
+  ) {
+    context.addIssue({ code: 'custom', message: 'Block references an unknown objective' });
+  }
+}
+
 export const scienceBlockSpecSchema = z
   .strictObject({
     schemaVersion: z.literal(1),
     title: textSchema(120),
-    gradeBand: z
-      .string()
-      .min(2)
-      .max(32)
-      .regex(/^[a-z][a-z0-9_]*$/),
+    gradeBand: supportedGradeBandSchema,
     unit: boundedIdentifierSchema,
     learningObjectives: withUniqueIds(objectiveSchema, 1),
     blocks: z.array(scienceBlockSchema).length(requiredBlockOrder.length),
   })
   .superRefine(({ blocks, learningObjectives }, context) => {
-    const blockIds = blocks.map(({ id }) => id);
-    if (new Set(blockIds).size !== blockIds.length) {
-      context.addIssue({ code: 'custom', message: 'Block identifiers must be unique' });
-    }
-
-    for (const [index, requiredKind] of requiredBlockOrder.entries()) {
-      if (blocks[index]?.kind !== requiredKind) {
-        context.addIssue({ code: 'custom', message: 'Required blocks are out of order' });
-        break;
-      }
-    }
-
-    const objectiveIds = new Set(learningObjectives.map(({ id }) => id));
-    if (
-      blocks.some(({ objectiveIds: references }) =>
-        references.some((reference) => !objectiveIds.has(reference)),
-      )
-    ) {
-      context.addIssue({ code: 'custom', message: 'Block references an unknown objective' });
-    }
+    validateSpecReferences(blocks, learningObjectives, context);
   });
+
+export const studentScienceBlockSpecSchema = z
+  .strictObject({
+    schemaVersion: z.literal(1),
+    title: textSchema(120),
+    gradeBand: supportedGradeBandSchema,
+    unit: boundedIdentifierSchema,
+    learningObjectives: withUniqueIds(objectiveSchema, 1),
+    blocks: z.array(studentScienceBlockSchema).length(requiredBlockOrder.length),
+  })
+  .superRefine(({ blocks, learningObjectives }, context) => {
+    validateSpecReferences(blocks, learningObjectives, context);
+  });
+
+export const scienceValidationFindingSchema = z.strictObject({
+  code: z.enum(['OBJECTIVE_NOT_COVERED', 'SIMULATION_NO_OBSERVABLE_CHANGE']),
+  severity: z.literal('ERROR'),
+  blockId: boundedIdentifierSchema.nullable(),
+});
+
+export const scienceValidationReportSchema = z.strictObject({
+  policyVersion: z.literal('science-validator-1'),
+  verdict: z.enum(['PASS', 'FAIL']),
+  findings: z.array(scienceValidationFindingSchema).max(64),
+});
 
 export type ScienceBlock = z.infer<typeof scienceBlockSchema>;
 export type ScienceBlockSpec = z.infer<typeof scienceBlockSpecSchema>;
+export type StudentScienceBlockSpec = z.infer<typeof studentScienceBlockSpecSchema>;
+export type SupportedGradeBand = z.infer<typeof supportedGradeBandSchema>;
+export type ScienceValidationReportContract = z.infer<typeof scienceValidationReportSchema>;

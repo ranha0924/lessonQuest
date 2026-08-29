@@ -18,13 +18,24 @@ export type ExperienceEventContext = z.infer<typeof eventContextSchema>;
 
 export interface ExperienceEventSession {
   started(stepId: string): ClientLearningEvent;
-  wrongAnswer(stepId: string, attempt: number, elapsedMs: number): ClientLearningEvent;
-  retriedAnswer(stepId: string, attempt: number, elapsedMs: number): ClientLearningEvent;
+  answered(
+    stepId: string,
+    optionId: string,
+    attempt: number,
+    elapsedMs: number,
+  ): ClientLearningEvent;
+  retried(
+    stepId: string,
+    optionId: string,
+    attempt: number,
+    elapsedMs: number,
+  ): ClientLearningEvent;
   completed(stepId: string, elapsedMs: number): ClientLearningEvent;
 }
 
 export interface ExperienceEventSessionOptions {
   readonly createId?: () => string;
+  readonly initialSequence?: number;
   readonly now?: () => Date;
 }
 
@@ -35,7 +46,11 @@ export function createExperienceEventSession(
   const context = eventContextSchema.parse(contextInput);
   const createId = options.createId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
-  let sequence = 0;
+  let sequence = z
+    .int()
+    .min(0)
+    .max(1_000_000)
+    .parse(options.initialSequence ?? 0);
 
   const build = (
     type: ClientLearningEvent['type'],
@@ -58,10 +73,10 @@ export function createExperienceEventSession(
 
   return Object.freeze({
     started: (stepId: string) => build('EXPERIENCE_STARTED', stepId, {}),
-    wrongAnswer: (stepId: string, attempt: number, elapsedMs: number) =>
-      build('QUESTION_ANSWERED', stepId, { correct: false, attempt, elapsedMs }),
-    retriedAnswer: (stepId: string, attempt: number, elapsedMs: number) =>
-      build('ANSWER_RETRIED', stepId, { correct: true, attempt, elapsedMs }),
+    answered: (stepId: string, optionId: string, attempt: number, elapsedMs: number) =>
+      build('QUESTION_ANSWERED', stepId, { optionId, attempt, elapsedMs }),
+    retried: (stepId: string, optionId: string, attempt: number, elapsedMs: number) =>
+      build('ANSWER_RETRIED', stepId, { optionId, attempt, elapsedMs }),
     completed: (stepId: string, elapsedMs: number) =>
       build('EXPERIENCE_COMPLETED', stepId, { elapsedMs }),
   });

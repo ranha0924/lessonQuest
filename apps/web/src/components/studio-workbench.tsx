@@ -42,6 +42,11 @@ export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenc
         title,
         generatedSpecText,
       });
+      setReport(null);
+      setPreviewDocument(null);
+      setApproved(false);
+      setAssignmentId(null);
+      setProgress(null);
       setVersionId(created.versionId);
       setStatus('초안이 생성됐습니다.');
     });

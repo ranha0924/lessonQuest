@@ -5,12 +5,15 @@ import {
   scienceBlockSpecSchema,
   type ScienceBlockSpec,
 } from '@lessonquest/contracts';
+import { z } from 'zod';
 
-export interface ScienceArtifact {
-  readonly rendererVersion: 'science-blocks-1';
-  readonly schemaVersion: 1;
-  readonly specification: ScienceBlockSpec;
-}
+export const scienceArtifactSchema = z.strictObject({
+  rendererVersion: z.literal('science-blocks-1'),
+  schemaVersion: z.literal(1),
+  specification: scienceBlockSpecSchema,
+});
+
+export type ScienceArtifact = z.infer<typeof scienceArtifactSchema>;
 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
@@ -42,6 +45,10 @@ export function buildScienceArtifact(specificationInput: ScienceBlockSpec): Scie
     schemaVersion: 1,
     specification,
   });
+}
+
+export function parseScienceArtifact(input: unknown): ScienceArtifact {
+  return scienceArtifactSchema.parse(input);
 }
 
 export function serializeScienceArtifact(artifact: ScienceArtifact): string {

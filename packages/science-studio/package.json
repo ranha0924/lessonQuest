@@ -18,7 +18,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@lessonquest/contracts": "workspace:*"
+    "@lessonquest/contracts": "workspace:*",
+    "zod": "4.5.2"
   },
   "devDependencies": {
     "@types/node": "24.13.3"
