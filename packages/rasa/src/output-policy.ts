@@ -14,6 +14,24 @@ const normalizeSemantic = (value: string) =>
     .normalize('NFKC')
     .toLocaleLowerCase('ko-KR')
     .replace(/[^\p{L}\p{N}]+/gu, '');
+const normalizeStructural = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLocaleLowerCase('ko-KR')
+    .replace(/[\s\p{Cf}\p{M}]+/gu, '');
+const isAllowedPhaseOneText = (value: string) =>
+  [...value.normalize('NFKC')].every((character) => {
+    const codePoint = character.codePointAt(0) ?? -1;
+    return (
+      character === '\t' ||
+      character === '\n' ||
+      character === '\r' ||
+      (codePoint >= 0x20 && codePoint <= 0x7e) ||
+      (codePoint >= 0x1100 && codePoint <= 0x11ff) ||
+      (codePoint >= 0x3130 && codePoint <= 0x318f) ||
+      (codePoint >= 0xac00 && codePoint <= 0xd7af)
+    );
+  });
 
 export function validateHintOutput(input: {
   rawAction: unknown;
@@ -29,6 +47,7 @@ export function validateHintOutput(input: {
   const action = parsed.data;
   const content = normalize(action.content);
   const semanticContent = normalizeSemantic(action.content);
+  const structuralContent = normalizeStructural(action.content);
   const forbidden = [
     /https?:\/\//iu,
     /<\/?[a-z][^>]*>/iu,
@@ -58,7 +77,11 @@ export function validateHintOutput(input: {
     throw new RasaProviderError('RASA_OUTPUT_REJECTED', 'Hint target or level rejected');
   }
   if (
-    forbidden.some((pattern) => pattern.test(content) || pattern.test(semanticContent)) ||
+    !isAllowedPhaseOneText(action.content) ||
+    forbidden.some(
+      (pattern) =>
+        pattern.test(content) || pattern.test(semanticContent) || pattern.test(structuralContent),
+    ) ||
     semanticContent.includes(normalizeSemantic(input.correctOptionId)) ||
     semanticContent.includes(normalizeSemantic(input.correctOptionLabel))
   ) {
