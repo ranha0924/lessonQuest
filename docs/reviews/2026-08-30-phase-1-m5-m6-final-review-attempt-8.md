@@ -82,33 +82,33 @@ Focused repository tests cover several underlying controls, but they do not sati
 
 All commands were run fresh from `/Users/ranha/Documents/ChatGPT/lessonQuest/.worktrees/phase1-m5-m6-complete` at implementation head `c07cfc9` before this report commit.
 
-| Command / probe | Result |
-| --- | --- |
-| `corepack pnpm install --frozen-lockfile` | PASS; lockfile already current |
-| `corepack pnpm check` | PASS; lint, format, typecheck, 25/25 files and 281/281 tests, all workspace builds, Vite production build |
-| `corepack pnpm test:integration` | PASS; 5/5 files and 16/16 tests |
-| `corepack pnpm test:e2e` | PASS as scripted; 5/5 files and 14/14 tests, with the matrix gaps above |
-| `corepack pnpm audit --prod` | PASS; no known vulnerabilities |
-| `git diff --check e5e1e04a0dcc02ff094e811e625c11a3b211bccf..c07cfc9` | PASS |
-| Changed-file private-key/bearer/external-provider scan | PASS; no matches |
-| Actual `LocalRasaProvider` output at levels 1–3 | PASS; 3/3 accepted by `validateHintOutput` |
-| Prior homoglyph/invisible controls represented in fresh probe | PASS; tested non-ASCII/invisible variants rejected |
-| Server-rendered direct-answer/URL/markup/code injection probe | **FAIL; 99/111 unsafe level/input combinations accepted** |
-| Authorization/revocation, timeout/replay, SQL guards, claim/privacy controls | PASS in fresh full/integration/E2E suites |
-| `git status --short` before report | Clean |
+| Command / probe                                                              | Result                                                                                                    |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `corepack pnpm install --frozen-lockfile`                                    | PASS; lockfile already current                                                                            |
+| `corepack pnpm check`                                                        | PASS; lint, format, typecheck, 25/25 files and 281/281 tests, all workspace builds, Vite production build |
+| `corepack pnpm test:integration`                                             | PASS; 5/5 files and 16/16 tests                                                                           |
+| `corepack pnpm test:e2e`                                                     | PASS as scripted; 5/5 files and 14/14 tests, with the matrix gaps above                                   |
+| `corepack pnpm audit --prod`                                                 | PASS; no known vulnerabilities                                                                            |
+| `git diff --check e5e1e04a0dcc02ff094e811e625c11a3b211bccf..c07cfc9`         | PASS                                                                                                      |
+| Changed-file private-key/bearer/external-provider scan                       | PASS; no matches                                                                                          |
+| Actual `LocalRasaProvider` output at levels 1–3                              | PASS; 3/3 accepted by `validateHintOutput`                                                                |
+| Prior homoglyph/invisible controls represented in fresh probe                | PASS; tested non-ASCII/invisible variants rejected                                                        |
+| Server-rendered direct-answer/URL/markup/code injection probe                | **FAIL; 99/111 unsafe level/input combinations accepted**                                                 |
+| Authorization/revocation, timeout/replay, SQL guards, claim/privacy controls | PASS in fresh full/integration/E2E suites                                                                 |
+| `git status --short` before report                                           | Clean                                                                                                     |
 
 An initial reviewer secret-scan command passed a newline-delimited filename list as one zsh argument and produced a file-name error rather than scanning. It was corrected to NUL-delimited `xargs -0` and rerun successfully; this was a reviewer-command issue, not an implementation failure.
 
 ## Final implementation score
 
-| Category | Score | Evidence |
-| --- | ---: | --- |
-| Requirement and approved-plan conformance | 20/25 | Most M5/M6 behavior is present, but the canonical answer-safe learner boundary, durable denied/conflict audits, and parts of the approved integrated matrix remain incomplete. |
-| Correctness and code quality | 16/20 | Equality is correctly enforced, but both sides consume the same open-ended artifact strings, so the architectural security claim does not hold. Other lifecycle, authorization, timeout, and projection controls remain sound. |
-| Security, privacy, and tenant isolation | 13/20 | Tenant and current-role checks fail closed and student output is aggregate-only; direct answers, links, markup, and code still cross the learner-output boundary via renderer inputs. |
-| Test and verification evidence | 18/20 | All scripted suites pass, but remediation tests prove only unequal substitution rejection and omit the renderer-input threat plus several real-boundary negative/failure paths. |
-| Operability, recoverability, and provenance | 12/15 | Local-only provenance, builds/audit, lifecycle evidence, and successful trace lineage are strong; denied/conflict audit loss reduces diagnostic durability. |
-| **Total** | **79/100** | **FAIL** |
+| Category                                    |      Score | Evidence                                                                                                                                                                                                                       |
+| ------------------------------------------- | ---------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Requirement and approved-plan conformance   |      20/25 | Most M5/M6 behavior is present, but the canonical answer-safe learner boundary, durable denied/conflict audits, and parts of the approved integrated matrix remain incomplete.                                                 |
+| Correctness and code quality                |      16/20 | Equality is correctly enforced, but both sides consume the same open-ended artifact strings, so the architectural security claim does not hold. Other lifecycle, authorization, timeout, and projection controls remain sound. |
+| Security, privacy, and tenant isolation     |      13/20 | Tenant and current-role checks fail closed and student output is aggregate-only; direct answers, links, markup, and code still cross the learner-output boundary via renderer inputs.                                          |
+| Test and verification evidence              |      18/20 | All scripted suites pass, but remediation tests prove only unequal substitution rejection and omit the renderer-input threat plus several real-boundary negative/failure paths.                                                |
+| Operability, recoverability, and provenance |      12/15 | Local-only provenance, builds/audit, lifecycle evidence, and successful trace lineage are strong; denied/conflict audit loss reduces diagnostic durability.                                                                    |
+| **Total**                                   | **79/100** | **FAIL**                                                                                                                                                                                                                       |
 
 ## Gate decision
 

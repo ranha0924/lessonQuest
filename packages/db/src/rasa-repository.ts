@@ -278,13 +278,7 @@ export class RasaRepository {
         rawAction: providerResult.action,
         context: prepared.context,
         expectedLevel: prepared.level,
-        expectedContent: buildLocalHintContent({
-          hintLevel: prepared.level,
-          conceptSummary: prepared.conceptSummary,
-          ...(prepared.simulationSummary === undefined
-            ? {}
-            : { simulationSummary: prepared.simulationSummary }),
-        }),
+        expectedContent: buildLocalHintContent(prepared.level),
         correctOptionId: correct.id,
         correctOptionLabel: correct.label,
       });

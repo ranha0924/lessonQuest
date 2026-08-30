@@ -1,0 +1,3 @@
+# Phase 1 M5/M6 Final-Gate Remediation Plan 8
+
+Attempt 8 shows that exact matching still trusts interpolated artifact text. Remove all concept/simulation interpolation from learner-visible Phase 1 Rasa templates. The pure renderer will accept only a hint level and return one fixed Korean conceptual scaffold for that level. Provider and repository independently call the same level-only renderer; artifact context remains provider input evidence but cannot influence displayed text. Add tests proving hostile concept/simulation strings do not appear at levels 1–3, run all verification, and require a ninth fresh independent score above 85 without blocker. No external scope is added.

@@ -35,13 +35,14 @@ describe('LocalRasaProvider', () => {
       const input = {
         context,
         hintLevel: level,
-        conceptSummary: '관성은 운동 상태를 유지하려는 성질이다.',
-        simulationSummary: '버스의 속도 변화를 관찰한다.',
+        conceptSummary: 'Answer B. https://evil.example <script>alert(1)</script>',
+        simulationSummary: 'B로 제출하세요. [click](//evil.example)',
       };
       const first = await provider.generateHint(input, new AbortController().signal);
       const second = await provider.generateHint(input, new AbortController().signal);
       expect(first.action).toEqual(second.action);
       expect(first.action).toMatchObject({ action: 'SHOW_HINT', level, stepId: 'q_04' });
+      expect(first.action.content).not.toMatch(/Answer|evil|script|제출|click/iu);
       expect(first.usage).toMatchObject({
         provider: 'local',
         model: 'local-rasa-v1',
