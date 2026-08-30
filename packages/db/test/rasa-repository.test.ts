@@ -205,6 +205,9 @@ describe('RasaRepository', () => {
         "UPDATE rasa_requests SET status='RUNNING',finished_at=NULL,error_code=NULL WHERE id='018f72a4-cc52-7c5a-a6f9-8b21aa27a203'",
       ),
     ).rejects.toThrow(/invalid rasa request transition/);
+    await expect(
+      database.query("DELETE FROM rasa_requests WHERE id='018f72a4-cc52-7c5a-a6f9-8b21aa27a203'"),
+    ).rejects.toThrow(/cannot be deleted/);
     const rows = await database.query<{
       requests: number;
       actions: number;

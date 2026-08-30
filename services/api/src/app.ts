@@ -83,6 +83,7 @@ export interface CreateAppOptions {
   rasaRepository?: RasaRepository;
   gamificationRepository?: GamificationRepository;
   rasaProvider?: RasaHintProvider;
+  rasaTimeoutMs?: number;
   trustedOrigin: string;
   diagnostics: DiagnosticSink;
   maxBodyBytes?: number;
@@ -558,7 +559,10 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       classId,
       input,
       context.get('traceId'),
-      { provider: options.rasaProvider },
+      {
+        provider: options.rasaProvider,
+        ...(options.rasaTimeoutMs === undefined ? {} : { timeoutMs: options.rasaTimeoutMs }),
+      },
     );
     return context.json(rasaHintResultSchema.parse(result));
   });

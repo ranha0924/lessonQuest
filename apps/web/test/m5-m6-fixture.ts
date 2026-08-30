@@ -11,7 +11,7 @@ import {
   RasaRepository,
   TenantRepository,
 } from '@lessonquest/db';
-import { LocalRasaProvider } from '../../../packages/rasa/src/index.js';
+import { LocalRasaProvider, type RasaHintProvider } from '../../../packages/rasa/src/index.js';
 
 import { createApp } from '../../../services/api/src/app.js';
 
@@ -29,7 +29,9 @@ export const m56Student: Actor = {
   memberships: [],
 };
 
-export async function createM56Fixture() {
+export async function createM56Fixture(
+  options: { provider?: RasaHintProvider; timeoutMs?: number } = {},
+) {
   const database = new PGlite();
   await initializeSchema(database);
   const tenants = new TenantRepository(database);
@@ -72,7 +74,8 @@ export async function createM56Fixture() {
     learningRepository: learning,
     rasaRepository: new RasaRepository(database),
     gamificationRepository: gamification,
-    rasaProvider: new LocalRasaProvider(),
+    rasaProvider: options.provider ?? new LocalRasaProvider(),
+    ...(options.timeoutMs === undefined ? {} : { rasaTimeoutMs: options.timeoutMs }),
     trustedOrigin: m56Origin,
     diagnostics: { record() {} },
   });

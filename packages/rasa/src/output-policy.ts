@@ -31,6 +31,11 @@ export function validateHintOutput(input: {
     /(?:[1-9]|첫|두|세|네|다섯)(?:번|번째)(?:선택지|보기)?(?:을|를|가|이)?(?:고르|선택|맞)/u,
     /(?:choose|select|pick)(?:option|choice)?[a-z0-9]/iu,
     /[a-z0-9](?:번)?(?:을|를)?(?:선택|고르)/iu,
+    /[a-z0-9](?:가|이)?맞/u,
+    /(?:option|choice)[a-z0-9](?:is)?correct/iu,
+    /correct(?:option|choice)(?:is)?[a-z0-9]/iu,
+    /적절한것은[a-z0-9](?:입니다)?/u,
+    /mark[a-z0-9]asyouranswer/iu,
     /(?:코드|명령).*(?:실행|run)/iu,
   ];
   if (

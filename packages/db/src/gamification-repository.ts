@@ -336,8 +336,8 @@ export class GamificationRepository {
           await this.database.query(
             `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROJECTION_PROCESSED','BOSS_JOB',$5,'CONFLICT')`,
             [
-              claimedJob.trace_id,
               randomUUID(),
+              claimedJob.trace_id,
               eventActor.rows[0].actor_id,
               claimedJob.organization_id,
               claimedJob.id,

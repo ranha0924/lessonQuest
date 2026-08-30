@@ -480,6 +480,7 @@ const schemaSql = `
   CREATE OR REPLACE FUNCTION enforce_rasa_request_transition()
   RETURNS TRIGGER AS $$
   BEGIN
+    IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'rasa request cannot be deleted'; END IF;
     IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR
        NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.step_id IS DISTINCT FROM OLD.step_id OR
        NEW.hint_level IS DISTINCT FROM OLD.hint_level OR NEW.context_hash IS DISTINCT FROM OLD.context_hash OR
@@ -494,7 +495,7 @@ const schemaSql = `
   END;
   $$ LANGUAGE plpgsql;
   DROP TRIGGER IF EXISTS protect_rasa_request_transition ON rasa_requests;
-  CREATE TRIGGER protect_rasa_request_transition BEFORE UPDATE ON rasa_requests
+  CREATE TRIGGER protect_rasa_request_transition BEFORE UPDATE OR DELETE ON rasa_requests
     FOR EACH ROW EXECUTE FUNCTION enforce_rasa_request_transition();
 
   CREATE OR REPLACE FUNCTION enforce_boss_campaign_transition()
@@ -521,6 +522,7 @@ const schemaSql = `
   CREATE OR REPLACE FUNCTION enforce_boss_job_transition()
   RETURNS TRIGGER AS $$
   BEGIN
+    IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'boss projection job cannot be deleted'; END IF;
     IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR
        NEW.learning_event_id IS DISTINCT FROM OLD.learning_event_id OR
        NEW.campaign_id IS DISTINCT FROM OLD.campaign_id OR NEW.trace_id IS DISTINCT FROM OLD.trace_id OR
@@ -535,7 +537,7 @@ const schemaSql = `
   END;
   $$ LANGUAGE plpgsql;
   DROP TRIGGER IF EXISTS protect_boss_job_transition ON boss_projection_jobs;
-  CREATE TRIGGER protect_boss_job_transition BEFORE UPDATE ON boss_projection_jobs
+  CREATE TRIGGER protect_boss_job_transition BEFORE UPDATE OR DELETE ON boss_projection_jobs
     FOR EACH ROW EXECUTE FUNCTION enforce_boss_job_transition();
 `;
 
