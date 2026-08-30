@@ -163,6 +163,9 @@ importers:
       '@lessonquest/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@lessonquest/rasa':
+        specifier: workspace:*
+        version: link:../../packages/rasa
       '@lessonquest/science-studio':
         specifier: workspace:*
         version: link:../../packages/science-studio

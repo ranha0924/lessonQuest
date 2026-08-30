@@ -10,15 +10,21 @@ import {
   createClassInputSchema,
   createOrganizationInputSchema,
   createScienceExperienceInputSchema,
+  createBossCampaignInputSchema,
+  endBossCampaignInputSchema,
   createdScienceExperienceSchema,
   eventIngestionResultSchema,
   experiencePreviewSchema,
   experienceReviewResultSchema,
   experienceValidationResultSchema,
   playerSessionSchema,
+  rasaHintRequestSchema,
+  rasaHintResultSchema,
   reviewExperienceVersionInputSchema,
   studentAssignmentListSchema,
   studentProgressListSchema,
+  studentBossProgressSchema,
+  teacherBossDetailSchema,
   uuidSchema,
   type Actor,
 } from '@lessonquest/contracts';
@@ -30,7 +36,11 @@ import {
   type LearningRepository,
   ResourceNotFoundError,
   type TenantRepository,
+  type RasaRepository,
+  RasaRequestError,
+  type GamificationRepository,
 } from '@lessonquest/db';
+import type { RasaHintProvider } from '@lessonquest/rasa';
 import { ScienceGenerationError } from '@lessonquest/science-studio';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -50,7 +60,7 @@ type Variables = {
 type AppEnvironment = { Variables: Variables };
 type AppContext = Context<AppEnvironment>;
 
-type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 500;
+type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 500 | 503;
 
 interface ErrorDescriptor {
   status: ErrorStatus;
@@ -70,6 +80,9 @@ export interface CreateAppOptions {
   auth: LocalAuthProvider;
   repository: TenantRepository;
   learningRepository: LearningRepository;
+  rasaRepository?: RasaRepository;
+  gamificationRepository?: GamificationRepository;
+  rasaProvider?: RasaHintProvider;
   trustedOrigin: string;
   diagnostics: DiagnosticSink;
   maxBodyBytes?: number;
@@ -203,6 +216,14 @@ function mapError(error: unknown): ErrorDescriptor {
       code: 'EXPERIENCE_GENERATION_INVALID',
       message: '생성된 과학 체험 형식을 확인해 주세요.',
       retryable: false,
+    };
+  }
+  if (error instanceof RasaRequestError) {
+    return {
+      status: error.retryable ? 503 : 422,
+      code: error.code,
+      message: error.retryable ? '힌트를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.' : '안전한 힌트를 만들 수 없습니다.',
+      retryable: error.retryable,
     };
   }
   if (error instanceof ZodError) {
@@ -517,7 +538,43 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       context.get('traceId'),
     );
     const parsedResult = eventIngestionResultSchema.parse(result);
+    if (options.gamificationRepository !== undefined) {
+      void options.gamificationRepository.drainPendingJobs(10).catch(() => undefined);
+    }
     return context.json(parsedResult, parsedResult.accepted ? 202 : 200);
+  });
+
+  app.post('/organizations/:organizationId/classes/:classId/rasa/hints', async (context) => {
+    if (options.rasaRepository === undefined || options.rasaProvider === undefined) throw new Error('Rasa is not configured');
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const classId = parseRouteUuid(context.req.param('classId'));
+    const input = rasaHintRequestSchema.parse(await readJson(context));
+    const result = await options.rasaRepository.requestHint(context.get('actor'), organizationId, classId, input, context.get('traceId'), { provider: options.rasaProvider });
+    return context.json(rasaHintResultSchema.parse(result));
+  });
+
+  app.get('/organizations/:organizationId/classes/:classId/boss', async (context) => {
+    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
+    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId'));
+    return context.json(studentBossProgressSchema.parse(await options.gamificationRepository.getStudentProgress(context.get('actor'),organizationId,classId,context.get('traceId'))));
+  });
+
+  app.post('/organizations/:organizationId/classes/:classId/boss/campaigns', async (context) => {
+    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
+    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId')); const input=createBossCampaignInputSchema.parse(await readJson(context));
+    return context.json(teacherBossDetailSchema.parse(await options.gamificationRepository.createCampaign(context.get('actor'),organizationId,classId,input,context.get('traceId'))),201);
+  });
+
+  app.post('/organizations/:organizationId/classes/:classId/boss/campaigns/:campaignId/end', async (context) => {
+    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
+    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId')); const campaignId=parseRouteUuid(context.req.param('campaignId')); const input=endBossCampaignInputSchema.parse(await readJson(context));
+    return context.json(teacherBossDetailSchema.parse(await options.gamificationRepository.endCampaign(context.get('actor'),organizationId,classId,campaignId,input,context.get('traceId'))));
+  });
+
+  app.get('/organizations/:organizationId/classes/:classId/boss/detail', async (context) => {
+    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
+    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId'));
+    return context.json(teacherBossDetailSchema.parse(await options.gamificationRepository.getTeacherDetail(context.get('actor'),organizationId,classId,context.get('traceId'))));
   });
 
   app.get(

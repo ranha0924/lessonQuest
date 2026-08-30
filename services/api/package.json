@@ -21,6 +21,7 @@
     "@lessonquest/auth": "workspace:*",
     "@lessonquest/contracts": "workspace:*",
     "@lessonquest/db": "workspace:*",
+    "@lessonquest/rasa": "workspace:*",
     "@lessonquest/science-studio": "workspace:*",
     "hono": "4.13.5",
     "zod": "4.5.2"

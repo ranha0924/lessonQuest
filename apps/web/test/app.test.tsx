@@ -157,6 +157,7 @@ function createApi(
           resumed: false,
           nextSequence: 0,
           answers: [],
+          rasa: { enabled: true, maxHintLevel: 2, hints: [] },
         },
       );
     },
@@ -192,6 +193,7 @@ function createApi(
                 correct: optionId === 'light',
               }
             : null,
+        nextSequence: event.sequence + 1,
       });
     },
     listTeacherProgress() {
@@ -206,10 +208,16 @@ function createApi(
           lastSequence: 3,
           lastStepId: 'complete',
           projectionVersion: 4,
+          hintsUsed: 0,
           updatedAt: '2026-08-29T12:00:00.000Z',
         },
       ]);
     },
+    requestRasaHint() { return Promise.reject(new Error('not configured')); },
+    getStudentBossProgress() { return Promise.resolve(null); },
+    createBossCampaign() { return Promise.reject(new Error('not configured')); },
+    endBossCampaign() { return Promise.reject(new Error('not configured')); },
+    getTeacherBossDetail() { return Promise.reject(new Error('not configured')); },
   };
 }
 
@@ -287,6 +295,7 @@ describe('StudentPlay', () => {
         resumed: true,
         nextSequence: 2,
         answers: [{ stepId: 'quiz_force', attempts: 1, correct: false }],
+        rasa: { enabled: true, maxHintLevel: 2, hints: [] },
       },
     });
     render(<StudentPlay api={api} organizationId={organizationId} />);
@@ -334,6 +343,7 @@ describe('TeacherProgress', () => {
             lastSequence: 3,
             lastStepId: 'complete',
             projectionVersion: 4,
+            hintsUsed: 0,
             updatedAt: '2026-08-29T12:00:00.000Z',
           },
         ]}

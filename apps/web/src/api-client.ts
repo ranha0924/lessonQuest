@@ -9,6 +9,9 @@ import {
   playerSessionSchema,
   studentAssignmentListSchema,
   studentProgressListSchema,
+  rasaHintResultSchema,
+  studentBossProgressSchema,
+  teacherBossDetailSchema,
   type Assignment,
   type AttemptSession,
   type ClientLearningEvent,
@@ -21,6 +24,12 @@ import {
   type ScienceValidationReportContract,
   type StudentAssignmentSummary as ContractStudentAssignmentSummary,
   type StudentProgress,
+  type RasaHintRequest,
+  type RasaHintResult,
+  type StudentBossProgress,
+  type TeacherBossDetail,
+  type CreateBossCampaignInput,
+  type EndBossCampaignInput,
   type StudentScienceBlockSpec,
 } from '@lessonquest/contracts';
 
@@ -51,7 +60,7 @@ export interface LessonQuestApi {
   createAssignment(
     organizationId: string,
     classId: string,
-    input: { experienceVersionId: string },
+    input: { experienceVersionId: string; rasaPolicy?: { enabled: boolean; maxHintLevel: 1 | 2 | 3 } },
   ): Promise<AssignmentSummary>;
   listStudentAssignments(organizationId: string): Promise<StudentAssignmentSummary[]>;
   startAttempt(organizationId: string, assignmentId: string): Promise<AttemptSession>;
@@ -62,6 +71,11 @@ export interface LessonQuestApi {
     classId: string,
     assignmentId: string,
   ): Promise<StudentProgress[]>;
+  requestRasaHint(organizationId: string, classId: string, input: RasaHintRequest): Promise<RasaHintResult>;
+  getStudentBossProgress(organizationId: string, classId: string): Promise<StudentBossProgress>;
+  createBossCampaign(organizationId: string, classId: string, input: CreateBossCampaignInput): Promise<TeacherBossDetail>;
+  endBossCampaign(organizationId: string, classId: string, campaignId: string, input: EndBossCampaignInput): Promise<TeacherBossDetail>;
+  getTeacherBossDetail(organizationId: string, classId: string): Promise<TeacherBossDetail>;
 }
 
 export class LessonQuestApiError extends Error {
@@ -173,5 +187,10 @@ export function createHttpLessonQuestApi(options: {
         `/organizations/${organizationId}/classes/${classId}/assignments/${assignmentId}/progress`,
         studentProgressListSchema,
       ),
+    requestRasaHint: (organizationId, classId, input) => request(`/organizations/${organizationId}/classes/${classId}/rasa/hints`, rasaHintResultSchema, { method: 'POST', body: JSON.stringify(input) }),
+    getStudentBossProgress: (organizationId, classId) => request(`/organizations/${organizationId}/classes/${classId}/boss`, studentBossProgressSchema),
+    createBossCampaign: (organizationId, classId, input) => request(`/organizations/${organizationId}/classes/${classId}/boss/campaigns`, teacherBossDetailSchema, { method: 'POST', body: JSON.stringify(input) }),
+    endBossCampaign: (organizationId, classId, campaignId, input) => request(`/organizations/${organizationId}/classes/${classId}/boss/campaigns/${campaignId}/end`, teacherBossDetailSchema, { method: 'POST', body: JSON.stringify(input) }),
+    getTeacherBossDetail: (organizationId, classId) => request(`/organizations/${organizationId}/classes/${classId}/boss/detail`, teacherBossDetailSchema),
   };
 }
