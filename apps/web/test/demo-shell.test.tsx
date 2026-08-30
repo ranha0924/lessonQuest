@@ -8,6 +8,16 @@ import { DemoShell } from '../src/demo-shell.js';
 afterEach(cleanup);
 
 describe('DemoShell', () => {
+  it('uses one dark theme contract across student and teacher views', () => {
+    const { container } = render(<DemoShell />);
+    const shell = container.querySelector('.demo-shell');
+    expect(shell?.getAttribute('data-theme')).toBe('dark');
+    fireEvent.click(screen.getByRole('button', { name: '교사 화면' }));
+    expect(screen.getByRole('heading', { name: '교사 운영 화면' }).closest('.demo-shell')).toBe(
+      shell,
+    );
+  });
+
   it('presents a synthetic student home without public comparison', () => {
     render(<DemoShell />);
     expect(screen.getByText(/합성 데이터 데모/)).toBeTruthy();
