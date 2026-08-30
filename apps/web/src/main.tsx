@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './app.js';
 import { createHttpLessonQuestApi } from './api-client.js';
+import { DemoShell } from './demo-shell.js';
 import './styles.css';
 
 declare global {
@@ -21,8 +22,16 @@ if (rootElement === null) {
   throw new Error('LessonQuest root element is missing');
 }
 
+const environment = import.meta.env as unknown as Record<string, unknown>;
+const demoMode = environment['VITE_DEMO_MODE'] === 'true';
 const session = window.lessonQuestSession;
-if (session === undefined) {
+if (demoMode) {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <DemoShell />
+    </StrictMode>,
+  );
+} else if (session === undefined) {
   createRoot(rootElement).render(
     <main className="configuration-notice">
       <h1>LessonQuest</h1>
@@ -30,9 +39,7 @@ if (session === undefined) {
     </main>,
   );
 } else {
-  const configuredBaseUrl: unknown = (import.meta.env as unknown as Record<string, unknown>)[
-    'VITE_API_BASE_URL'
-  ];
+  const configuredBaseUrl: unknown = environment['VITE_API_BASE_URL'];
   const api = createHttpLessonQuestApi({
     baseUrl: typeof configuredBaseUrl === 'string' ? configuredBaseUrl : window.location.origin,
     getAuthorization: () => session.authorization,

@@ -2,7 +2,21 @@
 
 LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학생들이 그 안에서 미션·실험·탐험·이야기·공동 보스를 함께 플레이하며 배우는 플랫폼입니다. Rasa는 정답 대신 스스로 답을 찾는 길을 안내하고, 교사는 학생의 과정과 성장을 확인합니다.
 
-현재 구현 범위는 Phase 1 M1–M4와 Phase 2의 첫 번째 순수 게임화 단위입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트와 교사 결과 projection이 연결됩니다. WordQuest 보스 규칙은 여전히 API나 데이터베이스에 연결하지 않았습니다.
+현재 구현 범위는 Phase 1 M1–M6입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
+
+## Vercel 합성 데모
+
+루트의 `vercel.json`은 Vite 웹 앱을 `VITE_DEMO_MODE=true`로 빌드해 `apps/web/dist`를 게시합니다. 이 모드는 학생/교사 화면을 전환하고 Rasa 힌트 및 반 공동 보스를 체험하기 위한 정적 합성 데모입니다.
+
+```bash
+corepack pnpm install --frozen-lockfile
+corepack pnpm deps:build
+VITE_DEMO_MODE=true corepack pnpm --filter @lessonquest/web build
+```
+
+Vercel에서 저장소 루트를 프로젝트 Root Directory로 선택하면 설정 파일의 빌드/출력/SPA rewrite가 적용됩니다. 로컬 Vercel CLI로 미리보기 배포하려면 계정에 로그인한 뒤 루트에서 `vercel`을 실행할 수 있습니다. 이 작업은 외부 배포를 생성하므로 별도 승인이 필요합니다.
+
+데모는 실제 API·DB·인증·Firebase·외부 AI에 연결되지 않으며 모든 상태가 새로고침 때 초기화됩니다. 운영 서비스가 아니라 UI 검토용입니다.
 
 ## 개발 환경
 
