@@ -9,6 +9,7 @@ import { RasaProviderError } from './provider.js';
 
 const normalize = (value: string) =>
   value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, '');
+const normalizeSemantic = (value: string) => normalize(value).replace(/[\p{P}\p{S}]+/gu, '');
 
 export function validateHintOutput(input: {
   rawAction: unknown;
@@ -23,6 +24,7 @@ export function validateHintOutput(input: {
     throw new RasaProviderError('RASA_OUTPUT_REJECTED', 'Hint action schema rejected');
   const action = parsed.data;
   const content = normalize(action.content);
+  const semanticContent = normalizeSemantic(action.content);
   const forbidden = [
     /https?:\/\//iu,
     /<\/?[a-z][^>]*>/iu,
@@ -46,9 +48,9 @@ export function validateHintOutput(input: {
     throw new RasaProviderError('RASA_OUTPUT_REJECTED', 'Hint target or level rejected');
   }
   if (
-    forbidden.some((pattern) => pattern.test(content)) ||
-    content.includes(normalize(input.correctOptionId)) ||
-    content.includes(normalize(input.correctOptionLabel))
+    forbidden.some((pattern) => pattern.test(content) || pattern.test(semanticContent)) ||
+    semanticContent.includes(normalizeSemantic(input.correctOptionId)) ||
+    semanticContent.includes(normalizeSemantic(input.correctOptionLabel))
   ) {
     throw new RasaProviderError('RASA_OUTPUT_REJECTED', 'Hint content rejected');
   }

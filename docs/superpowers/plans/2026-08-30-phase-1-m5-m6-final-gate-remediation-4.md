@@ -1,0 +1,3 @@
+# Phase 1 M5/M6 Final-Gate Remediation Plan 4
+
+Attempt 4 proved that all prior direct-answer literals are rejected but Unicode punctuation can split semantic markers. Add each reproduced mutation as a RED test, then normalize NFKC text by removing whitespace plus Unicode punctuation/symbol characters before applying the established Korean/English answer patterns. Retain URL/HTML checks on the same normalized value and safe conceptual-hint controls. Run targeted and complete verification, then require a fifth fresh independent reviewer to probe punctuation, case, quotes, dashes, and spacing and score above 85 with no blocker. No other production scope or external system is added.
