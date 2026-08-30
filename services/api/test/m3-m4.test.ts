@@ -252,6 +252,7 @@ describe('M3 Science Studio to M4 student play API', () => {
       accepted: false,
       duplicate: true,
       answer: { stepId: 'quiz_force', attempt: 1, correct: false },
+      nextSequence: 4,
     });
     expect(progressResponse.status).toBe(200);
     expect(progress).toEqual([
@@ -272,7 +273,7 @@ describe('M3 Science Studio to M4 student play API', () => {
       [assignmentResponse, 'ASSIGNMENT_CREATED', 'SUCCEEDED'],
       [firstAttemptResponse, 'ATTEMPT_STARTED', 'SUCCEEDED'],
       [eventResponses[0]!, 'LEARNING_EVENT_INGESTED', 'SUCCEEDED'],
-      [duplicateResponse, 'LEARNING_EVENT_INGESTED', 'CONFLICT'],
+      [duplicateResponse, 'LEARNING_EVENT_INGESTED', 'DUPLICATE'],
       [progressResponse, 'PROGRESS_READ', 'SUCCEEDED'],
     ] as const;
     for (const [response, action, outcome] of expectedAudits) {

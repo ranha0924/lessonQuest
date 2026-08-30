@@ -13,8 +13,8 @@
     "format:check": "prettier --check .",
     "typecheck": "pnpm deps:build && tsc --noEmit -p tsconfig.json && pnpm --filter @lessonquest/web exec tsc --noEmit -p tsconfig.json",
     "test": "pnpm deps:build && vitest run",
-    "test:integration": "pnpm deps:build && vitest run packages/db/test/learning-repository.test.ts services/api/test/m3-m4.test.ts",
-    "test:e2e": "pnpm deps:build && vitest run services/api/test/m3-m4.test.ts apps/web/test/app.test.tsx apps/web/test/m3-m4-e2e.test.tsx",
+    "test:integration": "pnpm deps:build && vitest run packages/db/test/learning-repository.test.ts packages/db/test/rasa-repository.test.ts packages/db/test/gamification-repository.test.ts services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts",
+    "test:e2e": "pnpm deps:build && vitest run services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts apps/web/test/app.test.tsx apps/web/test/m3-m4-e2e.test.tsx",
     "build": "pnpm -r --sort --if-present build",
     "check": "pnpm deps:build && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },

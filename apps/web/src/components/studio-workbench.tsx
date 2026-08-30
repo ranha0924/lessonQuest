@@ -181,8 +181,26 @@ export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenc
           <button className="deploy" type="button" onClick={assign} disabled={busy || !approved}>
             반에 배포
           </button>
-          <label className="inline-control">Rasa 힌트 사용<input type="checkbox" checked={rasaEnabled} onChange={(event)=>setRasaEnabled(event.target.checked)} /></label>
-          <label>최대 힌트 단계<select value={maxHintLevel} onChange={(event)=>setMaxHintLevel(Number(event.target.value) as 1|2|3)} disabled={!rasaEnabled}><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+          <label className="inline-control">
+            Rasa 힌트 사용
+            <input
+              type="checkbox"
+              checked={rasaEnabled}
+              onChange={(event) => setRasaEnabled(event.target.checked)}
+            />
+          </label>
+          <label>
+            최대 힌트 단계
+            <select
+              value={maxHintLevel}
+              onChange={(event) => setMaxHintLevel(Number(event.target.value) as 1 | 2 | 3)}
+              disabled={!rasaEnabled}
+            >
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
           {assignmentId !== null ? (
             <button type="button" onClick={loadProgress} disabled={busy}>
               교사 결과 보기

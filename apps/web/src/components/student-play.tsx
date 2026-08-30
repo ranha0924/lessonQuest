@@ -28,11 +28,14 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
   const [completed, setCompleted] = useState(false);
   const [currentClassId, setCurrentClassId] = useState<string | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
-  const [hints, setHints] = useState<readonly { stepId: string; level: 1 | 2 | 3; content: string }[]>([]);
+  const [hints, setHints] = useState<
+    readonly { stepId: string; level: 1 | 2 | 3; content: string }[]
+  >([]);
   const [maxHintLevel, setMaxHintLevel] = useState<1 | 2 | 3>(1);
   const [rasaEnabled, setRasaEnabled] = useState(false);
   const [hintPending, setHintPending] = useState(false);
-  const [bossProgress, setBossProgress] = useState<Awaited<ReturnType<LessonQuestApi['getStudentBossProgress']>>>(null);
+  const [bossProgress, setBossProgress] =
+    useState<Awaited<ReturnType<LessonQuestApi['getStudentBossProgress']>>>(null);
   const hintRequestId = useRef<string | null>(null);
   const sessionRef = useRef<ExperienceEventSession | null>(null);
 
@@ -46,7 +49,10 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
           const classId = items[0]?.classId;
           if (classId !== undefined) {
             setCurrentClassId(classId);
-            void api.getStudentBossProgress(organizationId, classId).then(setBossProgress).catch(() => undefined);
+            void api
+              .getStudentBossProgress(organizationId, classId)
+              .then(setBossProgress)
+              .catch(() => undefined);
           }
           setStatus(items.length === 0 ? '지금 할 탐험이 없어요.' : '탐험을 골라 보세요.');
         }
@@ -80,7 +86,11 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
         },
       );
       sessionRef.current = session;
-      setCurrentClassId(player.assignmentId === assignmentId ? assignments.find(({ id }) => id === assignmentId)?.classId ?? null : null);
+      setCurrentClassId(
+        player.assignmentId === assignmentId
+          ? (assignments.find(({ id }) => id === assignmentId)?.classId ?? null)
+          : null,
+      );
       setAttemptId(attempt.id);
       setHints(attempt.rasa.hints);
       setMaxHintLevel(attempt.rasa.maxHintLevel);
@@ -153,18 +163,36 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
   const quiz = specification?.blocks.find((block) => block.kind === 'QUIZ');
   const requestHint = () => {
     const session = sessionRef.current;
-    if (session === null || currentClassId === null || attemptId === null || quiz === undefined || hintPending) return;
+    if (
+      session === null ||
+      currentClassId === null ||
+      attemptId === null ||
+      quiz === undefined ||
+      hintPending
+    )
+      return;
     hintRequestId.current ??= globalThis.crypto.randomUUID();
     setHintPending(true);
-    void api.requestRasaHint(organizationId, currentClassId, { requestId: hintRequestId.current, attemptId, stepId: quiz.id }).then((result) => {
-      session.synchronize(result.nextSequence);
-      setHints((current) => [...current.filter(({ level }) => level !== result.action.level), result.action]);
-      hintRequestId.current = null;
-      setStatus(`힌트 ${result.action.level}을 확인해 보세요.`);
-    }).catch((error: unknown) => {
-      if (error instanceof LessonQuestApiError) hintRequestId.current = null;
-      setStatus('힌트를 불러오지 못했어요. 다시 시도해 주세요.');
-    }).finally(() => setHintPending(false));
+    void api
+      .requestRasaHint(organizationId, currentClassId, {
+        requestId: hintRequestId.current,
+        attemptId,
+        stepId: quiz.id,
+      })
+      .then((result) => {
+        session.synchronize(result.nextSequence);
+        setHints((current) => [
+          ...current.filter(({ level }) => level !== result.action.level),
+          result.action,
+        ]);
+        hintRequestId.current = null;
+        setStatus(`힌트 ${result.action.level}을 확인해 보세요.`);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof LessonQuestApiError) hintRequestId.current = null;
+        setStatus('힌트를 불러오지 못했어요. 다시 시도해 주세요.');
+      })
+      .finally(() => setHintPending(false));
   };
 
   return (
@@ -176,27 +204,34 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
       </header>
 
       {specification === null ? (
-        <><ClassBossCard progress={bossProgress} /><section className="assignment-grid" aria-label="배포된 탐험">
-          {assignments.map((assignment) => (
-            <article className="assignment-card" aria-label={assignment.title} key={assignment.id}>
-              <span className="mission-tag">과학 미션</span>
-              <h2>{assignment.title}</h2>
-              <p>{assignment.attemptStatus === null ? '새 탐험' : '진행 중인 탐험'}</p>
-              <button
-                className="primary"
-                type="button"
-                onClick={() => start(assignment.id)}
-                disabled={assignment.attemptStatus === 'COMPLETED'}
+        <>
+          <ClassBossCard progress={bossProgress} />
+          <section className="assignment-grid" aria-label="배포된 탐험">
+            {assignments.map((assignment) => (
+              <article
+                className="assignment-card"
+                aria-label={assignment.title}
+                key={assignment.id}
               >
-                {assignment.attemptStatus === null
-                  ? '탐험 시작'
-                  : assignment.attemptStatus === 'COMPLETED'
-                    ? '완료됨'
-                    : '이어하기'}
-              </button>
-            </article>
-          ))}
-        </section></>
+                <span className="mission-tag">과학 미션</span>
+                <h2>{assignment.title}</h2>
+                <p>{assignment.attemptStatus === null ? '새 탐험' : '진행 중인 탐험'}</p>
+                <button
+                  className="primary"
+                  type="button"
+                  onClick={() => start(assignment.id)}
+                  disabled={assignment.attemptStatus === 'COMPLETED'}
+                >
+                  {assignment.attemptStatus === null
+                    ? '탐험 시작'
+                    : assignment.attemptStatus === 'COMPLETED'
+                      ? '완료됨'
+                      : '이어하기'}
+                </button>
+              </article>
+            ))}
+          </section>
+        </>
       ) : (
         <section className="player-canvas" aria-labelledby="player-title">
           <p className="eyebrow">FORCE &amp; MOTION EXPEDITION</p>
@@ -253,7 +288,15 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
                   {answerAttempts > 0 && !quizCorrect ? (
                     <p className="retry">다른 답을 골라 다시 도전해 보세요.</p>
                   ) : null}
-                  <RasaHintPanel hints={hints.filter(({ stepId }) => stepId === block.id)} available={rasaEnabled && answerAttempts > 0 && !quizCorrect && !completed} pending={hintPending} exhausted={hints.filter(({ stepId }) => stepId === block.id).length >= maxHintLevel} onRequest={requestHint} />
+                  <RasaHintPanel
+                    hints={hints.filter(({ stepId }) => stepId === block.id)}
+                    available={rasaEnabled && answerAttempts > 0 && !quizCorrect && !completed}
+                    pending={hintPending}
+                    exhausted={
+                      hints.filter(({ stepId }) => stepId === block.id).length >= maxHintLevel
+                    }
+                    onRequest={requestHint}
+                  />
                 </>
               ) : null}
             </article>

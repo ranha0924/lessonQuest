@@ -215,11 +215,21 @@ function createApi(
         },
       ]);
     },
-    requestRasaHint() { return Promise.reject(new Error('not configured')); },
-    getStudentBossProgress() { return Promise.resolve(null); },
-    createBossCampaign() { return Promise.reject(new Error('not configured')); },
-    endBossCampaign() { return Promise.reject(new Error('not configured')); },
-    getTeacherBossDetail() { return Promise.reject(new Error('not configured')); },
+    requestRasaHint() {
+      return Promise.reject(new Error('not configured'));
+    },
+    getStudentBossProgress() {
+      return Promise.resolve(null);
+    },
+    createBossCampaign() {
+      return Promise.reject(new Error('not configured'));
+    },
+    endBossCampaign() {
+      return Promise.reject(new Error('not configured'));
+    },
+    getTeacherBossDetail() {
+      return Promise.reject(new Error('not configured'));
+    },
   };
 }
 
@@ -363,7 +373,26 @@ describe('TeacherProgress', () => {
 
 describe('M5/M6 student components', () => {
   it('renders hint content as text and only aggregate boss progress', () => {
-    render(<><RasaHintPanel hints={[{ stepId: 'quiz_force', level: 1, content: '<img src=x onerror=alert(1)>' }]} available pending={false} exhausted={false} onRequest={() => undefined} /><ClassBossCard progress={{ campaignId: assignmentId, title: '관성 보스', targetHp: 100, damage: 25, completed: false }} /></>);
+    render(
+      <>
+        <RasaHintPanel
+          hints={[{ stepId: 'quiz_force', level: 1, content: '<img src=x onerror=alert(1)>' }]}
+          available
+          pending={false}
+          exhausted={false}
+          onRequest={() => undefined}
+        />
+        <ClassBossCard
+          progress={{
+            campaignId: assignmentId,
+            title: '관성 보스',
+            targetHp: 100,
+            damage: 25,
+            completed: false,
+          }}
+        />
+      </>,
+    );
     expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeTruthy();
     expect(document.querySelector('img')).toBeNull();
     expect(screen.getByText('25 / 100')).toBeTruthy();

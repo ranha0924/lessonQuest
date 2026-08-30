@@ -1138,7 +1138,12 @@ export class LearningRepository {
               [event.attemptId],
             );
             return {
-              value: { accepted: false, duplicate: true, answer: priorAnswer, nextSequence: next.rows[0]?.next_sequence ?? 0 },
+              value: {
+                accepted: false,
+                duplicate: true,
+                answer: priorAnswer,
+                nextSequence: next.rows[0]?.next_sequence ?? 0,
+              },
               resourceId: event.attemptId,
               outcome: 'DUPLICATE',
             };

@@ -30,10 +30,32 @@ describe('createHttpLessonQuestApi', () => {
   });
 
   it('parses aggregate boss responses and sends no tenant-owned hint fields', async () => {
-    const fetchMock = vi.fn((_: URL | RequestInfo, init?: RequestInit) => Promise.resolve(new Response(JSON.stringify({ campaignId: '018f72a4-cc52-7c5a-a6f9-8b21aa27fb02', title: '보스', targetHp: 100, damage: 3, completed: false, studentId: 'leak' }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            campaignId: '018f72a4-cc52-7c5a-a6f9-8b21aa27fb02',
+            title: '보스',
+            targetHp: 100,
+            damage: 3,
+            completed: false,
+            studentId: 'leak',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
     vi.stubGlobal('fetch', fetchMock);
-    const api = createHttpLessonQuestApi({ baseUrl: 'https://play.lessonquest.test', getAuthorization: () => 'Bearer synthetic' });
-    await expect(api.getStudentBossProgress('018f72a4-cc52-7c5a-a6f9-8b21aa27fb01', '018f72a4-cc52-7c5a-a6f9-8b21aa27fb03')).rejects.toThrow();
+    const api = createHttpLessonQuestApi({
+      baseUrl: 'https://play.lessonquest.test',
+      getAuthorization: () => 'Bearer synthetic',
+    });
+    await expect(
+      api.getStudentBossProgress(
+        '018f72a4-cc52-7c5a-a6f9-8b21aa27fb01',
+        '018f72a4-cc52-7c5a-a6f9-8b21aa27fb03',
+      ),
+    ).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

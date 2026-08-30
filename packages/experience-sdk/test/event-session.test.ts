@@ -92,7 +92,14 @@ describe('createExperienceEventSession', () => {
     const session = createExperienceEventSession(context);
     const keys = Object.keys(session).sort();
 
-    expect(keys).toEqual(['acknowledge', 'answered', 'completed', 'retried', 'started', 'synchronize']);
+    expect(keys).toEqual([
+      'acknowledge',
+      'answered',
+      'completed',
+      'retried',
+      'started',
+      'synchronize',
+    ]);
     expect(keys).not.toContain('setOrganizationId');
     expect(keys).not.toContain('bossDamage');
   });
@@ -132,7 +139,10 @@ describe('createExperienceEventSession', () => {
   });
 
   it('synchronizes only forward while no event is pending', () => {
-    const session = createExperienceEventSession(context, { initialSequence: 2, createId: () => ids[0] });
+    const session = createExperienceEventSession(context, {
+      initialSequence: 2,
+      createId: () => ids[0],
+    });
     session.synchronize(5);
     expect(session.started('start').sequence).toBe(5);
     expect(() => session.synchronize(6)).toThrow(/pending/i);

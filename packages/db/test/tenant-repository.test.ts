@@ -103,8 +103,15 @@ describe('TenantRepository', () => {
 
   it('keeps audit evidence append-only', async () => {
     const organization = await repository.createOrganization(teacher, '감사 보존 기관');
-    await expect(database.query('UPDATE audit_logs SET outcome = $1 WHERE resource_id = $2', ['DENIED', organization.id])).rejects.toThrow();
-    await expect(database.query('DELETE FROM audit_logs WHERE resource_id = $1', [organization.id])).rejects.toThrow();
+    await expect(
+      database.query('UPDATE audit_logs SET outcome = $1 WHERE resource_id = $2', [
+        'DENIED',
+        organization.id,
+      ]),
+    ).rejects.toThrow();
+    await expect(
+      database.query('DELETE FROM audit_logs WHERE resource_id = $1', [organization.id]),
+    ).rejects.toThrow();
   });
 
   it('creates a class and enrolls a student with server-derived active roles and audits', async () => {

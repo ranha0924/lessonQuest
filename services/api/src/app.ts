@@ -222,7 +222,9 @@ function mapError(error: unknown): ErrorDescriptor {
     return {
       status: error.retryable ? 503 : 422,
       code: error.code,
-      message: error.retryable ? '힌트를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.' : '안전한 힌트를 만들 수 없습니다.',
+      message: error.retryable
+        ? '힌트를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.'
+        : '안전한 힌트를 만들 수 없습니다.',
       retryable: error.retryable,
     };
   }
@@ -545,36 +547,98 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
   });
 
   app.post('/organizations/:organizationId/classes/:classId/rasa/hints', async (context) => {
-    if (options.rasaRepository === undefined || options.rasaProvider === undefined) throw new Error('Rasa is not configured');
+    if (options.rasaRepository === undefined || options.rasaProvider === undefined)
+      throw new Error('Rasa is not configured');
     const organizationId = parseRouteUuid(context.req.param('organizationId'));
     const classId = parseRouteUuid(context.req.param('classId'));
     const input = rasaHintRequestSchema.parse(await readJson(context));
-    const result = await options.rasaRepository.requestHint(context.get('actor'), organizationId, classId, input, context.get('traceId'), { provider: options.rasaProvider });
+    const result = await options.rasaRepository.requestHint(
+      context.get('actor'),
+      organizationId,
+      classId,
+      input,
+      context.get('traceId'),
+      { provider: options.rasaProvider },
+    );
     return context.json(rasaHintResultSchema.parse(result));
   });
 
   app.get('/organizations/:organizationId/classes/:classId/boss', async (context) => {
-    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
-    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId'));
-    return context.json(studentBossProgressSchema.parse(await options.gamificationRepository.getStudentProgress(context.get('actor'),organizationId,classId,context.get('traceId'))));
+    if (options.gamificationRepository === undefined)
+      throw new Error('Gamification is not configured');
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const classId = parseRouteUuid(context.req.param('classId'));
+    return context.json(
+      studentBossProgressSchema.parse(
+        await options.gamificationRepository.getStudentProgress(
+          context.get('actor'),
+          organizationId,
+          classId,
+          context.get('traceId'),
+        ),
+      ),
+    );
   });
 
   app.post('/organizations/:organizationId/classes/:classId/boss/campaigns', async (context) => {
-    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
-    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId')); const input=createBossCampaignInputSchema.parse(await readJson(context));
-    return context.json(teacherBossDetailSchema.parse(await options.gamificationRepository.createCampaign(context.get('actor'),organizationId,classId,input,context.get('traceId'))),201);
+    if (options.gamificationRepository === undefined)
+      throw new Error('Gamification is not configured');
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const classId = parseRouteUuid(context.req.param('classId'));
+    const input = createBossCampaignInputSchema.parse(await readJson(context));
+    return context.json(
+      teacherBossDetailSchema.parse(
+        await options.gamificationRepository.createCampaign(
+          context.get('actor'),
+          organizationId,
+          classId,
+          input,
+          context.get('traceId'),
+        ),
+      ),
+      201,
+    );
   });
 
-  app.post('/organizations/:organizationId/classes/:classId/boss/campaigns/:campaignId/end', async (context) => {
-    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
-    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId')); const campaignId=parseRouteUuid(context.req.param('campaignId')); const input=endBossCampaignInputSchema.parse(await readJson(context));
-    return context.json(teacherBossDetailSchema.parse(await options.gamificationRepository.endCampaign(context.get('actor'),organizationId,classId,campaignId,input,context.get('traceId'))));
-  });
+  app.post(
+    '/organizations/:organizationId/classes/:classId/boss/campaigns/:campaignId/end',
+    async (context) => {
+      if (options.gamificationRepository === undefined)
+        throw new Error('Gamification is not configured');
+      const organizationId = parseRouteUuid(context.req.param('organizationId'));
+      const classId = parseRouteUuid(context.req.param('classId'));
+      const campaignId = parseRouteUuid(context.req.param('campaignId'));
+      const input = endBossCampaignInputSchema.parse(await readJson(context));
+      return context.json(
+        teacherBossDetailSchema.parse(
+          await options.gamificationRepository.endCampaign(
+            context.get('actor'),
+            organizationId,
+            classId,
+            campaignId,
+            input,
+            context.get('traceId'),
+          ),
+        ),
+      );
+    },
+  );
 
   app.get('/organizations/:organizationId/classes/:classId/boss/detail', async (context) => {
-    if (options.gamificationRepository === undefined) throw new Error('Gamification is not configured');
-    const organizationId=parseRouteUuid(context.req.param('organizationId')); const classId=parseRouteUuid(context.req.param('classId'));
-    return context.json(teacherBossDetailSchema.parse(await options.gamificationRepository.getTeacherDetail(context.get('actor'),organizationId,classId,context.get('traceId'))));
+    if (options.gamificationRepository === undefined)
+      throw new Error('Gamification is not configured');
+    const organizationId = parseRouteUuid(context.req.param('organizationId'));
+    const classId = parseRouteUuid(context.req.param('classId'));
+    return context.json(
+      teacherBossDetailSchema.parse(
+        await options.gamificationRepository.getTeacherDetail(
+          context.get('actor'),
+          organizationId,
+          classId,
+          context.get('traceId'),
+        ),
+      ),
+    );
   });
 
   app.get(

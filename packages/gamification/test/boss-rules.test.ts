@@ -110,12 +110,28 @@ describe('WordQuest-compatible boss rules', () => {
 
   it.each([true, [], {}, '0.5', '', Number.NaN, Number.POSITIVE_INFINITY])(
     'rejects coercible or nonfinite ratio %#',
-    (ratio) => expect(() => computeBossHp({ previousActivityTotal: 100, memberCount: 1, difficulty: 1, tuning: { ratio } })).toThrow(),
+    (ratio) =>
+      expect(() =>
+        computeBossHp({
+          previousActivityTotal: 100,
+          memberCount: 1,
+          difficulty: 1,
+          tuning: { ratio },
+        }),
+      ).toThrow(),
   );
 
   it.each([true, [], {}, '15', '', Number.NaN, Number.POSITIVE_INFINITY])(
     'rejects coercible or nonfinite integer tuning %#',
-    (perNewMember) => expect(() => computeBossHp({ previousActivityTotal: 0, memberCount: 2, difficulty: 1, tuning: { perNewMember } })).toThrow(),
+    (perNewMember) =>
+      expect(() =>
+        computeBossHp({
+          previousActivityTotal: 0,
+          memberCount: 2,
+          difficulty: 1,
+          tuning: { perNewMember },
+        }),
+      ).toThrow(),
   );
 
   it('canonicalizes UUIDs in campaign keys to lowercase', () => {

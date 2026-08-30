@@ -65,7 +65,9 @@ GET  /organizations/:organizationId/classes/:classId/assignments/:assignmentId/p
 - 검증과 교사 승인 행은 동일한 canonical artifact SHA-256을 기록합니다. PostgreSQL trigger가 `GENERATED → VALIDATED/REJECTED → APPROVED/PUBLISHED/RETIRED` 전이와 검증 이후 콘텐츠 불변성을 직접 강제합니다.
 - 학생은 option ID만 제출하며 정답 여부를 보낼 수 없습니다. 서버가 공개되지 않은 승인 artifact의 answer key로 결과를 판정하고, 이어하기 sequence와 답안 상태도 서버에서 복원합니다.
 - 학생 목록·시도·player·event는 동일한 활성 기관/반/소속/과제 기간 조건을 사용합니다. React → HTTP client → Hono → PGlite 통합 테스트가 새로고침 뒤 이어하기와 권위 있는 재도전 projection을 통과합니다.
-- M5 Rasa, M6 보스/대시보드, 운영 인증·DB, Vercel 배포는 이 구현 범위에 포함되지 않습니다.
+- M5 Rasa는 결정론적 `local-rasa-v1`만 사용합니다. 네트워크·API key 없이 동작하며 token 추정치와 0원 비용을 기록합니다. 교사는 과제별 사용 여부와 1–3단계 최대 힌트를 명시합니다.
+- M6는 반마다 활성 공동 보스 하나를 두고 저장된 정답·재도전·완료 이벤트에서만 기여를 계산합니다. 학생 응답은 반 전체 damage/target만 포함하고 교사 상세는 현재 역할과 반 소유권을 다시 확인합니다.
+- M5/M6 검증은 fresh PGlite만 사용합니다. 운영 인증·DB, Firebase, 외부 AI, 실제 학생 데이터, Vercel 배포는 이 구현 범위에 포함되지 않습니다.
 
 ## 프로젝트 기준
 

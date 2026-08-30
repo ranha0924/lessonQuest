@@ -107,7 +107,12 @@ describe('M4 response contracts', () => {
 
   it('distinguishes accepted events from exact duplicate retransmissions', () => {
     expect(
-      eventIngestionResultSchema.parse({ accepted: true, duplicate: false, answer: null, nextSequence: 4 }),
+      eventIngestionResultSchema.parse({
+        accepted: true,
+        duplicate: false,
+        answer: null,
+        nextSequence: 4,
+      }),
     ).toEqual({
       accepted: true,
       duplicate: false,
@@ -247,9 +252,19 @@ describe('M6 boss boundary contracts', () => {
 
   it('accepts strict campaign input and aggregate-only student progress', () => {
     expect(createBossCampaignInputSchema.parse(campaign)).toEqual(campaign);
-    expect(endBossCampaignInputSchema.parse({ requestId: versionId })).toEqual({ requestId: versionId });
+    expect(endBossCampaignInputSchema.parse({ requestId: versionId })).toEqual({
+      requestId: versionId,
+    });
     expect(studentBossProgressSchema.parse(null)).toBeNull();
-    expect(studentBossProgressSchema.parse({ campaignId: versionId, title: campaign.title, targetHp: 600, damage: 18, completed: false })).toBeTruthy();
+    expect(
+      studentBossProgressSchema.parse({
+        campaignId: versionId,
+        title: campaign.title,
+        targetHp: 600,
+        damage: 18,
+        completed: false,
+      }),
+    ).toBeTruthy();
   });
 
   it('rejects unsafe bounds, non-Monday periods, and student detail leakage', () => {
@@ -259,15 +274,40 @@ describe('M6 boss boundary contracts', () => {
       { ...campaign, period: { kind: 'WEEKLY', weekStart: '2026-08-25' } },
       { ...campaign, policy: { amounts: { ...campaign.policy.amounts, ANSWER_CORRECT: 10_001 } } },
       { ...campaign, organizationId: versionId },
-    ]) expect(createBossCampaignInputSchema.safeParse(input).success).toBe(false);
-    expect(studentBossProgressSchema.safeParse({ campaignId: versionId, title: 'x', targetHp: 60, damage: 1, completed: false, studentId: versionId }).success).toBe(false);
+    ])
+      expect(createBossCampaignInputSchema.safeParse(input).success).toBe(false);
+    expect(
+      studentBossProgressSchema.safeParse({
+        campaignId: versionId,
+        title: 'x',
+        targetHp: 60,
+        damage: 1,
+        completed: false,
+        studentId: versionId,
+      }).success,
+    ).toBe(false);
   });
 
   it('accepts teacher-only contribution and health detail', () => {
-    expect(teacherBossDetailSchema.parse({
-      campaign: { campaignId: versionId, title: campaign.title, targetHp: 600, damage: 18, completed: false, policy: campaign.policy },
-      contributions: [{ studentId: '018f72a4-cc52-7c5a-a6f9-8b21aa27e103', damage: 18, reasons: ['answer_retried', 'experience_completed'] }],
-      projectionHealth: { pending: 0, failed: 0 },
-    })).toBeTruthy();
+    expect(
+      teacherBossDetailSchema.parse({
+        campaign: {
+          campaignId: versionId,
+          title: campaign.title,
+          targetHp: 600,
+          damage: 18,
+          completed: false,
+          policy: campaign.policy,
+        },
+        contributions: [
+          {
+            studentId: '018f72a4-cc52-7c5a-a6f9-8b21aa27e103',
+            damage: 18,
+            reasons: ['answer_retried', 'experience_completed'],
+          },
+        ],
+        projectionHealth: { pending: 0, failed: 0 },
+      }),
+    ).toBeTruthy();
   });
 });
