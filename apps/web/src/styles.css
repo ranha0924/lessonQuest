@@ -396,33 +396,3 @@ textarea {
     transform: none;
   }
 }
-.demo-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.85rem 1.25rem;
-  color: #f8fbff;
-  background: #17324d;
-  box-shadow: 0 8px 24px rgb(17 38 59 / 18%);
-}
-
-.demo-toolbar div {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.demo-toolbar button[aria-pressed='true'] {
-  color: #fff;
-  background: #d85c41;
-}
-
-@media (max-width: 680px) {
-  .demo-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-}

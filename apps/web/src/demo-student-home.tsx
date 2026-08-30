@@ -30,8 +30,7 @@ export function DemoStudentHome() {
             대시보드
           </a>
           <a href="#mission-question">
-            <span aria-hidden="true">02</span>
-            내 미션
+            <span aria-hidden="true">02</span>내 미션
           </a>
           <a href="#class-boss">
             <span aria-hidden="true">03</span>
@@ -71,9 +70,7 @@ export function DemoStudentHome() {
           <div className="demo-mission-copy">
             <p className="demo-section-label">오늘의 미션</p>
             <h1 id="demo-student-title">힘과 운동 탐험</h1>
-            <p>
-              움직임을 바꾸는 힘의 규칙을 찾아 우주 정거장의 궤도를 안정시켜 보세요.
-            </p>
+            <p>움직임을 바꾸는 힘의 규칙을 찾아 우주 정거장의 궤도를 안정시켜 보세요.</p>
             <div className="demo-mission-meta" aria-label="미션 정보">
               <span>과학</span>
               <span>약 8분</span>
@@ -147,7 +144,9 @@ export function DemoStudentHome() {
                 질량 6 kg 선택
               </button>
             </div>
-            {wrong ? <p className="retry">좋은 시도예요. 단서를 살펴보고 다시 골라 보세요.</p> : null}
+            {wrong ? (
+              <p className="retry">좋은 시도예요. 단서를 살펴보고 다시 골라 보세요.</p>
+            ) : null}
             <RasaHintPanel
               hints={hintVisible ? [DEMO_HINT] : []}
               available={wrong}
