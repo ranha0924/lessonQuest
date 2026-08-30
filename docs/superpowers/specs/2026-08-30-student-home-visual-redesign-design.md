@@ -1,8 +1,8 @@
 # Student Home Visual Redesign Design
 
-**Status:** User-approved direction for a bounded Phase 1 demo redesign  
-**Date:** 2026-08-30  
-**Controlling requirements:** `docs/PROJECT_CANON.md`, especially LessonQuest Play, Rasa answer-safety, server-authoritative class boss progress, and the prohibition on public student comparison
+- **Status:** User-approved direction for a bounded Phase 1 demo redesign
+- **Date:** 2026-08-30
+- **Controlling requirements:** `docs/PROJECT_CANON.md`, especially LessonQuest Play, Rasa answer-safety, server-authoritative class boss progress, and the prohibition on public student comparison
 
 ## 1. Scope
 

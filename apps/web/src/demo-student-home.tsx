@@ -29,7 +29,7 @@ export function DemoStudentHome() {
             <span aria-hidden="true">01</span>
             대시보드
           </a>
-          <a href="#mission-question">
+          <a href="#student-mission">
             <span aria-hidden="true">02</span>내 미션
           </a>
           <a href="#class-boss">

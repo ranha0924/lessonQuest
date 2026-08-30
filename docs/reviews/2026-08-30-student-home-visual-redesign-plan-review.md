@@ -1,10 +1,10 @@
 # Student Home Visual Redesign Plan Review
 
-**Date:** 2026-08-30  
-**Plan:** `docs/superpowers/plans/2026-08-30-student-home-visual-redesign.md`  
-**Design:** `docs/superpowers/specs/2026-08-30-student-home-visual-redesign-design.md`  
-**Controlling requirements:** `docs/PROJECT_CANON.md`, `memory/projects/lessonquest.md`  
-**Decision:** **PASS — 97/100, no critical blocker**
+- **Date:** 2026-08-30
+- **Plan:** `docs/superpowers/plans/2026-08-30-student-home-visual-redesign.md`
+- **Design:** `docs/superpowers/specs/2026-08-30-student-home-visual-redesign-design.md`
+- **Controlling requirements:** `docs/PROJECT_CANON.md`, `memory/projects/lessonquest.md`
+- **Decision:** **PASS — 97/100, no critical blocker**
 
 ## Scope and gate conclusion
 
