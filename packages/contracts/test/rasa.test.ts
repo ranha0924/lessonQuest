@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { rasaActionSchema, rasaContextSchema } from '../src/rasa.js';
+import {
+  assignmentRasaPolicyInputSchema,
+  rasaActionSchema,
+  rasaContextSchema,
+  rasaHintRequestSchema,
+  rasaHintResultSchema,
+} from '../src/rasa.js';
 
 const context = {
   schemaVersion: 1,
@@ -151,5 +157,44 @@ describe('rasaActionSchema', () => {
         url: 'https://evil.example/image.svg',
       }),
     ).toThrow();
+  });
+});
+
+describe('M5 hint boundary contracts', () => {
+  it('accepts only teacher policy fields and server-shaped hint results', () => {
+    expect(assignmentRasaPolicyInputSchema.parse({ enabled: true, maxHintLevel: 2 })).toEqual({
+      enabled: true,
+      maxHintLevel: 2,
+    });
+    expect(
+      rasaHintRequestSchema.parse({
+        requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c405',
+        attemptId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c406',
+        stepId: 'q_04',
+      }),
+    ).toBeTruthy();
+    expect(
+      rasaHintResultSchema.parse({
+        requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c405',
+        sessionId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c407',
+        duplicate: false,
+        action: {
+          action: 'SHOW_HINT',
+          experienceId: 'science_inertia_01',
+          stepId: 'q_04',
+          level: 2,
+          content: '운동 상태가 어떻게 달라지는지 비교해 보자.',
+        },
+        nextSequence: 4,
+      }),
+    ).toBeTruthy();
+  });
+
+  it.each([
+    { enabled: true, maxHintLevel: 2, forbidFinalAnswer: false },
+    { enabled: true, maxHintLevel: 4 },
+    { enabled: true, maxHintLevel: 2, context: {} },
+  ])('rejects client-owned policy/context fields %#', (input) => {
+    expect(assignmentRasaPolicyInputSchema.safeParse(input).success).toBe(false);
   });
 });

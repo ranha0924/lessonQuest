@@ -11,6 +11,7 @@ import {
   experienceIdSchema,
   uuidSchema,
 } from './primitives.js';
+import { assignmentRasaPolicyInputSchema, hintLevelSchema } from './rasa.js';
 
 export const experienceVersionStatusSchema = z.enum([
   'GENERATED',
@@ -38,6 +39,7 @@ export const createAssignmentInputSchema = z
     experienceVersionId: uuidSchema,
     startsAt: z.iso.datetime({ offset: true }).optional(),
     dueAt: z.iso.datetime({ offset: true }).optional(),
+    rasaPolicy: assignmentRasaPolicyInputSchema.optional(),
   })
   .superRefine(({ startsAt, dueAt }, context) => {
     if (
@@ -109,6 +111,19 @@ export const attemptSessionSchema = z.strictObject({
   resumed: z.boolean(),
   nextSequence: z.int().min(0).max(1_000_000),
   answers: z.array(attemptAnswerStateSchema).max(12),
+  rasa: z.strictObject({
+    enabled: z.boolean(),
+    maxHintLevel: hintLevelSchema,
+    hints: z
+      .array(
+        z.strictObject({
+          stepId: boundedIdentifierSchema,
+          level: hintLevelSchema,
+          content: z.string().trim().min(1).max(500),
+        }),
+      )
+      .max(36),
+  }),
 });
 
 export const playerSessionSchema = z.strictObject({
@@ -131,6 +146,7 @@ export const studentProgressSchema = z.strictObject({
   lastSequence: z.int().min(0).nullable(),
   lastStepId: boundedIdentifierSchema.nullable(),
   projectionVersion: z.int().min(0),
+  hintsUsed: z.int().min(0),
   updatedAt: z.iso.datetime({ offset: true }),
 });
 
@@ -145,12 +161,70 @@ export const eventIngestionResultSchema = z
         correct: z.boolean(),
       })
       .nullable(),
+    nextSequence: z.int().min(0).max(1_000_000),
   })
   .refine(({ accepted, duplicate }) => accepted !== duplicate, {
     message: 'Event result must be accepted or duplicate',
   });
 
 export const studentProgressListSchema = z.array(studentProgressSchema).max(10_000);
+
+const bossAmountsSchema = z.strictObject({
+  ANSWER_CORRECT: z.int().min(0).max(10_000),
+  ANSWER_RETRIED: z.int().min(0).max(10_000),
+  EXPERIENCE_COMPLETED: z.int().min(0).max(10_000),
+});
+
+export const bossCampaignPolicySchema = z.strictObject({ amounts: bossAmountsSchema });
+
+const weeklyPeriodSchema = z
+  .strictObject({ kind: z.literal('WEEKLY'), weekStart: z.iso.date() })
+  .superRefine(({ weekStart }, context) => {
+    if (new Date(`${weekStart}T00:00:00.000Z`).getUTCDay() !== 1) {
+      context.addIssue({ code: 'custom', message: 'Weekly campaign must start on Monday' });
+    }
+  });
+
+export const createBossCampaignInputSchema = z.strictObject({
+  title: z.string().trim().min(1).max(120),
+  period: z.discriminatedUnion('kind', [
+    weeklyPeriodSchema,
+    z.strictObject({ kind: z.literal('SPECIAL'), version: z.int().positive().max(1_000_000) }),
+  ]),
+  targetHp: z.int().min(60).max(60_000),
+  policy: bossCampaignPolicySchema,
+});
+
+export const endBossCampaignInputSchema = z.strictObject({ requestId: uuidSchema });
+
+const bossProgressShape = {
+  campaignId: uuidSchema,
+  title: z.string().trim().min(1).max(120),
+  targetHp: z.int().min(60).max(60_000),
+  damage: z.int().min(0).max(Number.MAX_SAFE_INTEGER),
+  completed: z.boolean(),
+};
+
+export const studentBossProgressSchema = z.strictObject(bossProgressShape).nullable();
+
+export const teacherBossDetailSchema = z.strictObject({
+  campaign: z.strictObject({ ...bossProgressShape, policy: bossCampaignPolicySchema }),
+  contributions: z
+    .array(
+      z.strictObject({
+        studentId: uuidSchema,
+        damage: z.int().min(0).max(Number.MAX_SAFE_INTEGER),
+        reasons: z
+          .array(z.enum(['answer_correct', 'answer_retried', 'experience_completed']))
+          .max(3),
+      }),
+    )
+    .max(10_000),
+  projectionHealth: z.strictObject({
+    pending: z.int().min(0).max(1_000_000),
+    failed: z.int().min(0).max(1_000_000),
+  }),
+});
 
 export type CreateScienceExperienceInput = z.infer<typeof createScienceExperienceInputSchema>;
 export type ReviewExperienceVersionInput = z.infer<typeof reviewExperienceVersionInputSchema>;
@@ -166,3 +240,7 @@ export type StudentAssignmentSummary = z.infer<typeof studentAssignmentSummarySc
 export type AttemptAnswerState = z.infer<typeof attemptAnswerStateSchema>;
 export type AttemptSession = z.infer<typeof attemptSessionSchema>;
 export type PlayerSession = z.infer<typeof playerSessionSchema>;
+export type CreateBossCampaignInput = z.infer<typeof createBossCampaignInputSchema>;
+export type EndBossCampaignInput = z.infer<typeof endBossCampaignInputSchema>;
+export type StudentBossProgress = z.infer<typeof studentBossProgressSchema>;
+export type TeacherBossDetail = z.infer<typeof teacherBossDetailSchema>;

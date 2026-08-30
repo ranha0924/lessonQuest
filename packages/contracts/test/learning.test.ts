@@ -15,6 +15,10 @@ import {
   studentAssignmentListSchema,
   studentProgressSchema,
   studentProgressListSchema,
+  createBossCampaignInputSchema,
+  endBossCampaignInputSchema,
+  studentBossProgressSchema,
+  teacherBossDetailSchema,
 } from '../src/learning.js';
 import { validScienceSpec } from './science.test.js';
 
@@ -60,6 +64,7 @@ describe('science and assignment request contracts', () => {
       experienceVersionId: versionId,
       startsAt: '2026-08-29T00:00:00.000Z',
       dueAt: '2026-09-05T00:00:00.000Z',
+      rasaPolicy: { enabled: true, maxHintLevel: 2 },
     };
 
     expect(createAssignmentInputSchema.parse(valid)).toEqual(valid);
@@ -91,6 +96,7 @@ describe('M4 response contracts', () => {
       lastSequence: 3,
       lastStepId: 'complete',
       projectionVersion: 4,
+      hintsUsed: 1,
       updatedAt: '2026-08-29T12:00:00.000Z',
     };
 
@@ -101,22 +107,25 @@ describe('M4 response contracts', () => {
 
   it('distinguishes accepted events from exact duplicate retransmissions', () => {
     expect(
-      eventIngestionResultSchema.parse({ accepted: true, duplicate: false, answer: null }),
+      eventIngestionResultSchema.parse({ accepted: true, duplicate: false, answer: null, nextSequence: 4 }),
     ).toEqual({
       accepted: true,
       duplicate: false,
       answer: null,
+      nextSequence: 4,
     });
     expect(
       eventIngestionResultSchema.parse({
         accepted: false,
         duplicate: true,
         answer: { stepId: 'quiz_force', attempt: 1, correct: false },
+        nextSequence: 4,
       }),
     ).toEqual({
       accepted: false,
       duplicate: true,
       answer: { stepId: 'quiz_force', attempt: 1, correct: false },
+      nextSequence: 4,
     });
     expect(
       eventIngestionResultSchema.safeParse({ accepted: false, duplicate: false, answer: null })
@@ -198,6 +207,7 @@ describe('M4 response contracts', () => {
         resumed: true,
         nextSequence: 2,
         answers: [{ stepId: 'quiz_force', attempts: 1, correct: false }],
+        rasa: { enabled: true, maxHintLevel: 2, hints: [] },
       }),
     ).toBeTruthy();
     expect(
@@ -224,5 +234,40 @@ describe('M4 response contracts', () => {
         sandboxDocument: '<!doctype html>',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('M6 boss boundary contracts', () => {
+  const campaign = {
+    title: '관성 공동 보스',
+    period: { kind: 'WEEKLY', weekStart: '2026-08-24' },
+    targetHp: 600,
+    policy: { amounts: { ANSWER_CORRECT: 3, ANSWER_RETRIED: 5, EXPERIENCE_COMPLETED: 10 } },
+  } as const;
+
+  it('accepts strict campaign input and aggregate-only student progress', () => {
+    expect(createBossCampaignInputSchema.parse(campaign)).toEqual(campaign);
+    expect(endBossCampaignInputSchema.parse({ requestId: versionId })).toEqual({ requestId: versionId });
+    expect(studentBossProgressSchema.parse(null)).toBeNull();
+    expect(studentBossProgressSchema.parse({ campaignId: versionId, title: campaign.title, targetHp: 600, damage: 18, completed: false })).toBeTruthy();
+  });
+
+  it('rejects unsafe bounds, non-Monday periods, and student detail leakage', () => {
+    for (const input of [
+      { ...campaign, targetHp: 59 },
+      { ...campaign, targetHp: 60_001 },
+      { ...campaign, period: { kind: 'WEEKLY', weekStart: '2026-08-25' } },
+      { ...campaign, policy: { amounts: { ...campaign.policy.amounts, ANSWER_CORRECT: 10_001 } } },
+      { ...campaign, organizationId: versionId },
+    ]) expect(createBossCampaignInputSchema.safeParse(input).success).toBe(false);
+    expect(studentBossProgressSchema.safeParse({ campaignId: versionId, title: 'x', targetHp: 60, damage: 1, completed: false, studentId: versionId }).success).toBe(false);
+  });
+
+  it('accepts teacher-only contribution and health detail', () => {
+    expect(teacherBossDetailSchema.parse({
+      campaign: { campaignId: versionId, title: campaign.title, targetHp: 600, damage: 18, completed: false, policy: campaign.policy },
+      contributions: [{ studentId: '018f72a4-cc52-7c5a-a6f9-8b21aa27e103', damage: 18, reasons: ['answer_retried', 'experience_completed'] }],
+      projectionHealth: { pending: 0, failed: 0 },
+    })).toBeTruthy();
   });
 });

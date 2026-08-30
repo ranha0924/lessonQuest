@@ -105,8 +105,6 @@ const clientEventVariants = [
   stepViewedEventSchema,
   clientQuestionAnsweredEventSchema,
   clientAnswerRetriedEventSchema,
-  hintUsedEventSchema,
-  rasaOpenedEventSchema,
   choiceMadeEventSchema,
   experienceCompletedEventSchema,
   experienceExitedEventSchema,

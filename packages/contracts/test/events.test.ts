@@ -81,6 +81,12 @@ describe('clientLearningEventSchema', () => {
     ).toThrow();
   });
 
+  it.each(['RASA_OPENED', 'HINT_USED'])('rejects client-authored server event %s', (type) => {
+    const payload = type === 'HINT_USED' ? { level: 1 } : {};
+    expect(clientLearningEventSchema.safeParse({ ...base, type, payload }).success).toBe(false);
+    expect(serverLearningEventSchema.safeParse({ ...base, type, payload }).success).toBe(true);
+  });
+
   it('rejects unknown event types and extra top-level fields', () => {
     expect(() =>
       clientLearningEventSchema.parse({ ...base, type: 'ADMIN_GRANTED', payload: {} }),

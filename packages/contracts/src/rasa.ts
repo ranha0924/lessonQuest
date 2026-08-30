@@ -3,7 +3,18 @@ import { z } from 'zod';
 import { subjectSchema } from './manifest.js';
 import { boundedIdentifierSchema, experienceIdSchema, uuidSchema } from './primitives.js';
 
-const hintLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
+export const hintLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
+
+export const assignmentRasaPolicyInputSchema = z.strictObject({
+  enabled: z.boolean(),
+  maxHintLevel: hintLevelSchema,
+});
+
+export const rasaHintRequestSchema = z.strictObject({
+  requestId: uuidSchema,
+  attemptId: uuidSchema,
+  stepId: boundedIdentifierSchema,
+});
 
 const uniqueHintLevelsSchema = z
   .array(hintLevelSchema)
@@ -113,5 +124,24 @@ export const rasaActionSchema = z.discriminatedUnion('action', [
   }),
 ]);
 
+export const showHintActionSchema = z.strictObject({
+  action: z.literal('SHOW_HINT'),
+  ...targetShape,
+  level: hintLevelSchema,
+  content: z.string().trim().min(1).max(500),
+});
+
+export const rasaHintResultSchema = z.strictObject({
+  requestId: uuidSchema,
+  sessionId: uuidSchema,
+  duplicate: z.boolean(),
+  action: showHintActionSchema,
+  nextSequence: z.int().min(0).max(1_000_000),
+});
+
 export type RasaContext = z.infer<typeof rasaContextSchema>;
 export type RasaAction = z.infer<typeof rasaActionSchema>;
+export type ShowHintAction = z.infer<typeof showHintActionSchema>;
+export type AssignmentRasaPolicyInput = z.infer<typeof assignmentRasaPolicyInputSchema>;
+export type RasaHintRequest = z.infer<typeof rasaHintRequestSchema>;
+export type RasaHintResult = z.infer<typeof rasaHintResultSchema>;
