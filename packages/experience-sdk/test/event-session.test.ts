@@ -28,7 +28,8 @@ describe('createExperienceEventSession', () => {
       now: () => new Date('2026-08-29T12:00:00.000Z'),
     });
 
-    expect(session.started('start')).toEqual({
+    const started = session.started('start');
+    expect(started).toEqual({
       schemaVersion: 1,
       eventId: ids[0],
       type: 'EXPERIENCE_STARTED',
@@ -38,7 +39,9 @@ describe('createExperienceEventSession', () => {
       occurredAt: '2026-08-29T12:00:00.000Z',
       payload: {},
     });
-    expect(session.answered('quiz_force', 'heavy', 1, 1_200)).toEqual({
+    session.acknowledge(started.eventId, 1);
+    const answered = session.answered('quiz_force', 'heavy', 1, 1_200);
+    expect(answered).toEqual({
       schemaVersion: 1,
       eventId: ids[1],
       type: 'QUESTION_ANSWERED',
@@ -48,7 +51,9 @@ describe('createExperienceEventSession', () => {
       occurredAt: '2026-08-29T12:00:00.000Z',
       payload: { optionId: 'heavy', attempt: 1, elapsedMs: 1_200 },
     });
-    expect(session.retried('quiz_force', 'light', 2, 700)).toEqual({
+    session.acknowledge(answered.eventId, 2);
+    const retried = session.retried('quiz_force', 'light', 2, 700);
+    expect(retried).toEqual({
       schemaVersion: 1,
       eventId: ids[2],
       type: 'ANSWER_RETRIED',
@@ -58,6 +63,7 @@ describe('createExperienceEventSession', () => {
       occurredAt: '2026-08-29T12:00:00.000Z',
       payload: { optionId: 'light', attempt: 2, elapsedMs: 700 },
     });
+    session.acknowledge(retried.eventId, 3);
     expect(session.completed('complete', 8_000)).toEqual({
       schemaVersion: 1,
       eventId: ids[3],
@@ -86,7 +92,7 @@ describe('createExperienceEventSession', () => {
     const session = createExperienceEventSession(context);
     const keys = Object.keys(session).sort();
 
-    expect(keys).toEqual(['answered', 'completed', 'retried', 'started']);
+    expect(keys).toEqual(['acknowledge', 'answered', 'completed', 'retried', 'started', 'synchronize']);
     expect(keys).not.toContain('setOrganizationId');
     expect(keys).not.toContain('bossDamage');
   });
@@ -106,5 +112,32 @@ describe('createExperienceEventSession', () => {
 
     expect(session.retried('quiz_force', 'light', 3, 500).sequence).toBe(4);
     expect(() => createExperienceEventSession(context, { initialSequence: -1 })).toThrow();
+  });
+
+  it('retains one exact pending envelope until acknowledged', () => {
+    let idIndex = 0;
+    const session = createExperienceEventSession(context, {
+      createId: () => ids[idIndex++]!,
+      now: () => new Date('2026-08-29T12:00:00.000Z'),
+    });
+
+    const first = session.answered('quiz_force', 'heavy', 1, 1_200);
+    const retriedDelivery = session.answered('quiz_force', 'heavy', 1, 1_200);
+    expect(retriedDelivery).toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(() => session.completed('complete', 8_000)).toThrow(/pending/i);
+    expect(() => session.acknowledge(ids[1], 1)).toThrow();
+    session.acknowledge(first.eventId, 3);
+    expect(session.completed('complete', 8_000).sequence).toBe(3);
+  });
+
+  it('synchronizes only forward while no event is pending', () => {
+    const session = createExperienceEventSession(context, { initialSequence: 2, createId: () => ids[0] });
+    session.synchronize(5);
+    expect(session.started('start').sequence).toBe(5);
+    expect(() => session.synchronize(6)).toThrow(/pending/i);
+    session.acknowledge(ids[0], 6);
+    expect(() => session.acknowledge(ids[0], 6)).toThrow();
+    expect(() => session.synchronize(5)).toThrow(/backward/i);
   });
 });
