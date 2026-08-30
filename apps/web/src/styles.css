@@ -266,6 +266,11 @@ textarea {
   width: 100%;
   margin-top: 18px;
 }
+.rasa-panel,.boss-card { margin: 18px 0; padding: 20px; border: 2px solid var(--navy); border-radius: 18px; background: var(--white); }
+.rasa-panel { border-left: 8px solid var(--coral); }
+.boss-card { max-width: 680px; border-top: 10px solid var(--coral); box-shadow: 6px 6px 0 var(--navy); }
+.boss-card progress { width: 100%; height: 20px; accent-color: var(--coral); }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } button:hover:not(:disabled) { transform: none; } }
 
 .progress-list {
   display: grid;

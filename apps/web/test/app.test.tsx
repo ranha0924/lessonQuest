@@ -8,6 +8,8 @@ import { scienceBlockSpecSchema } from '@lessonquest/contracts';
 import { StudioWorkbench } from '../src/components/studio-workbench.js';
 import { StudentPlay } from '../src/components/student-play.js';
 import { TeacherProgress } from '../src/components/teacher-progress.js';
+import { ClassBossCard } from '../src/components/class-boss-card.js';
+import { RasaHintPanel } from '../src/components/rasa-hint-panel.js';
 import type { LessonQuestApi, StudentScienceSpecification } from '../src/api-client.js';
 
 const organizationId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c101';
@@ -354,5 +356,15 @@ describe('TeacherProgress', () => {
     expect(screen.getByText('재도전 1회')).toBeTruthy();
     expect(screen.getByText('완료')).toBeTruthy();
     expect(screen.queryByText(/1위|순위|랭킹/)).toBeNull();
+  });
+});
+
+describe('M5/M6 student components', () => {
+  it('renders hint content as text and only aggregate boss progress', () => {
+    render(<><RasaHintPanel hints={[{ stepId: 'quiz_force', level: 1, content: '<img src=x onerror=alert(1)>' }]} available pending={false} exhausted={false} onRequest={() => undefined} /><ClassBossCard progress={{ campaignId: assignmentId, title: '관성 보스', targetHp: 100, damage: 25, completed: false }} /></>);
+    expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeTruthy();
+    expect(document.querySelector('img')).toBeNull();
+    expect(screen.getByText('25 / 100')).toBeTruthy();
+    expect(screen.queryByText(/순위|학생 ID|기여 목록/)).toBeNull();
   });
 });
