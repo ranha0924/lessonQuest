@@ -127,6 +127,12 @@ importers:
         specifier: 4.5.2
         version: 4.5.2
 
+  packages/rasa:
+    dependencies:
+      '@lessonquest/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/science-studio:
     dependencies:
       '@lessonquest/contracts':

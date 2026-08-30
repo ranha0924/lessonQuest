@@ -8,7 +8,7 @@
   },
   "scripts": {
     "contracts:build": "pnpm --filter @lessonquest/contracts build",
-    "deps:build": "pnpm --filter @lessonquest/contracts build && pnpm --filter @lessonquest/auth build && pnpm --filter @lessonquest/science-studio build && pnpm --filter @lessonquest/experience-sdk build && pnpm --filter @lessonquest/db build",
+    "deps:build": "pnpm --filter @lessonquest/contracts build && pnpm --filter @lessonquest/auth build && pnpm --filter @lessonquest/science-studio build && pnpm --filter @lessonquest/experience-sdk build && pnpm --filter @lessonquest/rasa build && pnpm --filter @lessonquest/db build",
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier --check .",
     "typecheck": "pnpm deps:build && tsc --noEmit -p tsconfig.json && pnpm --filter @lessonquest/web exec tsc --noEmit -p tsconfig.json",
