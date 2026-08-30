@@ -70,6 +70,11 @@ describe('projectBossContributions', () => {
     ]);
   });
 
+  it('uses one lowercase canonical campaign key', () => {
+    const result = projectBossContributions({ ...baseInput, campaignKey: CAMPAIGN.toUpperCase() });
+    expect(result[0]?.campaignKey).toBe(CAMPAIGN);
+  });
+
   it('maps every verified outcome kind to its configured amount and reason', () => {
     const outcomes: VerifiedBossOutcome[] = [
       correctOutcome,

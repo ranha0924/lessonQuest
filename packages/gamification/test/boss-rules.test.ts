@@ -72,7 +72,7 @@ describe('WordQuest-compatible boss rules', () => {
         previousActivityTotal: 450,
         memberCount: 6,
         difficulty: 0.7,
-        tuning: { ratio: '0.5' },
+        tuning: { ratio: 0.5 },
       },
       158,
     ],
@@ -87,7 +87,7 @@ describe('WordQuest-compatible boss rules', () => {
         previousActivityTotal: 100,
         memberCount: 1,
         difficulty: 1,
-        tuning: { ratio: '9', minHp: '200', maxHp: '100' },
+        tuning: { ratio: 9, minHp: 200, maxHp: 100 },
       }),
     ).toBe(200);
   });
@@ -106,6 +106,22 @@ describe('WordQuest-compatible boss rules', () => {
     },
   ])('rejects malformed HP input %#', (input) => {
     expect(() => computeBossHp(input)).toThrow();
+  });
+
+  it.each([true, [], {}, '0.5', '', Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects coercible or nonfinite ratio %#',
+    (ratio) => expect(() => computeBossHp({ previousActivityTotal: 100, memberCount: 1, difficulty: 1, tuning: { ratio } })).toThrow(),
+  );
+
+  it.each([true, [], {}, '15', '', Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects coercible or nonfinite integer tuning %#',
+    (perNewMember) => expect(() => computeBossHp({ previousActivityTotal: 0, memberCount: 2, difficulty: 1, tuning: { perNewMember } })).toThrow(),
+  );
+
+  it('canonicalizes UUIDs in campaign keys to lowercase', () => {
+    const upper = CLASS_A.toUpperCase();
+    expect(buildWeeklyBossKey('2026-07-27', upper)).toBe(`w:2026-07-27:${CLASS_A}`);
+    expect(buildSpecialBossKey(1, upper)).toBe(`s:1:${CLASS_A}`);
   });
 
   it('takes the maximum damage per student for the selected boss', () => {

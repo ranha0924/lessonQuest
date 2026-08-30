@@ -59,7 +59,7 @@ function parseWeeklyKey(value: string): { weekStart: string; classId: string } |
     const date = parseCalendarDate(weekStart);
     if (date.getUTCDay() !== 1) return null;
     uuidSchema.parse(classId);
-    return { weekStart, classId };
+    return { weekStart, classId: classId.toLowerCase() };
   } catch {
     return null;
   }
@@ -76,13 +76,14 @@ function parseSpecialKey(value: string): { version: number; classId: string } | 
   const version = Number(rawVersion);
   if (!Number.isSafeInteger(version) || version <= 0) return null;
   if (!uuidSchema.safeParse(classId).success) return null;
-  return { version, classId };
+  return { version, classId: classId.toLowerCase() };
 }
 
 export const bossCampaignKeySchema = z
   .string()
   .min(1)
   .max(240)
+  .transform((value) => value.toLowerCase())
   .refine(
     (value) => parseWeeklyKey(value) !== null || parseSpecialKey(value) !== null,
     'Boss campaign key must contain a valid period and class UUID.',
@@ -113,19 +114,20 @@ export function buildWeeklyBossKey(weekStart: string, classId: string): string {
   if (date.getUTCDay() !== 1) {
     throw new RangeError('Boss week start must be a Monday.');
   }
-  return `w:${weekStart}:${parsedClassId}`;
+  return `w:${weekStart}:${parsedClassId.toLowerCase()}`;
 }
 
 export function buildSpecialBossKey(version: number, classId: string): string {
   if (!Number.isSafeInteger(version) || version <= 0) {
     throw new RangeError('Special boss version must be a positive safe integer.');
   }
-  return `s:${version}:${uuidSchema.parse(classId)}`;
+  return `s:${version}:${uuidSchema.parse(classId).toLowerCase()}`;
 }
 
 function parseRatio(rawValue: unknown): number {
-  if (rawValue === undefined || rawValue === null || rawValue === '') return 0.45;
-  const value = Number(rawValue);
+  if (rawValue === undefined || rawValue === null) return 0.45;
+  if (typeof rawValue !== 'number') throw new RangeError('Boss ratio must be a number.');
+  const value = rawValue;
   if (!Number.isFinite(value)) {
     throw new RangeError('Boss ratio must be a finite number.');
   }
@@ -133,8 +135,9 @@ function parseRatio(rawValue: unknown): number {
 }
 
 function parsePositiveTuningInteger(rawValue: unknown, defaultValue: number, name: string): number {
-  if (rawValue === undefined || rawValue === null || rawValue === '') return defaultValue;
-  const value = Number(rawValue);
+  if (rawValue === undefined || rawValue === null) return defaultValue;
+  if (typeof rawValue !== 'number') throw new RangeError(`${name} must be a number.`);
+  const value = rawValue;
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new RangeError(`${name} must be a positive safe integer.`);
   }
