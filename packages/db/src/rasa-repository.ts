@@ -12,7 +12,11 @@ import {
   type RasaHintRequest,
   type RasaHintResult,
 } from '@lessonquest/contracts';
-import { validateHintOutput, type RasaHintProvider } from '@lessonquest/rasa';
+import {
+  buildLocalHintContent,
+  validateHintOutput,
+  type RasaHintProvider,
+} from '@lessonquest/rasa';
 import { parseScienceArtifact } from '@lessonquest/science-studio';
 
 import { ConflictError, ResourceNotFoundError } from './tenant-repository.js';
@@ -274,6 +278,13 @@ export class RasaRepository {
         rawAction: providerResult.action,
         context: prepared.context,
         expectedLevel: prepared.level,
+        expectedContent: buildLocalHintContent({
+          hintLevel: prepared.level,
+          conceptSummary: prepared.conceptSummary,
+          ...(prepared.simulationSummary === undefined
+            ? {}
+            : { simulationSummary: prepared.simulationSummary }),
+        }),
         correctOptionId: correct.id,
         correctOptionLabel: correct.label,
       });

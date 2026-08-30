@@ -10,6 +10,14 @@ const templates = {
   3: (concept: string) => `${concept}의 원인, 변한 것, 유지된 것을 차례로 설명해 보자.`,
 } as const;
 
+export function buildLocalHintContent(input: {
+  hintLevel: 1 | 2 | 3;
+  conceptSummary: string;
+  simulationSummary?: string;
+}): string {
+  return templates[input.hintLevel](input.conceptSummary.trim(), input.simulationSummary?.trim());
+}
+
 export class LocalRasaProvider implements RasaHintProvider {
   constructor(private readonly latency: () => number = () => 0) {}
 
@@ -19,10 +27,7 @@ export class LocalRasaProvider implements RasaHintProvider {
         new RasaProviderError('RASA_PROVIDER_ABORTED', 'Local hint request aborted'),
       );
     const context = rasaContextSchema.parse(input.context);
-    const content = templates[input.hintLevel](
-      input.conceptSummary.trim(),
-      input.simulationSummary?.trim(),
-    );
+    const content = buildLocalHintContent(input);
     const action = showHintActionSchema.parse({
       action: 'SHOW_HINT',
       experienceId: context.learning.experienceId,

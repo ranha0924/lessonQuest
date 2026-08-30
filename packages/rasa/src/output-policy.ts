@@ -37,6 +37,7 @@ export function validateHintOutput(input: {
   rawAction: unknown;
   context: RasaContext;
   expectedLevel: 1 | 2 | 3;
+  expectedContent: string;
   correctOptionId: string;
   correctOptionLabel: string;
 }): ShowHintAction {
@@ -77,6 +78,7 @@ export function validateHintOutput(input: {
     throw new RasaProviderError('RASA_OUTPUT_REJECTED', 'Hint target or level rejected');
   }
   if (
+    action.content !== input.expectedContent ||
     !isAllowedPhaseOneText(action.content) ||
     forbidden.some(
       (pattern) =>

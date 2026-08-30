@@ -117,21 +117,21 @@ All commands were run fresh from `/Users/ranha/Documents/ChatGPT/lessonQuest/.wo
 | Fresh direct-answer probe                                                | FAIL; 19/69 unsafe strings accepted                                                                            |
 | Fresh URL/markup probe                                                   | FAIL; 14/17 unsafe strings accepted                                                                            |
 | Safe local Korean/English hint controls                                  | PASS; 5/5 accepted                                                                                             |
-| Auth/revocation, timeout/replay, SQL guards, claim, privacy probes        | PASS in the fresh full/integration/E2E suites                                                                  |
+| Auth/revocation, timeout/replay, SQL guards, claim, privacy probes       | PASS in the fresh full/integration/E2E suites                                                                  |
 | `git status --short` before report                                       | Clean                                                                                                          |
 
 One initial changed-file scan command failed before scanning because of reviewer shell quoting (`zsh: unmatched "`). It was corrected and rerun successfully; this was not an implementation failure.
 
 ## Final implementation score
 
-| Category                                    |      Score | Evidence                                                                                                                                                                                                                  |
-| ------------------------------------------- | ---------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Requirement and approved-plan conformance   |      21/25 | Most M5/M6 behavior and earlier remediations are delivered, but the answer/output-safety invariant, denied/conflict audits, and parts of the approved integrated matrix remain incomplete.                               |
-| Correctness and code quality                |      17/20 | Authorization, timeout ownership, immutable state machines, trace order, and claim logic are sound; finite phrase and structural blacklists still accept obvious equivalent outputs.                                    |
-| Security, privacy, and tenant isolation     |      13/20 | Tenant/current-role checks fail closed and student boss output is aggregate-only, but direct answers and prohibited links/markup cross the critical learner-output boundary.                                            |
-| Test and verification evidence              |      18/20 | All scripted suites and accumulated regressions pass; tests omit ordinary equivalent answer statements, broader URL/markup classes, and several real-boundary negative/failure cases.                                  |
-| Operability, recoverability, and provenance |      12/15 | Durable lifecycle evidence, local-only provenance, clean builds/audit, and successful trace lineage are positive; denied/conflict audit loss and unexecuted failure-trace evidence reduce diagnostic confidence.        |
-| **Total**                                   | **81/100** | **FAIL**                                                                                                                                                                                                                  |
+| Category                                    |      Score | Evidence                                                                                                                                                                                                         |
+| ------------------------------------------- | ---------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Requirement and approved-plan conformance   |      21/25 | Most M5/M6 behavior and earlier remediations are delivered, but the answer/output-safety invariant, denied/conflict audits, and parts of the approved integrated matrix remain incomplete.                       |
+| Correctness and code quality                |      17/20 | Authorization, timeout ownership, immutable state machines, trace order, and claim logic are sound; finite phrase and structural blacklists still accept obvious equivalent outputs.                             |
+| Security, privacy, and tenant isolation     |      13/20 | Tenant/current-role checks fail closed and student boss output is aggregate-only, but direct answers and prohibited links/markup cross the critical learner-output boundary.                                     |
+| Test and verification evidence              |      18/20 | All scripted suites and accumulated regressions pass; tests omit ordinary equivalent answer statements, broader URL/markup classes, and several real-boundary negative/failure cases.                            |
+| Operability, recoverability, and provenance |      12/15 | Durable lifecycle evidence, local-only provenance, clean builds/audit, and successful trace lineage are positive; denied/conflict audit loss and unexecuted failure-trace evidence reduce diagnostic confidence. |
+| **Total**                                   | **81/100** | **FAIL**                                                                                                                                                                                                         |
 
 ## Gate decision
 
