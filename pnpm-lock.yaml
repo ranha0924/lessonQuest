@@ -105,6 +105,9 @@ importers:
       '@lessonquest/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@lessonquest/gamification':
+        specifier: workspace:*
+        version: link:../gamification
       '@lessonquest/rasa':
         specifier: workspace:*
         version: link:../rasa
