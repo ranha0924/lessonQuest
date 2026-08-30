@@ -29,7 +29,8 @@ export function validateHintOutput(input: {
     /(?:정답|답)은?(?:바로)?/u,
     /(?:correctanswer|theansweris)/iu,
     /(?:[1-9]|첫|두|세|네|다섯)(?:번|번째)(?:선택지|보기)?(?:을|를|가|이)?(?:고르|선택|맞)/u,
-    /choose(?:option|choice)?[a-z0-9]/iu,
+    /(?:choose|select|pick)(?:option|choice)?[a-z0-9]/iu,
+    /[a-z0-9](?:번)?(?:을|를)?(?:선택|고르)/iu,
     /(?:코드|명령).*(?:실행|run)/iu,
   ];
   if (

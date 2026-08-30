@@ -99,25 +99,27 @@ export class LessonQuestApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly retryable = false,
   ) {
     super(message);
     this.name = 'LessonQuestApiError';
   }
 }
 
-function readErrorEnvelope(value: unknown): { code: string; message: string } {
+function readErrorEnvelope(value: unknown): { code: string; message: string; retryable: boolean } {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return { code: 'UNKNOWN_ERROR', message: '요청을 처리하지 못했습니다.' };
+    return { code: 'UNKNOWN_ERROR', message: '요청을 처리하지 못했습니다.', retryable: false };
   }
   const error = (value as Record<string, unknown>)['error'];
   if (typeof error !== 'object' || error === null || Array.isArray(error)) {
-    return { code: 'UNKNOWN_ERROR', message: '요청을 처리하지 못했습니다.' };
+    return { code: 'UNKNOWN_ERROR', message: '요청을 처리하지 못했습니다.', retryable: false };
   }
   const record = error as Record<string, unknown>;
   return {
     code: typeof record['code'] === 'string' ? record['code'] : 'UNKNOWN_ERROR',
     message:
       typeof record['message'] === 'string' ? record['message'] : '요청을 처리하지 못했습니다.',
+    retryable: record['retryable'] === true,
   };
 }
 
@@ -142,7 +144,12 @@ export function createHttpLessonQuestApi(options: {
     const value: unknown = await response.json();
     if (!response.ok) {
       const envelope = readErrorEnvelope(value);
-      throw new LessonQuestApiError(response.status, envelope.code, envelope.message);
+      throw new LessonQuestApiError(
+        response.status,
+        envelope.code,
+        envelope.message,
+        envelope.retryable,
+      );
     }
     return schema.parse(value);
   };

@@ -189,7 +189,7 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
         setStatus(`힌트 ${result.action.level}을 확인해 보세요.`);
       })
       .catch((error: unknown) => {
-        if (error instanceof LessonQuestApiError) hintRequestId.current = null;
+        if (error instanceof LessonQuestApiError && !error.retryable) hintRequestId.current = null;
         setStatus('힌트를 불러오지 못했어요. 다시 시도해 주세요.');
       })
       .finally(() => setHintPending(false));

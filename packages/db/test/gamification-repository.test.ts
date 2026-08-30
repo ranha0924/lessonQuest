@@ -81,6 +81,9 @@ describe('GamificationRepository', () => {
         detail.campaign.campaignId,
       ]),
     ).rejects.toThrow(/definition is immutable/);
+    await expect(
+      database.query('DELETE FROM class_boss_campaigns WHERE id=$1', [detail.campaign.campaignId]),
+    ).rejects.toThrow(/cannot be deleted/);
     await repository.endCampaign(
       teacher,
       org.id,

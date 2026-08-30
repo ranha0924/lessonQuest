@@ -11,7 +11,11 @@ import { TeacherProgress } from '../src/components/teacher-progress.js';
 import { ClassBossCard } from '../src/components/class-boss-card.js';
 import { RasaHintPanel } from '../src/components/rasa-hint-panel.js';
 import { BossCampaignPanel } from '../src/components/boss-campaign-panel.js';
-import type { LessonQuestApi, StudentScienceSpecification } from '../src/api-client.js';
+import {
+  LessonQuestApiError,
+  type LessonQuestApi,
+  type StudentScienceSpecification,
+} from '../src/api-client.js';
 
 const organizationId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c101';
 const classId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c102';
@@ -373,6 +377,49 @@ describe('StudentPlay', () => {
 
     const card = await screen.findByRole('article', { name: '힘과 운동' });
     expect(within(card).getByRole('button', { name: '완료됨' })).toHaveProperty('disabled', true);
+  });
+
+  it('retries a retryable hint failure with the exact request ID', async () => {
+    const api = createApi({
+      assignmentAttemptStatus: 'IN_PROGRESS',
+      attempt: {
+        id: attemptId,
+        assignmentId,
+        status: 'IN_PROGRESS',
+        resumed: true,
+        nextSequence: 2,
+        answers: [{ stepId: 'quiz_force', attempts: 1, correct: false }],
+        rasa: { enabled: true, maxHintLevel: 2, hints: [] },
+      },
+    });
+    const requestRasaHint = vi
+      .fn<LessonQuestApi['requestRasaHint']>()
+      .mockRejectedValueOnce(new LessonQuestApiError(503, 'RASA_PROVIDER_TIMEOUT', 'timeout', true))
+      .mockResolvedValueOnce({
+        requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c199',
+        sessionId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c198',
+        duplicate: true,
+        action: {
+          action: 'SHOW_HINT',
+          experienceId: 'science_force_01',
+          stepId: 'quiz_force',
+          level: 1,
+          content: '개념을 다시 비교해 보세요.',
+        },
+        nextSequence: 4,
+      });
+    api.requestRasaHint = requestRasaHint;
+    render(<StudentPlay api={api} organizationId={organizationId} />);
+    const card = await screen.findByRole('article', { name: '힘과 운동' });
+    fireEvent.click(within(card).getByRole('button', { name: '이어하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '힌트 받기' }));
+    await screen.findByText('힌트를 불러오지 못했어요. 다시 시도해 주세요.');
+    fireEvent.click(screen.getByRole('button', { name: '힌트 받기' }));
+    await screen.findByText(/개념을 다시 비교/);
+    expect(requestRasaHint).toHaveBeenCalledTimes(2);
+    expect(requestRasaHint.mock.calls[0]?.[2].requestId).toBe(
+      requestRasaHint.mock.calls[1]?.[2].requestId,
+    );
   });
 });
 

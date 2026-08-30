@@ -289,6 +289,7 @@ const schemaSql = `
     organization_id UUID NOT NULL,
     learning_event_id UUID NOT NULL,
     campaign_id UUID NOT NULL,
+    trace_id UUID NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED')),
     attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 10),
     last_error_code TEXT CHECK (last_error_code IS NULL OR last_error_code ~ '^[A-Z][A-Z0-9_]*$'),
@@ -458,6 +459,10 @@ const schemaSql = `
   CREATE TRIGGER protect_learning_events
     BEFORE UPDATE OR DELETE ON learning_events
     FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
+  DROP TRIGGER IF EXISTS protect_assignment_rasa_policies ON assignment_rasa_policies;
+  CREATE TRIGGER protect_assignment_rasa_policies
+    BEFORE UPDATE OR DELETE ON assignment_rasa_policies
+    FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
 
   DROP TRIGGER IF EXISTS protect_audit_logs ON audit_logs;
   CREATE TRIGGER protect_audit_logs BEFORE UPDATE OR DELETE ON audit_logs
@@ -495,6 +500,7 @@ const schemaSql = `
   CREATE OR REPLACE FUNCTION enforce_boss_campaign_transition()
   RETURNS TRIGGER AS $$
   BEGIN
+    IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'boss campaign cannot be deleted'; END IF;
     IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR NEW.class_id IS DISTINCT FROM OLD.class_id OR
        NEW.campaign_key IS DISTINCT FROM OLD.campaign_key OR NEW.title IS DISTINCT FROM OLD.title OR
        NEW.target_hp IS DISTINCT FROM OLD.target_hp OR NEW.policy IS DISTINCT FROM OLD.policy OR
@@ -509,7 +515,7 @@ const schemaSql = `
   END;
   $$ LANGUAGE plpgsql;
   DROP TRIGGER IF EXISTS protect_boss_campaign_transition ON class_boss_campaigns;
-  CREATE TRIGGER protect_boss_campaign_transition BEFORE UPDATE ON class_boss_campaigns
+  CREATE TRIGGER protect_boss_campaign_transition BEFORE UPDATE OR DELETE ON class_boss_campaigns
     FOR EACH ROW EXECUTE FUNCTION enforce_boss_campaign_transition();
 
   CREATE OR REPLACE FUNCTION enforce_boss_job_transition()
@@ -517,7 +523,8 @@ const schemaSql = `
   BEGIN
     IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR
        NEW.learning_event_id IS DISTINCT FROM OLD.learning_event_id OR
-       NEW.campaign_id IS DISTINCT FROM OLD.campaign_id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+       NEW.campaign_id IS DISTINCT FROM OLD.campaign_id OR NEW.trace_id IS DISTINCT FROM OLD.trace_id OR
+       NEW.created_at IS DISTINCT FROM OLD.created_at THEN
       RAISE EXCEPTION 'boss projection job source is immutable';
     END IF;
     IF NOT (

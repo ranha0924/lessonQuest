@@ -228,10 +228,11 @@ export class GamificationRepository {
         organization_id: string;
         learning_event_id: string;
         campaign_id: string;
+        trace_id: string;
       }>(
         `UPDATE boss_projection_jobs SET status='PROCESSING',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP
          WHERE id=$1 AND status IN ('PENDING','FAILED') AND attempts<10
-         RETURNING id,organization_id,learning_event_id,campaign_id`,
+         RETURNING id,organization_id,learning_event_id,campaign_id,trace_id`,
         [job.id],
       );
       const claimedJob = claimed.rows[0];
@@ -311,7 +312,13 @@ export class GamificationRepository {
           );
           await tx.query(
             `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROJECTION_PROCESSED','BOSS_JOB',$5,'SUCCEEDED')`,
-            [randomUUID(), randomUUID(), e.actor_id, claimedJob.organization_id, claimedJob.id],
+            [
+              randomUUID(),
+              claimedJob.trace_id,
+              e.actor_id,
+              claimedJob.organization_id,
+              claimedJob.id,
+            ],
           );
         });
         processed++;
@@ -329,7 +336,7 @@ export class GamificationRepository {
           await this.database.query(
             `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROJECTION_PROCESSED','BOSS_JOB',$5,'CONFLICT')`,
             [
-              randomUUID(),
+              claimedJob.trace_id,
               randomUUID(),
               eventActor.rows[0].actor_id,
               claimedJob.organization_id,

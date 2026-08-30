@@ -1288,10 +1288,10 @@ export class LearningRepository {
           if (campaignId !== undefined) {
             await transaction.query(
               `INSERT INTO boss_projection_jobs
-                (id, organization_id, learning_event_id, campaign_id, status)
-               VALUES ($1, $2, $3, $4, 'PENDING')
+                (id, organization_id, learning_event_id, campaign_id, trace_id, status)
+               VALUES ($1, $2, $3, $4, $5, 'PENDING')
                ON CONFLICT (organization_id, learning_event_id) DO NOTHING`,
-              [randomUUID(), event.organizationId, event.eventId, campaignId],
+              [randomUUID(), event.organizationId, event.eventId, campaignId, traceId],
             );
           }
         }

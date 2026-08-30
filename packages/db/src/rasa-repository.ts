@@ -111,6 +111,9 @@ export class RasaRepository {
             }),
           };
         }
+        if (prior.status === 'TIMED_OUT') throw new RasaRequestError('RASA_PROVIDER_TIMEOUT', true);
+        if (prior.status === 'FAILED') throw new RasaRequestError('RASA_PROVIDER_FAILED', true);
+        if (prior.status === 'REJECTED') throw new RasaRequestError('RASA_OUTPUT_REJECTED', false);
         throw new ConflictError();
       }
 

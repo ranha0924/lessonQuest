@@ -90,6 +90,15 @@ describe('M5/M6 real React-to-database boundary', () => {
           'BOSS_PROGRESS_READ',
         ]),
       );
+      const traceLineage = await fixture.database.query<{ count: number }>(
+        `SELECT COUNT(*)::int count
+         FROM boss_projection_jobs j
+         JOIN audit_logs projected ON projected.trace_id=j.trace_id
+           AND projected.action='BOSS_PROJECTION_PROCESSED' AND projected.resource_id=j.id
+         JOIN audit_logs ingested ON ingested.trace_id=j.trace_id
+           AND ingested.action='LEARNING_EVENT_INGESTED'`,
+      );
+      expect(traceLineage.rows[0]?.count).toBe(3);
     } finally {
       await fixture.database.close();
     }

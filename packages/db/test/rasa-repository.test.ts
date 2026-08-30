@@ -181,6 +181,26 @@ describe('RasaRepository', () => {
     );
     expect(timeoutState.rows[0]?.status).toBe('TIMED_OUT');
     await expect(
+      repository.requestHint(
+        student,
+        org.id,
+        lessonClass.id,
+        { ...input, requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27a203' },
+        '018f72a4-cc52-7c5a-a6f9-8b21aa27a406',
+        { provider },
+      ),
+    ).rejects.toThrow('RASA_PROVIDER_TIMEOUT');
+    await expect(
+      database.query('UPDATE assignment_rasa_policies SET enabled=false WHERE assignment_id=$1', [
+        assignment.id,
+      ]),
+    ).rejects.toThrow(/append-only learning record/);
+    await expect(
+      database.query('DELETE FROM assignment_rasa_policies WHERE assignment_id=$1', [
+        assignment.id,
+      ]),
+    ).rejects.toThrow(/append-only learning record/);
+    await expect(
       database.query(
         "UPDATE rasa_requests SET status='RUNNING',finished_at=NULL,error_code=NULL WHERE id='018f72a4-cc52-7c5a-a6f9-8b21aa27a203'",
       ),
