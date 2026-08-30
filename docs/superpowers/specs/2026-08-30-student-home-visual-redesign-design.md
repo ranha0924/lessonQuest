@@ -20,17 +20,17 @@ This slice preserves the existing wrong answer → Rasa hint → correct retry �
 
 ### Color tokens
 
-| Token | Value | Use |
-|---|---:|---|
-| `--lq-void` | `#0b1230` | Navigation rail and high-contrast anchors |
-| `--lq-ink` | `#121b35` | Primary text |
-| `--lq-orbit` | `#315bea` | Primary action and active state |
-| `--lq-ion` | `#20c7df` | Mission trajectory and focus details |
-| `--lq-flare` | `#ff7548` | One warm emphasis per view |
-| `--lq-sun` | `#ffc85a` | Focus ring and progress highlight |
-| `--lq-mist` | `#f4f7ff` | Page background |
-| `--lq-surface` | `#ffffff` | Cards and controls |
-| `--lq-muted` | `#64708c` | Secondary copy with accessible contrast |
+| Token          |     Value | Use                                       |
+| -------------- | --------: | ----------------------------------------- |
+| `--lq-void`    | `#0b1230` | Navigation rail and high-contrast anchors |
+| `--lq-ink`     | `#121b35` | Primary text                              |
+| `--lq-orbit`   | `#315bea` | Primary action and active state           |
+| `--lq-ion`     | `#20c7df` | Mission trajectory and focus details      |
+| `--lq-flare`   | `#ff7548` | One warm emphasis per view                |
+| `--lq-sun`     | `#ffc85a` | Focus ring and progress highlight         |
+| `--lq-mist`    | `#f4f7ff` | Page background                           |
+| `--lq-surface` | `#ffffff` | Cards and controls                        |
+| `--lq-muted`   | `#64708c` | Secondary copy with accessible contrast   |
 
 No new font dependency or remote asset is introduced. Headings use the existing Korean-capable rounded system stack with restrained weight; body and controls use Pretendard/Apple SD Gothic Neo/system fallbacks. Numeric progress uses tabular figures.
 

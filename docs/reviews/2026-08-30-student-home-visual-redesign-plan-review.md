@@ -61,13 +61,13 @@ Implementation is authorized because the score is strictly greater than 85 and n
 
 ## Final score
 
-| Category | Score |
-| --- | ---: |
-| Requirements and scope coverage | 25/25 |
-| Architecture and interface quality | 20/20 |
-| Security, privacy, and tenant safety | 20/20 |
-| Test and verification quality | 18/20 |
-| Execution readiness and recoverability | 14/15 |
-| **Total** | **97/100** |
+| Category                               |      Score |
+| -------------------------------------- | ---------: |
+| Requirements and scope coverage        |      25/25 |
+| Architecture and interface quality     |      20/20 |
+| Security, privacy, and tenant safety   |      20/20 |
+| Test and verification quality          |      18/20 |
+| Execution readiness and recoverability |      14/15 |
+| **Total**                              | **97/100** |
 
 **Gate result:** PASS. Production-code implementation may begin using the approved TDD sequence. Independent final validation remains mandatory before the work can be called complete.

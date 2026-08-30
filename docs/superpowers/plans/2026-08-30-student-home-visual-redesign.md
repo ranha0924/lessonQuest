@@ -24,9 +24,11 @@
 ### Task 1: Lock student-home semantics and preserved behavior with RED tests
 
 **Files:**
+
 - Modify: `apps/web/test/demo-shell.test.tsx`
 
 **Interfaces:**
+
 - Consumes: existing `DemoShell` export and Testing Library queries.
 - Produces: behavioral acceptance tests for navigation, resume, Rasa/retry/boss progression, prohibited comparison copy, and teacher switching.
 
@@ -85,11 +87,13 @@ git commit -m "test: define redesigned student demo behavior"
 ### Task 2: Build the semantic student-home component and restore GREEN
 
 **Files:**
+
 - Create: `apps/web/src/demo-student-home.tsx`
 - Modify: `apps/web/src/demo-shell.tsx`
 - Test: `apps/web/test/demo-shell.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `RasaHintPanel`, `ClassBossCard`.
 - Produces: `export function DemoStudentHome(): React.JSX.Element`.
 
@@ -144,12 +148,14 @@ git commit -m "feat: add semantic student demo home"
 ### Task 3: Apply the scoped Cosmic/Neo visual system
 
 **Files:**
+
 - Create: `apps/web/src/demo-shell.css`
 - Modify: `apps/web/src/demo-shell.tsx`
 - Modify: `apps/web/src/main.tsx`
 - Modify: `apps/web/src/styles.css`
 
 **Interfaces:**
+
 - Consumes: semantic class names from `DemoShell` and `DemoStudentHome`.
 - Produces: demo-only token and responsive styles below `.demo-shell`.
 
@@ -200,10 +206,12 @@ git commit -m "feat: apply Cosmic Neo student demo design"
 ### Task 4: Verify responsive behavior, document the preview, and prepare independent review
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `memory/projects/lessonquest.md`
 
 **Interfaces:**
+
 - Consumes: final demo build and approved plan.
 - Produces: reproducible preview instructions and final-review evidence.
 
