@@ -148,6 +148,103 @@ const schemaSql = `
       REFERENCES class_members(organization_id, class_id, user_id)
   );
 
+  CREATE TABLE IF NOT EXISTS assignment_rasa_policies (
+    organization_id UUID NOT NULL,
+    assignment_id UUID NOT NULL,
+    enabled BOOLEAN NOT NULL,
+    max_hint_level INTEGER NOT NULL CHECK (max_hint_level BETWEEN 1 AND 3),
+    policy_version INTEGER NOT NULL DEFAULT 1 CHECK (policy_version > 0),
+    created_by UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (organization_id, assignment_id),
+    FOREIGN KEY (organization_id, assignment_id) REFERENCES assignments(organization_id, id),
+    FOREIGN KEY (organization_id, created_by) REFERENCES organization_members(organization_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS rasa_sessions (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    assignment_id UUID NOT NULL,
+    attempt_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    policy_version INTEGER NOT NULL CHECK (policy_version > 0),
+    status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'CLOSED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (organization_id, id),
+    UNIQUE (organization_id, attempt_id),
+    FOREIGN KEY (organization_id, assignment_id) REFERENCES assignments(organization_id, id),
+    FOREIGN KEY (organization_id, attempt_id) REFERENCES attempts(organization_id, id),
+    FOREIGN KEY (organization_id, student_id) REFERENCES organization_members(organization_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS rasa_requests (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    session_id UUID NOT NULL,
+    step_id TEXT NOT NULL CHECK (char_length(step_id) BETWEEN 1 AND 120),
+    hint_level INTEGER NOT NULL CHECK (hint_level BETWEEN 1 AND 3),
+    context_hash TEXT NOT NULL CHECK (context_hash ~ '^sha256:[0-9a-f]{64}$'),
+    status TEXT NOT NULL CHECK (status IN ('QUEUED', 'RUNNING', 'SUCCEEDED', 'REJECTED', 'FAILED', 'TIMED_OUT')),
+    provider TEXT,
+    model TEXT,
+    trace_id UUID NOT NULL,
+    error_code TEXT CHECK (error_code IS NULL OR error_code ~ '^[A-Z][A-Z0-9_]*$'),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMPTZ,
+    UNIQUE (organization_id, id),
+    FOREIGN KEY (organization_id, session_id) REFERENCES rasa_sessions(organization_id, id)
+  );
+
+  CREATE TABLE IF NOT EXISTS rasa_actions (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    request_id UUID NOT NULL,
+    action JSONB NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('ACCEPTED', 'REJECTED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (organization_id, id),
+    UNIQUE (organization_id, request_id),
+    FOREIGN KEY (organization_id, request_id) REFERENCES rasa_requests(organization_id, id)
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_usage (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    rasa_request_id UUID NOT NULL,
+    provider TEXT NOT NULL CHECK (char_length(provider) BETWEEN 1 AND 80),
+    model TEXT NOT NULL CHECK (char_length(model) BETWEEN 1 AND 120),
+    input_tokens INTEGER NOT NULL CHECK (input_tokens BETWEEN 0 AND 1000000),
+    output_tokens INTEGER NOT NULL CHECK (output_tokens BETWEEN 0 AND 1000000),
+    cost_micros BIGINT NOT NULL CHECK (cost_micros BETWEEN 0 AND 1000000000),
+    latency_ms INTEGER NOT NULL CHECK (latency_ms BETWEEN 0 AND 120000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (organization_id, rasa_request_id),
+    FOREIGN KEY (organization_id, rasa_request_id) REFERENCES rasa_requests(organization_id, id)
+  );
+
+  CREATE TABLE IF NOT EXISTS class_boss_campaigns (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    class_id UUID NOT NULL,
+    campaign_key TEXT NOT NULL CHECK (char_length(campaign_key) BETWEEN 1 AND 240 AND campaign_key = lower(campaign_key)),
+    title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 120),
+    target_hp INTEGER NOT NULL CHECK (target_hp BETWEEN 60 AND 60000),
+    policy JSONB NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'ENDED')),
+    created_by UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMPTZ,
+    end_request_id UUID,
+    UNIQUE (organization_id, id),
+    UNIQUE (organization_id, campaign_key),
+    FOREIGN KEY (organization_id, class_id) REFERENCES classes(organization_id, id),
+    FOREIGN KEY (organization_id, created_by) REFERENCES organization_members(organization_id, user_id),
+    CHECK ((status = 'ACTIVE' AND ended_at IS NULL AND end_request_id IS NULL) OR (status = 'ENDED' AND ended_at IS NOT NULL AND end_request_id IS NOT NULL))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS one_active_boss_campaign_per_class
+    ON class_boss_campaigns(organization_id, class_id) WHERE status = 'ACTIVE';
+
   CREATE TABLE IF NOT EXISTS learning_events (
     id UUID PRIMARY KEY,
     organization_id UUID NOT NULL,
@@ -180,10 +277,41 @@ const schemaSql = `
     last_sequence INTEGER,
     last_step_id TEXT,
     projection_version INTEGER NOT NULL CHECK (projection_version >= 0),
+    hints_used INTEGER NOT NULL DEFAULT 0 CHECK (hints_used >= 0),
     updated_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (organization_id, assignment_id, student_id),
     FOREIGN KEY (organization_id, assignment_id)
       REFERENCES assignments(organization_id, id)
+  );
+
+  CREATE TABLE IF NOT EXISTS boss_projection_jobs (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    learning_event_id UUID NOT NULL,
+    campaign_id UUID NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED')),
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 10),
+    last_error_code TEXT CHECK (last_error_code IS NULL OR last_error_code ~ '^[A-Z][A-Z0-9_]*$'),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (organization_id, learning_event_id),
+    FOREIGN KEY (organization_id, learning_event_id) REFERENCES learning_events(organization_id, id),
+    FOREIGN KEY (organization_id, campaign_id) REFERENCES class_boss_campaigns(organization_id, id)
+  );
+
+  CREATE TABLE IF NOT EXISTS boss_contributions (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    campaign_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    source_event_id UUID NOT NULL,
+    amount INTEGER NOT NULL CHECK (amount BETWEEN 1 AND 10000),
+    reason TEXT NOT NULL CHECK (reason IN ('answer_correct', 'answer_retried', 'experience_completed')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (organization_id, source_event_id),
+    FOREIGN KEY (organization_id, campaign_id) REFERENCES class_boss_campaigns(organization_id, id),
+    FOREIGN KEY (organization_id, source_event_id) REFERENCES learning_events(organization_id, id),
+    FOREIGN KEY (organization_id, student_id) REFERENCES organization_members(organization_id, user_id)
   );
 
   CREATE TABLE IF NOT EXISTS audit_logs (
@@ -208,13 +336,16 @@ const schemaSql = `
         'ATTEMPT_STARTED',
         'LEARNING_EVENT_INGESTED',
         'PROGRESS_READ'
+        ,'RASA_HINT_REQUESTED','RASA_HINT_DELIVERED','RASA_HINT_REJECTED'
+        ,'BOSS_CAMPAIGN_CREATED','BOSS_CAMPAIGN_ENDED','BOSS_PROJECTION_PROCESSED'
+        ,'BOSS_PROGRESS_READ','BOSS_DETAIL_READ'
       )
     ),
     resource_type TEXT NOT NULL CHECK (
-      resource_type IN ('ORGANIZATION', 'CLASS', 'EXPERIENCE', 'VERSION', 'ASSIGNMENT', 'ATTEMPT')
+      resource_type IN ('ORGANIZATION', 'CLASS', 'EXPERIENCE', 'VERSION', 'ASSIGNMENT', 'ATTEMPT', 'RASA_REQUEST', 'BOSS_CAMPAIGN', 'BOSS_JOB')
     ),
     resource_id UUID,
-    outcome TEXT NOT NULL CHECK (outcome IN ('SUCCEEDED', 'DENIED', 'CONFLICT'))
+    outcome TEXT NOT NULL CHECK (outcome IN ('SUCCEEDED', 'DUPLICATE', 'DENIED', 'CONFLICT'))
   );
 
   CREATE INDEX IF NOT EXISTS classes_organization_idx
@@ -326,6 +457,19 @@ const schemaSql = `
   DROP TRIGGER IF EXISTS protect_learning_events ON learning_events;
   CREATE TRIGGER protect_learning_events
     BEFORE UPDATE OR DELETE ON learning_events
+    FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
+
+  DROP TRIGGER IF EXISTS protect_audit_logs ON audit_logs;
+  CREATE TRIGGER protect_audit_logs BEFORE UPDATE OR DELETE ON audit_logs
+    FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
+  DROP TRIGGER IF EXISTS protect_rasa_actions ON rasa_actions;
+  CREATE TRIGGER protect_rasa_actions BEFORE UPDATE OR DELETE ON rasa_actions
+    FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
+  DROP TRIGGER IF EXISTS protect_ai_usage ON ai_usage;
+  CREATE TRIGGER protect_ai_usage BEFORE UPDATE OR DELETE ON ai_usage
+    FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
+  DROP TRIGGER IF EXISTS protect_boss_contributions ON boss_contributions;
+  CREATE TRIGGER protect_boss_contributions BEFORE UPDATE OR DELETE ON boss_contributions
     FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
 `;
 

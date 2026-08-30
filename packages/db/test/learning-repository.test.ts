@@ -385,6 +385,7 @@ describe('LearningRepository M3 and M4 lifecycle', () => {
       accepted: true,
       duplicate: false,
       answer: null,
+      nextSequence: 1,
     });
     await expect(
       learning.startOrResumeAttempt(student, organizationId, assignment.id),
@@ -486,6 +487,7 @@ describe('LearningRepository M3 and M4 lifecycle', () => {
       accepted: true,
       duplicate: false,
       answer: null,
+      nextSequence: 1,
     });
     await expect(
       learning.ingestLearningEvent(student, { ...events[1], sequence: 2 }),
@@ -513,6 +515,7 @@ describe('LearningRepository M3 and M4 lifecycle', () => {
       accepted: true,
       duplicate: false,
       answer: { stepId: 'quiz_force', attempt: 1, correct: false },
+      nextSequence: 2,
     });
     await expect(
       learning.ingestLearningEvent(student, {
@@ -536,17 +539,20 @@ describe('LearningRepository M3 and M4 lifecycle', () => {
         accepted: true,
         duplicate: false,
         answer: { stepId: 'quiz_force', attempt: event.payload.attempt, correct },
+        nextSequence: event.sequence + 1,
       });
     }
     await expect(learning.ingestLearningEvent(student, events[4])).resolves.toEqual({
       accepted: true,
       duplicate: false,
       answer: null,
+      nextSequence: 5,
     });
     await expect(learning.ingestLearningEvent(student, events[1])).resolves.toEqual({
       accepted: false,
       duplicate: true,
       answer: { stepId: 'quiz_force', attempt: 1, correct: false },
+      nextSequence: 5,
     });
     await expect(learning.ingestLearningEvent(otherStudent, events[1])).rejects.toBeInstanceOf(
       ResourceNotFoundError,
@@ -581,6 +587,7 @@ describe('LearningRepository M3 and M4 lifecycle', () => {
         lastSequence: 4,
         lastStepId: 'complete',
         projectionVersion: 5,
+        hintsUsed: 0,
         updatedAt: '2026-08-29T12:00:00.000Z',
       },
     ]);
@@ -768,7 +775,7 @@ describe('LearningRepository M3 and M4 lifecycle', () => {
       {
         trace_id: traceIds.duplicate,
         action: 'LEARNING_EVENT_INGESTED',
-        outcome: 'CONFLICT',
+        outcome: 'DUPLICATE',
       },
       { trace_id: traceIds.conflict, action: 'LEARNING_EVENT_INGESTED', outcome: 'CONFLICT' },
       { trace_id: traceIds.progress, action: 'PROGRESS_READ', outcome: 'SUCCEEDED' },

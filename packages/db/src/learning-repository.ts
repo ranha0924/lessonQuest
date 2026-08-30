@@ -87,7 +87,7 @@ type LearningAuditAction =
   | 'LEARNING_EVENT_INGESTED'
   | 'PROGRESS_READ';
 type LearningAuditResourceType = 'EXPERIENCE' | 'VERSION' | 'ASSIGNMENT' | 'ATTEMPT';
-type LearningAuditOutcome = 'SUCCEEDED' | 'DENIED' | 'CONFLICT';
+type LearningAuditOutcome = 'SUCCEEDED' | 'DUPLICATE' | 'DENIED' | 'CONFLICT';
 
 export class InvalidStateError extends Error {
   constructor() {
@@ -154,6 +154,11 @@ export interface AttemptSession {
   readonly resumed: boolean;
   readonly nextSequence: number;
   readonly answers: readonly AttemptAnswerState[];
+  readonly rasa: {
+    readonly enabled: boolean;
+    readonly maxHintLevel: 1 | 2 | 3;
+    readonly hints: readonly { stepId: string; level: 1 | 2 | 3; content: string }[];
+  };
 }
 
 export interface AttemptAnswerState {
@@ -275,7 +280,7 @@ function mapAssignment(row: AssignmentRow): Assignment {
 async function readAttemptResumeState(
   queryable: Queryable,
   attemptId: string,
-): Promise<{ nextSequence: number; answers: AttemptAnswerState[] }> {
+): Promise<{ nextSequence: number; answers: AttemptAnswerState[]; rasa: AttemptSession['rasa'] }> {
   const result = await queryable.query<StoredEventRow>(
     `SELECT type, step_id, sequence, payload
      FROM learning_events
@@ -298,7 +303,34 @@ async function readAttemptResumeState(
       correct: payload['correct'],
     });
   }
-  return { nextSequence: result.rows.length, answers: [...answers.values()] };
+  const rasaPolicy = await queryable.query<{ enabled: boolean; max_hint_level: 1 | 2 | 3 }>(
+    `SELECT p.enabled, p.max_hint_level
+     FROM attempts at
+     LEFT JOIN assignment_rasa_policies p
+       ON p.organization_id = at.organization_id AND p.assignment_id = at.assignment_id
+     WHERE at.id = $1`,
+    [attemptId],
+  );
+  const policy = rasaPolicy.rows[0];
+  const hints = await queryable.query<{ action: unknown }>(
+    `SELECT ra.action FROM rasa_sessions rs
+     JOIN rasa_requests rr ON rr.organization_id = rs.organization_id AND rr.session_id = rs.id AND rr.status = 'SUCCEEDED'
+     JOIN rasa_actions ra ON ra.organization_id = rr.organization_id AND ra.request_id = rr.id AND ra.status = 'ACCEPTED'
+     WHERE rs.attempt_id = $1 ORDER BY ra.created_at, ra.id`,
+    [attemptId],
+  );
+  return {
+    nextSequence: result.rows.length,
+    answers: [...answers.values()],
+    rasa: {
+      enabled: policy?.enabled ?? false,
+      maxHintLevel: policy?.max_hint_level ?? 1,
+      hints: hints.rows.map(({ action }) => {
+        const parsed = parseJson<{ stepId: string; level: 1 | 2 | 3; content: string }>(action);
+        return { stepId: parsed.stepId, level: parsed.level, content: parsed.content };
+      }),
+    },
+  };
 }
 
 export class LearningRepository {
@@ -767,6 +799,13 @@ export class LearningRepository {
         if (row === undefined) {
           throw new Error('Assignment insert returned no row');
         }
+        const rasaPolicy = input.rasaPolicy ?? { enabled: false, maxHintLevel: 1 as const };
+        await transaction.query(
+          `INSERT INTO assignment_rasa_policies
+            (organization_id, assignment_id, enabled, max_hint_level, created_by)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [organizationId, assignmentId, rasaPolicy.enabled, rasaPolicy.maxHintLevel, actor.userId],
+        );
         return { value: mapAssignment(row), resourceId: assignmentId };
       },
     );
@@ -901,14 +940,14 @@ export class LearningRepository {
          VALUES ($1, $2, $3, $4, $5, 'READY')`,
           [attemptId, organizationId, assignmentId, assignmentRow.class_id, actor.userId],
         );
+        const initialState = await readAttemptResumeState(transaction, attemptId);
         return {
           value: {
             id: attemptId,
             assignmentId,
             status: 'READY' as const,
             resumed: false,
-            nextSequence: 0,
-            answers: [],
+            ...initialState,
           },
           resourceId: attemptId,
         };
@@ -1012,8 +1051,9 @@ export class LearningRepository {
           version: number;
           artifact: unknown;
           content_hash: string;
+          class_id: string;
         }>(
-          `SELECT a.id AS assignment_id, at.status AS attempt_status,
+          `SELECT a.id AS assignment_id, at.status AS attempt_status, at.class_id,
                 e.public_id, v.version, v.artifact, v.content_hash
          FROM attempts at
          JOIN assignments a
@@ -1046,7 +1086,8 @@ export class LearningRepository {
           AND v.id = a.experience_version_id
           AND v.status = 'PUBLISHED'
          JOIN experiences e ON e.organization_id = v.organization_id AND e.id = v.experience_id
-         WHERE at.organization_id = $1 AND at.id = $2 AND at.student_id = $3`,
+         WHERE at.organization_id = $1 AND at.id = $2 AND at.student_id = $3
+         FOR UPDATE`,
           [event.organizationId, event.attemptId, actor.userId, receivedAt],
         );
         const eventContext = context.rows[0];
@@ -1092,10 +1133,14 @@ export class LearningRepository {
             priorClientEvent = clientLearningEventSchema.parse(priorServerEvent);
           }
           if (JSON.stringify(priorClientEvent) === JSON.stringify(event)) {
+            const next = await transaction.query<{ next_sequence: number }>(
+              'SELECT COALESCE(MAX(sequence) + 1, 0)::int AS next_sequence FROM learning_events WHERE attempt_id = $1',
+              [event.attemptId],
+            );
             return {
-              value: { accepted: false, duplicate: true, answer: priorAnswer },
+              value: { accepted: false, duplicate: true, answer: priorAnswer, nextSequence: next.rows[0]?.next_sequence ?? 0 },
               resourceId: event.attemptId,
-              outcome: 'CONFLICT',
+              outcome: 'DUPLICATE',
             };
           }
           throw new ConflictError();
@@ -1227,6 +1272,24 @@ export class LearningRepository {
             exactJson,
           ],
         );
+        if (['QUESTION_ANSWERED', 'ANSWER_RETRIED', 'EXPERIENCE_COMPLETED'].includes(event.type)) {
+          const campaign = await transaction.query<{ id: string }>(
+            `SELECT id FROM class_boss_campaigns
+             WHERE organization_id = $1 AND class_id = $2 AND status = 'ACTIVE'
+             FOR UPDATE`,
+            [event.organizationId, eventContext.class_id],
+          );
+          const campaignId = campaign.rows[0]?.id;
+          if (campaignId !== undefined) {
+            await transaction.query(
+              `INSERT INTO boss_projection_jobs
+                (id, organization_id, learning_event_id, campaign_id, status)
+               VALUES ($1, $2, $3, $4, 'PENDING')
+               ON CONFLICT (organization_id, learning_event_id) DO NOTHING`,
+              [randomUUID(), event.organizationId, event.eventId, campaignId],
+            );
+          }
+        }
         if (event.type === 'EXPERIENCE_STARTED') {
           await transaction.query(
             "UPDATE attempts SET status = 'IN_PROGRESS', started_at = $1 WHERE id = $2",
@@ -1246,7 +1309,7 @@ export class LearningRepository {
           event.attemptId,
         );
         return {
-          value: { accepted: true, duplicate: false, answer },
+          value: { accepted: true, duplicate: false, answer, nextSequence: event.sequence + 1 },
           resourceId: event.attemptId,
         };
       },
@@ -1277,11 +1340,12 @@ export class LearningRepository {
     const retries = events.filter(({ type }) => type === 'ANSWER_RETRIED').length;
     const started = events.some(({ type }) => type === 'EXPERIENCE_STARTED');
     const completed = events.some(({ type }) => type === 'EXPERIENCE_COMPLETED');
+    const hintsUsed = events.filter(({ type }) => type === 'HINT_USED').length;
     await transaction.query(
       `INSERT INTO student_progress
         (organization_id, assignment_id, student_id, started, wrong_answers, retries,
-         completed, last_sequence, last_step_id, projection_version, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         completed, last_sequence, last_step_id, projection_version, hints_used, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (organization_id, assignment_id, student_id)
        DO UPDATE SET
          started = EXCLUDED.started,
@@ -1291,6 +1355,7 @@ export class LearningRepository {
          last_sequence = EXCLUDED.last_sequence,
          last_step_id = EXCLUDED.last_step_id,
          projection_version = EXCLUDED.projection_version,
+         hints_used = EXCLUDED.hints_used,
          updated_at = EXCLUDED.updated_at`,
       [
         organizationId,
@@ -1303,6 +1368,7 @@ export class LearningRepository {
         last?.sequence ?? null,
         last?.step_id ?? null,
         events.length,
+        hintsUsed,
         this.now().toISOString(),
       ],
     );
@@ -1359,10 +1425,11 @@ export class LearningRepository {
           last_sequence: number | null;
           last_step_id: string | null;
           projection_version: number;
+          hints_used: number;
           updated_at: string | Date;
         }>(
           `SELECT assignment_id, student_id, started, wrong_answers, retries, completed,
-              last_sequence, last_step_id, projection_version, updated_at
+              last_sequence, last_step_id, projection_version, hints_used, updated_at
        FROM student_progress
        WHERE organization_id = $1 AND assignment_id = $2
        ORDER BY student_id`,
@@ -1379,6 +1446,7 @@ export class LearningRepository {
             lastSequence: row.last_sequence,
             lastStepId: row.last_step_id,
             projectionVersion: row.projection_version,
+            hintsUsed: row.hints_used,
             updatedAt: toIso(row.updated_at),
           })),
           resourceId: assignmentId,
