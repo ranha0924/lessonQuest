@@ -1,13 +1,9 @@
 import { useState } from 'react';
 
-import { ClassBossCard } from './components/class-boss-card.js';
-import { RasaHintPanel } from './components/rasa-hint-panel.js';
+import { DemoStudentHome } from './demo-student-home.js';
 
 export function DemoShell() {
   const [role, setRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
-  const [wrong, setWrong] = useState(false);
-  const [hintVisible, setHintVisible] = useState(false);
-  const [completed, setCompleted] = useState(false);
 
   return (
     <main className="demo-shell">
@@ -32,58 +28,7 @@ export function DemoShell() {
       </aside>
 
       {role === 'STUDENT' ? (
-        <section className="student-shell" aria-labelledby="demo-student-title">
-          <header className="mission-header">
-            <p className="eyebrow">LESSONQUEST PLAY · DEMO</p>
-            <h1 id="demo-student-title">힘과 운동 탐험</h1>
-            <p>틀려도 괜찮아요. 힌트를 보고 다시 도전해 보세요.</p>
-          </header>
-          <article className="play-block">
-            <h2>같은 힘을 받을 때 가속도가 더 큰 물체는?</h2>
-            <div className="choice-grid">
-              <button
-                type="button"
-                onClick={() => {
-                  setWrong(false);
-                  setCompleted(true);
-                }}
-              >
-                질량 2 kg 선택
-              </button>
-              <button type="button" onClick={() => setWrong(true)}>
-                질량 6 kg 선택
-              </button>
-            </div>
-            {wrong ? <p className="retry">다른 답을 골라 다시 도전해 보세요.</p> : null}
-            <RasaHintPanel
-              hints={
-                hintVisible
-                  ? [
-                      {
-                        stepId: 'quiz_force',
-                        level: 1,
-                        content: '문제에서 무엇이 계속 유지되는지 먼저 찾아보자.',
-                      },
-                    ]
-                  : []
-              }
-              available={wrong}
-              pending={false}
-              exhausted={hintVisible}
-              onRequest={() => setHintVisible(true)}
-            />
-            {completed ? <p className="pass-stamp">재도전 성공 · 탐험 완료</p> : null}
-          </article>
-          <ClassBossCard
-            progress={{
-              campaignId: '018f72a4-cc52-7c5a-a6f9-8b21aa27de01',
-              title: '우리 반 관성 보스',
-              targetHp: 100,
-              damage: completed ? 40 : 32,
-              completed: false,
-            }}
-          />
-        </section>
+        <DemoStudentHome />
       ) : (
         <section className="workbench" aria-labelledby="demo-teacher-title">
           <header className="mission-header">
