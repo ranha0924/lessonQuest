@@ -9,7 +9,11 @@ import { RasaProviderError } from './provider.js';
 
 const normalize = (value: string) =>
   value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, '');
-const normalizeSemantic = (value: string) => normalize(value).replace(/[\p{P}\p{S}]+/gu, '');
+const normalizeSemantic = (value: string) =>
+  value
+    .normalize('NFKC')
+    .toLocaleLowerCase('ko-KR')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
 export function validateHintOutput(input: {
   rawAction: unknown;
@@ -38,6 +42,12 @@ export function validateHintOutput(input: {
     /correct(?:option|choice)(?:is)?[a-z0-9]/iu,
     /적절한것은[a-z0-9](?:입니다)?/u,
     /mark[a-z0-9]asyouranswer/iu,
+    /(?:choose|select|pick)(?:option|choice)/iu,
+    /(?:option|choice).*correct/iu,
+    /correct(?:option|choice)/iu,
+    /mark.*answer/iu,
+    /(?:번|번째).*(?:고르|선택|맞)/u,
+    /(?:가|이)?맞(?:아요|습니다)/u,
     /(?:코드|명령).*(?:실행|run)/iu,
   ];
   if (

@@ -1,0 +1,3 @@
+# Phase 1 M5/M6 Final-Gate Remediation Plan 5
+
+Attempt 5 isolated Unicode format/mark and letter-shaped symbol evasion. Add all six reproduced strings as RED fixtures. Canonical semantic text will retain only Unicode letters and numbers after NFKC/lowercasing, thereby removing whitespace, punctuation, symbols, combining marks, and format controls. Direct-answer markers will reject choice/correct, choose/select/pick, mark/answer, and Korean choice/correct constructions even when the choice glyph disappears during normalization. Preserve raw-normalized URL/HTML detection and safe conceptual controls. Run all verification and require a sixth fresh independent adversarial review above 85 with no blocker. Scope remains local, synthetic, reversible, and external-service free.
