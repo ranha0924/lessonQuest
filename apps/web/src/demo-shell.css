@@ -218,7 +218,7 @@
 
 .demo-shell .demo-student-header .eyebrow {
   margin-bottom: 0.2rem;
-  color: var(--lq-orbit);
+  color: var(--lq-ion);
   font-size: 0.66rem;
 }
 
@@ -291,7 +291,7 @@
 
 .demo-shell .demo-section-label {
   margin: 0 0 0.7rem;
-  color: var(--lq-orbit);
+  color: var(--lq-ion);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.15em;
