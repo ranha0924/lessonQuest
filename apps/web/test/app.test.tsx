@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { scienceBlockSpecSchema } from '@lessonquest/contracts';
 
@@ -10,6 +10,7 @@ import { StudentPlay } from '../src/components/student-play.js';
 import { TeacherProgress } from '../src/components/teacher-progress.js';
 import { ClassBossCard } from '../src/components/class-boss-card.js';
 import { RasaHintPanel } from '../src/components/rasa-hint-panel.js';
+import { BossCampaignPanel } from '../src/components/boss-campaign-panel.js';
 import type { LessonQuestApi, StudentScienceSpecification } from '../src/api-client.js';
 
 const organizationId = '018f72a4-cc52-7c5a-a6f9-8b21aa27c101';
@@ -232,6 +233,39 @@ function createApi(
     },
   };
 }
+
+describe('BossCampaignPanel', () => {
+  it('loads and ends an active campaign, then offers a special replacement', async () => {
+    const api = createApi();
+    const detail = {
+      campaign: {
+        campaignId: '018f72a4-cc52-7c5a-a6f9-8b21aa27c190',
+        title: '관성 보스',
+        targetHp: 600,
+        damage: 12,
+        completed: false,
+        status: 'ACTIVE' as const,
+        policy: {
+          amounts: { ANSWER_CORRECT: 2, ANSWER_RETRIED: 3, EXPERIENCE_COMPLETED: 5 },
+        },
+      },
+      contributions: [],
+      projectionHealth: { pending: 0, failed: 0 },
+    };
+    api.getTeacherBossDetail = vi.fn().mockResolvedValue(detail);
+    const endBossCampaign = vi
+      .fn<LessonQuestApi['endBossCampaign']>()
+      .mockResolvedValue({ ...detail, campaign: { ...detail.campaign, status: 'ENDED' } });
+    api.endBossCampaign = endBossCampaign;
+    render(<BossCampaignPanel api={api} organizationId={organizationId} classId={classId} />);
+    expect(await screen.findByText('12 / 600')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '보스 종료' }));
+    expect(await screen.findByRole('button', { name: '보스 시작' })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('캠페인 유형'), { target: { value: 'SPECIAL' } });
+    expect(screen.getByLabelText('특별 캠페인 버전')).toBeTruthy();
+    expect(endBossCampaign).toHaveBeenCalledOnce();
+  });
+});
 
 describe('StudioWorkbench', () => {
   it('moves a teacher through generated, validated, previewed, approved, and assigned states', async () => {

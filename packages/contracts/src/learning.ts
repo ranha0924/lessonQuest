@@ -208,7 +208,11 @@ const bossProgressShape = {
 export const studentBossProgressSchema = z.strictObject(bossProgressShape).nullable();
 
 export const teacherBossDetailSchema = z.strictObject({
-  campaign: z.strictObject({ ...bossProgressShape, policy: bossCampaignPolicySchema }),
+  campaign: z.strictObject({
+    ...bossProgressShape,
+    status: z.enum(['ACTIVE', 'ENDED']),
+    policy: bossCampaignPolicySchema,
+  }),
   contributions: z
     .array(
       z.strictObject({

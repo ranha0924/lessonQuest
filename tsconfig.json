@@ -4,6 +4,6 @@
     "noEmit": true,
     "types": ["node", "vitest/globals", "emscripten"]
   },
-  "include": ["vitest.config.ts", "packages/**/*.ts", "services/**/*.ts"],
+  "include": ["vitest.config.ts", "packages/**/*.ts", "services/**/*.ts", "tests/**/*.ts"],
   "exclude": ["**/.worktrees/**", "**/coverage/**", "**/dist/**", "**/node_modules/**"]
 }

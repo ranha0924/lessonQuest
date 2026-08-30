@@ -123,6 +123,68 @@ describe('RasaRepository', () => {
     });
     expect(duplicate).toEqual({ ...first, duplicate: true });
     expect(spy).toHaveBeenCalledTimes(1);
+    await expect(
+      repository.requestHint(
+        { ...student, userId: '018f72a4-cc52-7c5a-a6f9-8b21aa27a999' },
+        org.id,
+        lessonClass.id,
+        input,
+        '018f72a4-cc52-7c5a-a6f9-8b21aa27a403',
+        { provider },
+      ),
+    ).rejects.toThrow();
+
+    const revokingProvider = {
+      generateHint: async (...args: Parameters<LocalRasaProvider['generateHint']>) => {
+        const result = await provider.generateHint(...args);
+        await database.query(
+          "UPDATE class_members SET status='REMOVED' WHERE organization_id=$1 AND class_id=$2 AND user_id=$3",
+          [org.id, lessonClass.id, student.userId],
+        );
+        return result;
+      },
+    };
+    await expect(
+      repository.requestHint(
+        student,
+        org.id,
+        lessonClass.id,
+        { ...input, requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27a202' },
+        '018f72a4-cc52-7c5a-a6f9-8b21aa27a404',
+        { provider: revokingProvider },
+      ),
+    ).rejects.toThrow();
+    await database.query(
+      "UPDATE class_members SET status='ACTIVE' WHERE organization_id=$1 AND class_id=$2 AND user_id=$3",
+      [org.id, lessonClass.id, student.userId],
+    );
+    await expect(
+      repository.requestHint(
+        student,
+        org.id,
+        lessonClass.id,
+        { ...input, requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27a203' },
+        '018f72a4-cc52-7c5a-a6f9-8b21aa27a405',
+        {
+          timeoutMs: 1,
+          provider: {
+            generateHint: async (...args) => {
+              await new Promise((resolve) => setTimeout(resolve, 30));
+              return provider.generateHint(...args);
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow('RASA_PROVIDER_TIMEOUT');
+    const timeoutState = await database.query<{ status: string }>(
+      "SELECT status FROM rasa_requests WHERE id='018f72a4-cc52-7c5a-a6f9-8b21aa27a203'",
+    );
+    expect(timeoutState.rows[0]?.status).toBe('TIMED_OUT');
+    await expect(
+      database.query(
+        "UPDATE rasa_requests SET status='RUNNING',finished_at=NULL,error_code=NULL WHERE id='018f72a4-cc52-7c5a-a6f9-8b21aa27a203'",
+      ),
+    ).rejects.toThrow(/invalid rasa request transition/);
     const rows = await database.query<{
       requests: number;
       actions: number;
@@ -131,7 +193,7 @@ describe('RasaRepository', () => {
     }>(
       `SELECT (SELECT COUNT(*)::int FROM rasa_requests) requests, (SELECT COUNT(*)::int FROM rasa_actions) actions, (SELECT COUNT(*)::int FROM ai_usage) usage, (SELECT COUNT(*)::int FROM learning_events WHERE type IN ('RASA_OPENED','HINT_USED')) events`,
     );
-    expect(rows.rows[0]).toEqual({ requests: 1, actions: 1, usage: 1, events: 2 });
+    expect(rows.rows[0]).toEqual({ requests: 3, actions: 1, usage: 1, events: 2 });
     const resumed = await learning.startOrResumeAttempt(student, org.id, assignment.id);
     expect(resumed.rasa.hints).toHaveLength(1);
   });

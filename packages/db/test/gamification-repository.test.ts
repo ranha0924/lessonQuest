@@ -77,6 +77,25 @@ describe('GamificationRepository', () => {
     });
     expect(JSON.stringify(studentView)).not.toContain(student.userId);
     await expect(
+      database.query("UPDATE class_boss_campaigns SET policy='{}'::jsonb WHERE id=$1", [
+        detail.campaign.campaignId,
+      ]),
+    ).rejects.toThrow(/definition is immutable/);
+    await repository.endCampaign(
+      teacher,
+      org.id,
+      lessonClass.id,
+      detail.campaign.campaignId,
+      { requestId: '018f72a4-cc52-7c5a-a6f9-8b21aa27b305' },
+      '018f72a4-cc52-7c5a-a6f9-8b21aa27b306',
+    );
+    await expect(
+      database.query(
+        "UPDATE class_boss_campaigns SET status='ACTIVE',ended_at=NULL,end_request_id=NULL WHERE id=$1",
+        [detail.campaign.campaignId],
+      ),
+    ).rejects.toThrow(/invalid boss campaign transition/);
+    await expect(
       repository.createCampaign(
         student,
         org.id,

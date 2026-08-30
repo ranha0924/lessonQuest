@@ -30,6 +30,7 @@ const json = <T>(value: unknown): T => (typeof value === 'string' ? JSON.parse(v
 export class GamificationRepository {
   private readonly createId: () => string;
   private readonly now: () => Date;
+  private drainQueue: Promise<void> = Promise.resolve();
   constructor(
     private readonly database: PGliteInterface,
     options: { createId?: () => string; now?: () => Date } = {},
@@ -141,33 +142,40 @@ export class GamificationRepository {
     const actor = actorSchema.parse(actorInput);
     const organizationId = uuidSchema.parse(organizationIdInput);
     const classId = uuidSchema.parse(classIdInput);
-    uuidSchema.parse(traceIdInput);
-    const allowed = await this.database.query(
-      `SELECT 1 FROM class_members cm JOIN organization_members om ON om.organization_id=cm.organization_id AND om.user_id=cm.user_id AND om.status='ACTIVE' JOIN users u ON u.id=cm.user_id AND u.platform_role='STUDENT' AND u.status='ACTIVE' JOIN classes c ON c.organization_id=cm.organization_id AND c.id=cm.class_id AND c.status='ACTIVE' WHERE cm.organization_id=$1 AND cm.class_id=$2 AND cm.user_id=$3 AND cm.status='ACTIVE'`,
-      [organizationId, classId, actor.userId],
-    );
-    if (allowed.rows[0] === undefined) throw new ResourceNotFoundError();
-    const row = await this.database.query<{
-      id: string;
-      title: string;
-      target_hp: number;
-      damage: number;
-    }>(
-      `SELECT c.id,c.title,c.target_hp,COALESCE(SUM(b.amount),0)::int damage FROM class_boss_campaigns c LEFT JOIN boss_contributions b ON b.organization_id=c.organization_id AND b.campaign_id=c.id WHERE c.organization_id=$1 AND c.class_id=$2 AND c.status='ACTIVE' GROUP BY c.id,c.title,c.target_hp`,
-      [organizationId, classId],
-    );
-    const value = row.rows[0];
-    return studentBossProgressSchema.parse(
-      value === undefined
-        ? null
-        : {
-            campaignId: value.id,
-            title: value.title,
-            targetHp: value.target_hp,
-            damage: value.damage,
-            completed: value.damage >= value.target_hp,
-          },
-    );
+    const traceId = uuidSchema.parse(traceIdInput);
+    return this.database.transaction(async (tx) => {
+      const allowed = await tx.query(
+        `SELECT 1 FROM class_members cm JOIN organization_members om ON om.organization_id=cm.organization_id AND om.user_id=cm.user_id AND om.status='ACTIVE' JOIN users u ON u.id=cm.user_id AND u.platform_role='STUDENT' AND u.status='ACTIVE' JOIN classes c ON c.organization_id=cm.organization_id AND c.id=cm.class_id AND c.status='ACTIVE' WHERE cm.organization_id=$1 AND cm.class_id=$2 AND cm.user_id=$3 AND cm.status='ACTIVE'`,
+        [organizationId, classId, actor.userId],
+      );
+      if (allowed.rows[0] === undefined) throw new ResourceNotFoundError();
+      const row = await tx.query<{
+        id: string;
+        title: string;
+        target_hp: number;
+        damage: number;
+      }>(
+        `SELECT c.id,c.title,c.target_hp,COALESCE(SUM(b.amount),0)::int damage FROM class_boss_campaigns c LEFT JOIN boss_contributions b ON b.organization_id=c.organization_id AND b.campaign_id=c.id WHERE c.organization_id=$1 AND c.class_id=$2 AND c.status='ACTIVE' GROUP BY c.id,c.title,c.target_hp`,
+        [organizationId, classId],
+      );
+      const value = row.rows[0];
+      const result = studentBossProgressSchema.parse(
+        value === undefined
+          ? null
+          : {
+              campaignId: value.id,
+              title: value.title,
+              targetHp: value.target_hp,
+              damage: value.damage,
+              completed: value.damage >= value.target_hp,
+            },
+      );
+      await tx.query(
+        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROGRESS_READ','BOSS_CAMPAIGN',$5,'SUCCEEDED')`,
+        [randomUUID(), traceId, actor.userId, organizationId, value?.id ?? null],
+      );
+      return result;
+    });
   }
 
   async getTeacherDetail(
@@ -179,35 +187,57 @@ export class GamificationRepository {
     const actor = actorSchema.parse(actorInput);
     const organizationId = uuidSchema.parse(organizationIdInput);
     const classId = uuidSchema.parse(classIdInput);
-    uuidSchema.parse(traceIdInput);
-    await this.requireTeacher(this.database, actor, organizationId, classId);
-    const campaign = await this.database.query<{ id: string }>(
-      "SELECT id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 ORDER BY (status='ACTIVE') DESC,created_at DESC LIMIT 1",
-      [organizationId, classId],
-    );
-    if (campaign.rows[0] === undefined) throw new ResourceNotFoundError();
-    return this.readDetail(this.database, organizationId, classId, campaign.rows[0].id);
+    const traceId = uuidSchema.parse(traceIdInput);
+    return this.database.transaction(async (tx) => {
+      await this.requireTeacher(tx, actor, organizationId, classId);
+      const campaign = await tx.query<{ id: string }>(
+        "SELECT id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 ORDER BY (status='ACTIVE') DESC,created_at DESC LIMIT 1",
+        [organizationId, classId],
+      );
+      if (campaign.rows[0] === undefined) throw new ResourceNotFoundError();
+      const detail = await this.readDetail(tx, organizationId, classId, campaign.rows[0].id);
+      await tx.query(
+        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_DETAIL_READ','BOSS_CAMPAIGN',$5,'SUCCEEDED')`,
+        [randomUUID(), traceId, actor.userId, organizationId, campaign.rows[0].id],
+      );
+      return detail;
+    });
   }
 
   async drainPendingJobs(limit = 100): Promise<{ processed: number; failed: number }> {
+    const run = this.drainQueue.then(() => this.drainPendingJobsNow(limit));
+    this.drainQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async drainPendingJobsNow(limit: number): Promise<{ processed: number; failed: number }> {
     const jobs = await this.database.query<{
       id: string;
-      organization_id: string;
-      learning_event_id: string;
-      campaign_id: string;
     }>(
-      `SELECT id,organization_id,learning_event_id,campaign_id FROM boss_projection_jobs WHERE status IN ('PENDING','FAILED') AND attempts<10 ORDER BY created_at LIMIT $1`,
+      `SELECT id FROM boss_projection_jobs WHERE status IN ('PENDING','FAILED') AND attempts<10 ORDER BY created_at LIMIT $1`,
       [Math.max(1, Math.min(limit, 1000))],
     );
     let processed = 0,
       failed = 0;
     for (const job of jobs.rows) {
+      const claimed = await this.database.query<{
+        id: string;
+        organization_id: string;
+        learning_event_id: string;
+        campaign_id: string;
+      }>(
+        `UPDATE boss_projection_jobs SET status='PROCESSING',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP
+         WHERE id=$1 AND status IN ('PENDING','FAILED') AND attempts<10
+         RETURNING id,organization_id,learning_event_id,campaign_id`,
+        [job.id],
+      );
+      const claimedJob = claimed.rows[0];
+      if (claimedJob === undefined) continue;
       try {
         await this.database.transaction(async (tx) => {
-          await tx.query(
-            "UPDATE boss_projection_jobs SET status='PROCESSING',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-            [job.id],
-          );
           const event = await tx.query<{
             organization_id: string;
             actor_id: string;
@@ -215,7 +245,7 @@ export class GamificationRepository {
             payload: unknown;
           }>(
             `SELECT organization_id,actor_id,type,payload FROM learning_events WHERE organization_id=$1 AND id=$2`,
-            [job.organization_id, job.learning_event_id],
+            [claimedJob.organization_id, claimedJob.learning_event_id],
           );
           const campaign = await tx.query<{
             class_id: string;
@@ -223,7 +253,7 @@ export class GamificationRepository {
             policy: unknown;
           }>(
             `SELECT class_id,campaign_key,policy FROM class_boss_campaigns WHERE organization_id=$1 AND id=$2`,
-            [job.organization_id, job.campaign_id],
+            [claimedJob.organization_id, claimedJob.campaign_id],
           );
           const e = event.rows[0],
             c = campaign.rows[0];
@@ -243,17 +273,17 @@ export class GamificationRepository {
           if (kind !== undefined) {
             const storedPolicy = bossCampaignPolicySchema.parse(json(c.policy));
             const contributions = projectBossContributions({
-              organizationId: job.organization_id,
+              organizationId: claimedJob.organization_id,
               classId: c.class_id,
               campaignKey: c.campaign_key,
               policy: { enabled: true, amounts: storedPolicy.amounts },
               existingSourceEventIds: [],
               outcomes: [
                 {
-                  organizationId: job.organization_id,
+                  organizationId: claimedJob.organization_id,
                   classId: c.class_id,
                   studentId: e.actor_id,
-                  sourceEventId: job.learning_event_id,
+                  sourceEventId: claimedJob.learning_event_id,
                   kind,
                   serverAccepted: true,
                   firstForRule: true,
@@ -267,7 +297,7 @@ export class GamificationRepository {
                 [
                   uuidSchema.parse(this.createId()),
                   item.organizationId,
-                  job.campaign_id,
+                  claimedJob.campaign_id,
                   item.studentId,
                   item.sourceEventId,
                   item.amount,
@@ -277,7 +307,11 @@ export class GamificationRepository {
           }
           await tx.query(
             "UPDATE boss_projection_jobs SET status='SUCCEEDED',last_error_code=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-            [job.id],
+            [claimedJob.id],
+          );
+          await tx.query(
+            `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROJECTION_PROCESSED','BOSS_JOB',$5,'SUCCEEDED')`,
+            [randomUUID(), randomUUID(), e.actor_id, claimedJob.organization_id, claimedJob.id],
           );
         });
         processed++;
@@ -285,8 +319,23 @@ export class GamificationRepository {
         failed++;
         await this.database.query(
           "UPDATE boss_projection_jobs SET status='FAILED',last_error_code='PROJECTION_FAILED',updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-          [job.id],
+          [claimedJob.id],
         );
+        const eventActor = await this.database.query<{ actor_id: string }>(
+          'SELECT actor_id FROM learning_events WHERE organization_id=$1 AND id=$2',
+          [claimedJob.organization_id, claimedJob.learning_event_id],
+        );
+        if (eventActor.rows[0] !== undefined)
+          await this.database.query(
+            `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROJECTION_PROCESSED','BOSS_JOB',$5,'CONFLICT')`,
+            [
+              randomUUID(),
+              randomUUID(),
+              eventActor.rows[0].actor_id,
+              claimedJob.organization_id,
+              claimedJob.id,
+            ],
+          );
       }
     }
     return { processed, failed };
@@ -314,10 +363,11 @@ export class GamificationRepository {
       id: string;
       title: string;
       target_hp: number;
+      status: 'ACTIVE' | 'ENDED';
       policy: unknown;
       damage: number;
     }>(
-      `SELECT c.id,c.title,c.target_hp,c.policy,COALESCE(SUM(b.amount),0)::int damage FROM class_boss_campaigns c LEFT JOIN boss_contributions b ON b.organization_id=c.organization_id AND b.campaign_id=c.id WHERE c.organization_id=$1 AND c.class_id=$2 AND c.id=$3 GROUP BY c.id,c.title,c.target_hp,c.policy`,
+      `SELECT c.id,c.title,c.target_hp,c.status,c.policy,COALESCE(SUM(b.amount),0)::int damage FROM class_boss_campaigns c LEFT JOIN boss_contributions b ON b.organization_id=c.organization_id AND b.campaign_id=c.id WHERE c.organization_id=$1 AND c.class_id=$2 AND c.id=$3 GROUP BY c.id,c.title,c.target_hp,c.status,c.policy`,
       [organizationId, classId, campaignId],
     );
     const c = campaign.rows[0];
@@ -337,6 +387,7 @@ export class GamificationRepository {
         targetHp: c.target_hp,
         damage: c.damage,
         completed: c.damage >= c.target_hp,
+        status: c.status,
         policy: json(c.policy),
       },
       contributions: rows.rows.map((r) => ({

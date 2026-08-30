@@ -471,6 +471,65 @@ const schemaSql = `
   DROP TRIGGER IF EXISTS protect_boss_contributions ON boss_contributions;
   CREATE TRIGGER protect_boss_contributions BEFORE UPDATE OR DELETE ON boss_contributions
     FOR EACH ROW EXECUTE FUNCTION reject_append_only_mutation();
+
+  CREATE OR REPLACE FUNCTION enforce_rasa_request_transition()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR
+       NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.step_id IS DISTINCT FROM OLD.step_id OR
+       NEW.hint_level IS DISTINCT FROM OLD.hint_level OR NEW.context_hash IS DISTINCT FROM OLD.context_hash OR
+       NEW.trace_id IS DISTINCT FROM OLD.trace_id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+      RAISE EXCEPTION 'rasa request identity and context are immutable';
+    END IF;
+    IF OLD.status IN ('SUCCEEDED','REJECTED','FAILED','TIMED_OUT') OR NOT (
+      (OLD.status='QUEUED' AND NEW.status='RUNNING') OR
+      (OLD.status='RUNNING' AND NEW.status IN ('SUCCEEDED','REJECTED','FAILED','TIMED_OUT'))
+    ) THEN RAISE EXCEPTION 'invalid rasa request transition'; END IF;
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+  DROP TRIGGER IF EXISTS protect_rasa_request_transition ON rasa_requests;
+  CREATE TRIGGER protect_rasa_request_transition BEFORE UPDATE ON rasa_requests
+    FOR EACH ROW EXECUTE FUNCTION enforce_rasa_request_transition();
+
+  CREATE OR REPLACE FUNCTION enforce_boss_campaign_transition()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR NEW.class_id IS DISTINCT FROM OLD.class_id OR
+       NEW.campaign_key IS DISTINCT FROM OLD.campaign_key OR NEW.title IS DISTINCT FROM OLD.title OR
+       NEW.target_hp IS DISTINCT FROM OLD.target_hp OR NEW.policy IS DISTINCT FROM OLD.policy OR
+       NEW.created_by IS DISTINCT FROM OLD.created_by OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+      RAISE EXCEPTION 'boss campaign definition is immutable';
+    END IF;
+    IF NOT (OLD.status='ACTIVE' AND NEW.status='ENDED' AND OLD.ended_at IS NULL AND
+            NEW.ended_at IS NOT NULL AND OLD.end_request_id IS NULL AND NEW.end_request_id IS NOT NULL) THEN
+      RAISE EXCEPTION 'invalid boss campaign transition';
+    END IF;
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+  DROP TRIGGER IF EXISTS protect_boss_campaign_transition ON class_boss_campaigns;
+  CREATE TRIGGER protect_boss_campaign_transition BEFORE UPDATE ON class_boss_campaigns
+    FOR EACH ROW EXECUTE FUNCTION enforce_boss_campaign_transition();
+
+  CREATE OR REPLACE FUNCTION enforce_boss_job_transition()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    IF NEW.organization_id IS DISTINCT FROM OLD.organization_id OR
+       NEW.learning_event_id IS DISTINCT FROM OLD.learning_event_id OR
+       NEW.campaign_id IS DISTINCT FROM OLD.campaign_id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+      RAISE EXCEPTION 'boss projection job source is immutable';
+    END IF;
+    IF NOT (
+      (OLD.status IN ('PENDING','FAILED') AND NEW.status='PROCESSING' AND NEW.attempts=OLD.attempts+1) OR
+      (OLD.status='PROCESSING' AND NEW.status IN ('SUCCEEDED','FAILED') AND NEW.attempts=OLD.attempts)
+    ) THEN RAISE EXCEPTION 'invalid boss projection job transition'; END IF;
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+  DROP TRIGGER IF EXISTS protect_boss_job_transition ON boss_projection_jobs;
+  CREATE TRIGGER protect_boss_job_transition BEFORE UPDATE ON boss_projection_jobs
+    FOR EACH ROW EXECUTE FUNCTION enforce_boss_job_transition();
 `;
 
 export async function initializeSchema(database: PGliteInterface): Promise<void> {

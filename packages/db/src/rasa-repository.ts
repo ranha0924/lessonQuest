@@ -57,6 +57,24 @@ export class RasaRepository {
     const createId = options.createId ?? randomUUID;
 
     const prepared = await this.database.transaction(async (tx) => {
+      const currentlyAuthorized = await tx.query(
+        `SELECT 1 FROM attempts at
+         JOIN assignments a ON a.organization_id=at.organization_id AND a.id=at.assignment_id AND a.class_id=$3 AND a.status='ACTIVE' AND a.starts_at <= $5 AND (a.due_at IS NULL OR a.due_at >= $5)
+         JOIN organizations o ON o.id=at.organization_id AND o.status='ACTIVE'
+         JOIN classes c ON c.organization_id=at.organization_id AND c.id=at.class_id AND c.status='ACTIVE'
+         JOIN class_members cm ON cm.organization_id=at.organization_id AND cm.class_id=at.class_id AND cm.user_id=$4 AND cm.status='ACTIVE'
+         JOIN organization_members om ON om.organization_id=at.organization_id AND om.user_id=$4 AND om.role='STUDENT' AND om.status='ACTIVE'
+         JOIN users u ON u.id=$4 AND u.platform_role='STUDENT' AND u.status='ACTIVE'
+         JOIN assignment_rasa_policies p ON p.organization_id=a.organization_id AND p.assignment_id=a.id AND p.enabled=true
+         JOIN experience_versions v ON v.organization_id=a.organization_id AND v.id=a.experience_version_id AND v.status='PUBLISHED'
+         WHERE at.organization_id=$1 AND at.id=$2 AND at.student_id=$4 AND at.status='IN_PROGRESS'`,
+        [organizationId, input.attemptId, classId, actor.userId, now().toISOString()],
+      );
+      if (currentlyAuthorized.rows[0] === undefined) throw new ResourceNotFoundError();
+      await tx.query(
+        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'RASA_HINT_REQUESTED','RASA_REQUEST',$5,'SUCCEEDED')`,
+        [randomUUID(), traceId, actor.userId, organizationId, input.requestId],
+      );
       const existing = await tx.query<{
         status: string;
         action: unknown;
@@ -75,6 +93,10 @@ export class RasaRepository {
         if (prior.attempt_id !== input.attemptId || prior.step_id !== input.stepId)
           throw new ConflictError();
         if (prior.status === 'SUCCEEDED' && prior.action !== null) {
+          await tx.query(
+            `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'RASA_HINT_DELIVERED','RASA_REQUEST',$5,'DUPLICATE')`,
+            [randomUUID(), traceId, actor.userId, organizationId, input.requestId],
+          );
           const next = await tx.query<{ value: number }>(
             'SELECT COALESCE(MAX(sequence)+1,0)::int value FROM learning_events WHERE attempt_id=$1',
             [input.attemptId],
@@ -201,22 +223,31 @@ export class RasaRepository {
     if ('duplicate' in prepared) return prepared.duplicate;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 2000);
+    const timeoutMs = options.timeoutMs ?? 2000;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     let providerResult;
     try {
-      providerResult = await options.provider.generateHint(
-        {
-          context: prepared.context,
-          hintLevel: prepared.level,
-          conceptSummary: prepared.conceptSummary,
-          ...(prepared.simulationSummary === undefined
-            ? {}
-            : { simulationSummary: prepared.simulationSummary }),
-        },
-        controller.signal,
-      );
+      providerResult = await Promise.race([
+        options.provider.generateHint(
+          {
+            context: prepared.context,
+            hintLevel: prepared.level,
+            conceptSummary: prepared.conceptSummary,
+            ...(prepared.simulationSummary === undefined
+              ? {}
+              : { simulationSummary: prepared.simulationSummary }),
+          },
+          controller.signal,
+        ),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => {
+            controller.abort();
+            reject(new Error('RASA_PROVIDER_TIMEOUT'));
+          }, timeoutMs);
+        }),
+      ]);
     } catch (error) {
-      clearTimeout(timeout);
+      if (timeout !== undefined) clearTimeout(timeout);
       const timedOut = controller.signal.aborted;
       await this.failRequest(
         organizationId,
@@ -232,7 +263,7 @@ export class RasaRepository {
         { cause: error },
       );
     }
-    clearTimeout(timeout);
+    if (timeout !== undefined) clearTimeout(timeout);
     let action;
     try {
       const correct = prepared.quiz.options.find(({ correct }) => correct)!;
@@ -255,124 +286,145 @@ export class RasaRepository {
       throw new RasaRequestError('RASA_OUTPUT_REJECTED', false);
     }
 
-    return this.database.transaction(async (tx) => {
-      const locked = await tx.query<{ status: string }>(
-        "SELECT status FROM attempts WHERE organization_id=$1 AND id=$2 AND student_id=$3 AND status='IN_PROGRESS' FOR UPDATE",
-        [organizationId, input.attemptId, actor.userId],
-      );
-      if (locked.rows[0] === undefined) throw new ResourceNotFoundError();
-      const next = await tx.query<{ value: number }>(
-        'SELECT COALESCE(MAX(sequence)+1,0)::int value FROM learning_events WHERE attempt_id=$1',
-        [input.attemptId],
-      );
-      let sequence = next.rows[0]?.value ?? 0;
-      const opened = await tx.query<{ count: number }>(
-        "SELECT COUNT(*)::int count FROM learning_events WHERE attempt_id=$1 AND type='RASA_OPENED'",
-        [input.attemptId],
-      );
-      const events = [] as Array<{
-        id: string;
-        type: 'RASA_OPENED' | 'HINT_USED';
-        sequence: number;
-        payload: Record<string, unknown>;
-      }>;
-      if ((opened.rows[0]?.count ?? 0) === 0)
+    try {
+      return await this.database.transaction(async (tx) => {
+        const locked = await tx.query<{ status: string }>(
+          `SELECT at.status FROM attempts at
+         JOIN assignments a ON a.organization_id=at.organization_id AND a.id=at.assignment_id AND a.class_id=$4 AND a.status='ACTIVE' AND a.starts_at <= $5 AND (a.due_at IS NULL OR a.due_at >= $5)
+         JOIN organizations o ON o.id=at.organization_id AND o.status='ACTIVE'
+         JOIN classes c ON c.organization_id=at.organization_id AND c.id=at.class_id AND c.status='ACTIVE'
+         JOIN class_members cm ON cm.organization_id=at.organization_id AND cm.class_id=at.class_id AND cm.user_id=$3 AND cm.status='ACTIVE'
+         JOIN organization_members om ON om.organization_id=at.organization_id AND om.user_id=$3 AND om.role='STUDENT' AND om.status='ACTIVE'
+         JOIN users u ON u.id=$3 AND u.platform_role='STUDENT' AND u.status='ACTIVE'
+         JOIN assignment_rasa_policies p ON p.organization_id=a.organization_id AND p.assignment_id=a.id AND p.enabled=true
+         JOIN experience_versions v ON v.organization_id=a.organization_id AND v.id=a.experience_version_id AND v.status='PUBLISHED'
+         WHERE at.organization_id=$1 AND at.id=$2 AND at.student_id=$3 AND at.status='IN_PROGRESS' FOR UPDATE`,
+          [organizationId, input.attemptId, actor.userId, classId, now().toISOString()],
+        );
+        if (locked.rows[0] === undefined) throw new ResourceNotFoundError();
+        const next = await tx.query<{ value: number }>(
+          'SELECT COALESCE(MAX(sequence)+1,0)::int value FROM learning_events WHERE attempt_id=$1',
+          [input.attemptId],
+        );
+        let sequence = next.rows[0]?.value ?? 0;
+        const opened = await tx.query<{ count: number }>(
+          "SELECT COUNT(*)::int count FROM learning_events WHERE attempt_id=$1 AND type='RASA_OPENED'",
+          [input.attemptId],
+        );
+        const events = [] as Array<{
+          id: string;
+          type: 'RASA_OPENED' | 'HINT_USED';
+          sequence: number;
+          payload: Record<string, unknown>;
+        }>;
+        if ((opened.rows[0]?.count ?? 0) === 0)
+          events.push({
+            id: uuidSchema.parse(createId()),
+            type: 'RASA_OPENED',
+            sequence: sequence++,
+            payload: {},
+          });
         events.push({
           id: uuidSchema.parse(createId()),
-          type: 'RASA_OPENED',
+          type: 'HINT_USED',
           sequence: sequence++,
-          payload: {},
+          payload: { level: prepared.level },
         });
-      events.push({
-        id: uuidSchema.parse(createId()),
-        type: 'HINT_USED',
-        sequence: sequence++,
-        payload: { level: prepared.level },
-      });
-      for (const event of events) {
-        const envelope = serverLearningEventSchema.parse({
-          schemaVersion: 1,
-          eventId: event.id,
-          type: event.type,
-          organizationId,
-          assignmentId: prepared.row.assignment_id,
-          attemptId: input.attemptId,
-          experienceId: prepared.context.learning.experienceId,
-          experienceVersion: prepared.context.learning.experienceVersion,
-          stepId: input.stepId,
-          sequence: event.sequence,
-          occurredAt: now().toISOString(),
-          payload: event.payload,
-        });
-        await tx.query(
-          `INSERT INTO learning_events(id,organization_id,actor_id,assignment_id,attempt_id,type,step_id,sequence,occurred_at,received_at,payload,event_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb,$11::jsonb)`,
-          [
-            event.id,
+        for (const event of events) {
+          const envelope = serverLearningEventSchema.parse({
+            schemaVersion: 1,
+            eventId: event.id,
+            type: event.type,
             organizationId,
-            actor.userId,
-            prepared.row.assignment_id,
-            input.attemptId,
-            event.type,
-            input.stepId,
-            event.sequence,
-            now().toISOString(),
-            JSON.stringify(event.payload),
-            JSON.stringify(envelope),
+            assignmentId: prepared.row.assignment_id,
+            attemptId: input.attemptId,
+            experienceId: prepared.context.learning.experienceId,
+            experienceVersion: prepared.context.learning.experienceVersion,
+            stepId: input.stepId,
+            sequence: event.sequence,
+            occurredAt: now().toISOString(),
+            payload: event.payload,
+          });
+          await tx.query(
+            `INSERT INTO learning_events(id,organization_id,actor_id,assignment_id,attempt_id,type,step_id,sequence,occurred_at,received_at,payload,event_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb,$11::jsonb)`,
+            [
+              event.id,
+              organizationId,
+              actor.userId,
+              prepared.row.assignment_id,
+              input.attemptId,
+              event.type,
+              input.stepId,
+              event.sequence,
+              now().toISOString(),
+              JSON.stringify(event.payload),
+              JSON.stringify(envelope),
+            ],
+          );
+        }
+        await tx.query(
+          `INSERT INTO rasa_actions(id,organization_id,request_id,action,status) VALUES($1,$2,$3,$4::jsonb,'ACCEPTED')`,
+          [uuidSchema.parse(createId()), organizationId, input.requestId, JSON.stringify(action)],
+        );
+        await tx.query(
+          `INSERT INTO ai_usage(id,organization_id,rasa_request_id,provider,model,input_tokens,output_tokens,cost_micros,latency_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            uuidSchema.parse(createId()),
+            organizationId,
+            input.requestId,
+            providerResult.usage.provider,
+            providerResult.usage.model,
+            providerResult.usage.inputTokens,
+            providerResult.usage.outputTokens,
+            providerResult.usage.costMicros,
+            providerResult.usage.latencyMs,
           ],
         );
-      }
-      await tx.query(
-        `INSERT INTO rasa_actions(id,organization_id,request_id,action,status) VALUES($1,$2,$3,$4::jsonb,'ACCEPTED')`,
-        [uuidSchema.parse(createId()), organizationId, input.requestId, JSON.stringify(action)],
-      );
-      await tx.query(
-        `INSERT INTO ai_usage(id,organization_id,rasa_request_id,provider,model,input_tokens,output_tokens,cost_micros,latency_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [
-          uuidSchema.parse(createId()),
-          organizationId,
-          input.requestId,
-          providerResult.usage.provider,
-          providerResult.usage.model,
-          providerResult.usage.inputTokens,
-          providerResult.usage.outputTokens,
-          providerResult.usage.costMicros,
-          providerResult.usage.latencyMs,
-        ],
-      );
-      await tx.query(
-        `UPDATE rasa_requests SET status='SUCCEEDED',provider=$1,model=$2,finished_at=$3 WHERE organization_id=$4 AND id=$5 AND status='RUNNING'`,
-        [
-          providerResult.usage.provider,
-          providerResult.usage.model,
-          now().toISOString(),
-          organizationId,
-          input.requestId,
-        ],
-      );
-      await tx.query(
-        `UPDATE student_progress SET hints_used=hints_used+1,last_sequence=$1,last_step_id=$2,projection_version=projection_version+$3,updated_at=$4 WHERE organization_id=$5 AND assignment_id=$6 AND student_id=$7`,
-        [
-          sequence - 1,
-          input.stepId,
-          events.length,
-          now().toISOString(),
-          organizationId,
-          prepared.row.assignment_id,
-          actor.userId,
-        ],
-      );
-      await tx.query(
-        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'RASA_HINT_DELIVERED','RASA_REQUEST',$5,'SUCCEEDED')`,
-        [randomUUID(), traceId, actor.userId, organizationId, input.requestId],
-      );
-      return rasaHintResultSchema.parse({
-        requestId: input.requestId,
-        sessionId: prepared.sessionId,
-        duplicate: false,
-        action,
-        nextSequence: sequence,
+        await tx.query(
+          `UPDATE rasa_requests SET status='SUCCEEDED',provider=$1,model=$2,finished_at=$3 WHERE organization_id=$4 AND id=$5 AND status='RUNNING'`,
+          [
+            providerResult.usage.provider,
+            providerResult.usage.model,
+            now().toISOString(),
+            organizationId,
+            input.requestId,
+          ],
+        );
+        await tx.query(
+          `UPDATE student_progress SET hints_used=hints_used+1,last_sequence=$1,last_step_id=$2,projection_version=projection_version+$3,updated_at=$4 WHERE organization_id=$5 AND assignment_id=$6 AND student_id=$7`,
+          [
+            sequence - 1,
+            input.stepId,
+            events.length,
+            now().toISOString(),
+            organizationId,
+            prepared.row.assignment_id,
+            actor.userId,
+          ],
+        );
+        await tx.query(
+          `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'RASA_HINT_DELIVERED','RASA_REQUEST',$5,'SUCCEEDED')`,
+          [randomUUID(), traceId, actor.userId, organizationId, input.requestId],
+        );
+        return rasaHintResultSchema.parse({
+          requestId: input.requestId,
+          sessionId: prepared.sessionId,
+          duplicate: false,
+          action,
+          nextSequence: sequence,
+        });
       });
-    });
+    } catch (error) {
+      await this.failRequest(
+        organizationId,
+        input.requestId,
+        actor.userId,
+        traceId,
+        'FAILED',
+        'RASA_AUTHORIZATION_REVOKED',
+      );
+      throw error;
+    }
   }
 
   private async failRequest(

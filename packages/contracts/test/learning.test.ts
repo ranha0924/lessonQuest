@@ -297,6 +297,7 @@ describe('M6 boss boundary contracts', () => {
           targetHp: 600,
           damage: 18,
           completed: false,
+          status: 'ACTIVE',
           policy: campaign.policy,
         },
         contributions: [
