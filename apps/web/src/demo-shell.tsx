@@ -6,7 +6,7 @@ export function DemoShell() {
   const [role, setRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
 
   return (
-    <main className="demo-shell">
+    <main className="demo-shell" data-theme="dark">
       <aside className="demo-toolbar" aria-label="데모 보기 전환">
         <strong>합성 데이터 데모 · 새로고침하면 초기화됩니다</strong>
         <div>
