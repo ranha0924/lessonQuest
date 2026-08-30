@@ -1,6 +1,6 @@
 # LessonQuest Project Memory
 
-Updated: 2026-08-29
+Updated: 2026-08-30
 
 ## Product and source of truth
 
@@ -96,3 +96,7 @@ The test-first final-gate remediation plan passed a separate pre-implementation 
 The remediation implementer verification passed on 2026-08-29: `corepack pnpm check` passed 19/19 files and 196/196 tests plus lint, format, typecheck, all workspace builds, and the Vite production build; `test:integration` passed 2/2 files and 13/13 tests; `test:e2e` passed 3/3 files and 8/8 tests across the real React → HTTP → Hono → PGlite boundary; the production dependency audit reported no known vulnerabilities; the changed-file credential-pattern scan and `git diff --check` were clean.
 
 A different fresh independent reviewer then inspected the complete base-to-`486abb8` diff, reran the full verification and adversarial probes, and recorded **91/100 PASS with no critical blocker** as Attempt 2 in `docs/reviews/2026-08-29-phase-1-m3-m4-final-review.md`. The original 62/100 FAIL remains preserved above it. Non-blocking follow-ups before production-adapter work are database-enforced audit-log immutability and distinct duplicate outcomes, exact browser retry after transient delivery failure, real PostgreSQL multi-connection concurrency normalization, a narrower Node/jsdom engine range, and correct-first coverage in the integrated E2E. M3/M4 is complete on the local feature branch but has not been pushed, merged, or deployed. M5, M6, and production adapters remain excluded.
+
+Phase 1 M5–M6 now has a user-approved design at `docs/superpowers/specs/2026-08-30-phase-1-m5-m6-design.md` and an implementation plan at `docs/superpowers/plans/2026-08-30-phase-1-m5-m6.md` on `codex/phase1-m5-m6-complete`, based on local `main` commit `e5e1e04a0dcc02ff094e811e625c11a3b211bccf`. The slice uses a deterministic no-network/no-secret local Rasa provider and at most one active class boss campaign with server-derived contributions and aggregate-only student visibility. The plan also closes the M3/M4 attempt-lock, authoritative acknowledgement/exact-retry, audit immutability/duplicate-outcome, and correct-first E2E follow-ups required by these boundaries.
+
+The M5–M6 pre-implementation review at `docs/reviews/2026-08-30-phase-1-m5-m6-plan-review.md` scored **98/100 PASS with no critical blocker**. Production implementation is now authorized only under the written TDD sequence. No M5/M6 production code has been changed yet, and nothing from this M5/M6 branch has been pushed, merged, or deployed. Completion will require one full implementer verification and a fresh independent non-implementing final review scoring at least 86/100 with no critical blocker.
