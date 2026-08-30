@@ -105,6 +105,9 @@ importers:
       '@lessonquest/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@lessonquest/rasa':
+        specifier: workspace:*
+        version: link:../rasa
       '@lessonquest/science-studio':
         specifier: workspace:*
         version: link:../science-studio

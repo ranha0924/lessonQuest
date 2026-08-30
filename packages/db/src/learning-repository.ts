@@ -69,7 +69,7 @@ interface AttemptRow {
 }
 
 interface StoredEventRow {
-  type: ClientLearningEvent['type'];
+  type: ServerLearningEvent['type'];
   step_id: string;
   sequence: number;
   payload: unknown;
