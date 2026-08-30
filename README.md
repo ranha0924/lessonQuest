@@ -6,7 +6,7 @@ LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학�
 
 ## Vercel 합성 데모
 
-루트의 `vercel.json`은 Vite 웹 앱을 `VITE_DEMO_MODE=true`로 빌드해 `apps/web/dist`를 게시합니다. 이 모드는 학생/교사 화면을 전환하고 Rasa 힌트 및 반 공동 보스를 체험하기 위한 정적 합성 데모입니다. 학생 홈은 Cosmic Quest의 미션 몰입감과 Neo Academy의 밝고 정돈된 제품 구조를 결합한 시각 방향을 사용합니다.
+루트의 `vercel.json`은 Vite 웹 앱을 `VITE_DEMO_MODE=true`로 빌드해 `apps/web/dist`를 게시합니다. 이 모드는 학생/교사 화면을 전환하고 Rasa 힌트 및 반 공동 보스를 체험하기 위한 정적 합성 데모입니다. 학생과 교사 화면은 Cosmic Quest의 미션 몰입감을 강조한 통일된 다크 게임 인터페이스를 사용합니다.
 
 ```bash
 corepack pnpm install --frozen-lockfile
