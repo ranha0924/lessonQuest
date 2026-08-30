@@ -226,6 +226,8 @@ function createApi(
 describe('StudioWorkbench', () => {
   it('moves a teacher through generated, validated, previewed, approved, and assigned states', async () => {
     render(<StudioWorkbench api={createApi()} organizationId={organizationId} classId={classId} />);
+    expect(screen.getByLabelText('Rasa 힌트 사용')).toHaveProperty('checked', true);
+    expect(screen.getByLabelText('최대 힌트 단계')).toHaveProperty('value', '2');
 
     fireEvent.change(screen.getByLabelText('체험 제목'), { target: { value: '힘과 운동' } });
     fireEvent.change(screen.getByLabelText('생성된 과학 JSON'), {

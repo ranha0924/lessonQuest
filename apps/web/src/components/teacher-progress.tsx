@@ -22,6 +22,7 @@ export function TeacherProgress({ items }: TeacherProgressProps) {
             <span>{item.started ? '시작함' : '시작 전'}</span>
             <span>오답 {item.wrongAnswers}회</span>
             <span>재도전 {item.retries}회</span>
+            <span>힌트 {item.hintsUsed}회</span>
             <span className={item.completed ? 'status-complete' : 'status-active'}>
               {item.completed ? '완료' : '진행 중'}
             </span>

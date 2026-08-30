@@ -21,9 +21,14 @@ body {
 }
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
+.inline-control { grid-template-columns: 1fr auto; align-items: center; margin-top: 12px; }
+.inline-control input { width: 24px; min-height: 24px; }
+.boss-admin { max-width: 900px; margin: 28px auto 0; }
+.boss-admin form { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }
 button,
 input,
 textarea {

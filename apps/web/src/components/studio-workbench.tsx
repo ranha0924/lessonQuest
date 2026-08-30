@@ -5,6 +5,7 @@ import type { StudentProgress } from '@lessonquest/contracts';
 import type { LessonQuestApi, ValidationReport } from '../api-client.js';
 import { SandboxPreview } from './sandbox-preview.js';
 import { TeacherProgress } from './teacher-progress.js';
+import { BossCampaignPanel } from './boss-campaign-panel.js';
 
 interface StudioWorkbenchProps {
   readonly api: LessonQuestApi;
@@ -23,6 +24,8 @@ export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenc
   const [assignmentId, setAssignmentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<StudentProgress[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rasaEnabled, setRasaEnabled] = useState(true);
+  const [maxHintLevel, setMaxHintLevel] = useState<1 | 2 | 3>(2);
 
   const run = async (operation: () => Promise<void>) => {
     setBusy(true);
@@ -77,6 +80,7 @@ export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenc
     void run(async () => {
       const assignment = await api.createAssignment(organizationId, classId, {
         experienceVersionId: versionId,
+        rasaPolicy: { enabled: rasaEnabled, maxHintLevel },
       });
       setAssignmentId(assignment.id);
       setStatus('반 배포 완료');
@@ -177,6 +181,8 @@ export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenc
           <button className="deploy" type="button" onClick={assign} disabled={busy || !approved}>
             반에 배포
           </button>
+          <label className="inline-control">Rasa 힌트 사용<input type="checkbox" checked={rasaEnabled} onChange={(event)=>setRasaEnabled(event.target.checked)} /></label>
+          <label>최대 힌트 단계<select value={maxHintLevel} onChange={(event)=>setMaxHintLevel(Number(event.target.value) as 1|2|3)} disabled={!rasaEnabled}><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
           {assignmentId !== null ? (
             <button type="button" onClick={loadProgress} disabled={busy}>
               교사 결과 보기
@@ -185,6 +191,7 @@ export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenc
         </aside>
       </div>
       {progress !== null ? <TeacherProgress items={progress} /> : null}
+      <BossCampaignPanel api={api} organizationId={organizationId} classId={classId} />
       <p className="status-banner" role="status" aria-live="polite">
         {status}
       </p>
