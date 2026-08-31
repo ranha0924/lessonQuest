@@ -2,7 +2,7 @@
 
 ## Current scope override
 
-The user's latest instruction on 2026-08-31 is to stop after merging into GitHub `main`. This overrides the earlier deploy-now request for this task. Do not execute, promote, reconfigure, monitor, or validate a Vercel deployment as part of completion. The existing Git integration may automatically react to an authorized push/merge; leave that integration unchanged and make no claim that deployment was performed or verified. The standing delivery preference remains applicable to future work unless overridden again.
+The user's latest instruction on 2026-08-31 is to merge into GitHub `main` specifically to trigger the existing Vercel automatic deployment. Do not execute a separate manual deployment, promotion or configuration change. Leave the existing Git integration unchanged. Completion requires the merge; an observed automatic deployment start may be reported, but a successful deployment must not be inferred. The standing delivery preference remains applicable to future work unless overridden again.
 
 ## Scope and authority
 
@@ -26,7 +26,7 @@ The user's latest instruction on 2026-08-31 is to stop after merging into GitHub
 3. Obtain a fresh independent release-readiness review of the actual code lineage, documentation delta, target evidence, and checks. Require at least 86/100 and no critical blocker. The reviewer may edit only its review report.
 4. Commit the delivery documentation on the existing feature branch, push without force, and wait for the exact new PR head's required CI to succeed. Recheck head/base and merge using GitHub's expected-head guard without bypassing protections. Preserve commit history with a merge commit.
 5. Fetch and fast-forward local `main` to the remote merge commit. Verify that GitHub reports the PR merged and that local `main` matches `origin/main` with a clean worktree.
-6. Stop after merge verification. Report the PR and merge SHA; distinguish this completed Git operation from any unverified automatic deployment. Do not request Vercel login or perform deployment steps for this merge-only task.
+6. Stop after merge verification. Report the PR and merge SHA; if GitHub exposes an automatic Vercel status, report that observed status without inferring deployment success. Do not request Vercel login or perform a separate manual deployment.
 
 ## Safety, observation, and rollback
 
