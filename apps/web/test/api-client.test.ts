@@ -29,6 +29,29 @@ describe('createHttpLessonQuestApi', () => {
     ).rejects.toThrow();
   });
 
+  it('never accepts leaked invitation data from a dashboard response', async () => {
+    const org = '018f72a4-cc52-7c5a-a6f9-8b21aa27fb01',
+      classId = '018f72a4-cc52-7c5a-a6f9-8b21aa27fb02';
+    const api = createHttpLessonQuestApi({
+      baseUrl: 'https://play.lessonquest.test',
+      getAuthorization: () => null,
+      fetch: () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              lessonClass: { id: classId, organizationId: org, name: '합성반' },
+              memberCount: 0,
+              assignments: [],
+              invitation: null,
+              code: 'private',
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+        ),
+    });
+    await expect(api.getClassDashboard(org, classId)).rejects.toThrow();
+  });
+
   it('parses aggregate boss responses and sends no tenant-owned hint fields', async () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve(

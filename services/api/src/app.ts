@@ -39,6 +39,7 @@ import {
   type RasaRepository,
   RasaRequestError,
   type GamificationRepository,
+  type ClassroomRepository,
 } from '@lessonquest/db';
 import type { RasaHintProvider } from '@lessonquest/rasa';
 import { ScienceGenerationError } from '@lessonquest/science-studio';
@@ -48,6 +49,7 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { ZodError } from 'zod';
 import { z } from 'zod';
+import { registerClassroomRoutes } from './classroom-routes.js';
 
 const defaultMaxBodyBytes = 64 * 1024;
 
@@ -57,7 +59,7 @@ type Variables = {
   traceId: string;
 };
 
-type AppEnvironment = { Variables: Variables };
+export type AppEnvironment = { Variables: Variables };
 type AppContext = Context<AppEnvironment>;
 
 type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 500 | 503;
@@ -82,6 +84,7 @@ export interface CreateAppOptions {
   learningRepository: LearningRepository;
   rasaRepository?: RasaRepository;
   gamificationRepository?: GamificationRepository;
+  classroomRepository?: ClassroomRepository;
   rasaProvider?: RasaHintProvider;
   rasaTimeoutMs?: number;
   trustedOrigin: string;
@@ -359,6 +362,10 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
   });
 
   app.get('/health', (context) => context.json({ status: 'ok' }));
+
+  if (options.classroomRepository !== undefined) {
+    registerClassroomRoutes(app, options.classroomRepository, { readJson, parseRouteUuid });
+  }
 
   app.post('/organizations', async (context) => {
     const input = createOrganizationInputSchema.parse(await readJson(context));

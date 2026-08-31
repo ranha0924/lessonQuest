@@ -49,6 +49,32 @@ const schemaSql = `
       REFERENCES organization_members(organization_id, user_id)
   );
 
+  CREATE TABLE IF NOT EXISTS class_invitations (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    class_id UUID NOT NULL,
+    created_by UUID NOT NULL,
+    code_hash TEXT NOT NULL UNIQUE CHECK (code_hash ~ '^[a-f0-9]{64}$'),
+    max_uses INTEGER NOT NULL CHECK (max_uses BETWEEN 1 AND 100),
+    uses INTEGER NOT NULL DEFAULT 0 CHECK (uses >= 0 AND uses <= max_uses),
+    expires_at TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVOKED')),
+    UNIQUE (organization_id, class_id, id),
+    FOREIGN KEY (organization_id, class_id) REFERENCES classes(organization_id, id),
+    FOREIGN KEY (organization_id, created_by) REFERENCES organization_members(organization_id, user_id)
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS one_active_class_invitation
+    ON class_invitations(organization_id, class_id) WHERE status='ACTIVE';
+  CREATE TABLE IF NOT EXISTS class_invitation_redemptions (
+    organization_id UUID NOT NULL,
+    class_id UUID NOT NULL,
+    invitation_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    PRIMARY KEY (organization_id, invitation_id, student_id),
+    FOREIGN KEY (organization_id, class_id, invitation_id) REFERENCES class_invitations(organization_id, class_id, id),
+    FOREIGN KEY (organization_id, class_id, student_id) REFERENCES class_members(organization_id, class_id, user_id)
+  );
+
   CREATE TABLE IF NOT EXISTS experiences (
     id UUID PRIMARY KEY,
     organization_id UUID NOT NULL REFERENCES organizations(id),
@@ -340,6 +366,8 @@ const schemaSql = `
         ,'RASA_HINT_REQUESTED','RASA_HINT_DELIVERED','RASA_HINT_REJECTED'
         ,'BOSS_CAMPAIGN_CREATED','BOSS_CAMPAIGN_ENDED','BOSS_PROJECTION_PROCESSED'
         ,'BOSS_PROGRESS_READ','BOSS_DETAIL_READ'
+        ,'CLASS_LISTED','CLASS_DASHBOARD_READ','CLASS_INVITATION_ISSUED'
+        ,'CLASS_INVITATION_REVOKED','CLASS_INVITATION_REDEEMED'
       )
     ),
     resource_type TEXT NOT NULL CHECK (

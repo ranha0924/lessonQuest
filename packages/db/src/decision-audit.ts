@@ -13,9 +13,14 @@ interface DecisionAudit {
     | 'BOSS_CAMPAIGN_CREATED'
     | 'BOSS_CAMPAIGN_ENDED'
     | 'BOSS_PROGRESS_READ'
-    | 'BOSS_DETAIL_READ';
+    | 'BOSS_DETAIL_READ'
+    | 'CLASS_LISTED'
+    | 'CLASS_DASHBOARD_READ'
+    | 'CLASS_INVITATION_ISSUED'
+    | 'CLASS_INVITATION_REVOKED'
+    | 'CLASS_INVITATION_REDEEMED';
   resourceType: 'RASA_REQUEST' | 'CLASS' | 'BOSS_CAMPAIGN';
-  resourceId: string;
+  resourceId: string | null;
 }
 
 // Call only after repository input parsing, with an operation that owns its

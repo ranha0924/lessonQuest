@@ -71,6 +71,7 @@ if (import.meta.env.VITE_DEV_PREVIEW === 'true') {
     <StrictMode>
       <App
         api={api}
+        classroomApi={api}
         role={session.role}
         organizationId={session.organizationId}
         classId={session.classId}
