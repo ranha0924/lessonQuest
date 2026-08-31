@@ -11,6 +11,7 @@ import type {
   StudentAssignmentSummary,
   StudentScienceSpecification,
 } from '../api-client.js';
+import { MissionWelcome, RasaCompanion } from './cosmic-art.js';
 import { ClassBossCard } from './class-boss-card.js';
 import { RasaHintPanel } from './rasa-hint-panel.js';
 
@@ -274,17 +275,30 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
   };
 
   return (
-    <main className="student-shell">
+    <main className="student-shell" aria-labelledby="student-title">
       <header className="mission-header">
         <p className="eyebrow">LESSONQUEST PLAY</p>
-        <h1>내 과학 탐험</h1>
+        <h1 id="student-title">내 과학 탐험</h1>
         <p>궁금한 것을 예상하고, 실험하고, 다시 도전해 보세요.</p>
       </header>
 
       {specification === null ? (
         <>
-          <ClassBossCard progress={bossProgress} />
-          <section className="assignment-grid" aria-label="배포된 탐험">
+          <div className="cosmic-welcome-grid">
+            <MissionWelcome />
+            <RasaCompanion />
+          </div>
+          <div className="cosmic-assignment-heading">
+            <p className="cosmic-label">MISSION LOG</p>
+            <h2>나의 탐험 미션</h2>
+          </div>
+          <section className="assignment-grid" id="student-assignments" aria-label="배포된 탐험">
+            {assignments.length === 0 ? (
+              <div className="empty-state">
+                <strong>새로운 항로를 기다리고 있어요.</strong>
+                <p>선생님이 탐험을 배포하면 이곳에서 시작할 수 있어요.</p>
+              </div>
+            ) : null}
             {assignments.map((assignment) => (
               <article
                 className="assignment-card"
@@ -293,7 +307,13 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
               >
                 <span className="mission-tag">과학 미션</span>
                 <h2>{assignment.title}</h2>
-                <p>{assignment.attemptStatus === null ? '새 탐험' : '진행 중인 탐험'}</p>
+                <p>
+                  {assignment.attemptStatus === null
+                    ? '새 탐험'
+                    : assignment.attemptStatus === 'COMPLETED'
+                      ? '완료한 탐험'
+                      : '진행 중인 탐험'}
+                </p>
                 <button
                   className="primary"
                   type="button"
@@ -309,6 +329,7 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
               </article>
             ))}
           </section>
+          <ClassBossCard progress={bossProgress} />
         </>
       ) : (
         <section className="player-canvas" aria-labelledby="player-title">

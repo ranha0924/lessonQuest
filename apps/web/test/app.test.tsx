@@ -283,6 +283,10 @@ describe('StudioWorkbench', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
     expect(await screen.findByText('초안이 생성됐습니다.')).toBeTruthy();
+    const steps = screen.getByRole('navigation', { name: '제작 단계' });
+    expect(within(steps).getByText('검증').classList.contains('active')).toBe(false);
+    expect(within(steps).getByText('승인').classList.contains('active')).toBe(false);
+    expect(within(steps).getByText('배포').classList.contains('active')).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: '독립 검증' }));
     await waitFor(() => expect(screen.getByRole('status').textContent).toBe('검증 통과'));

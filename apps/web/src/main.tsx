@@ -6,6 +6,7 @@ import { createHttpLessonQuestApi } from './api-client.js';
 import { DemoShell } from './demo-shell.js';
 import './styles.css';
 import './demo-shell.css';
+import './cosmic-service.css';
 
 declare global {
   interface Window {
