@@ -1,4 +1,5 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page, type TestInfo } from '@playwright/test';
+import { measureTheme } from './measurements.js';
 
 const test = base.extend<{ expectedAssetFailure: boolean }>({
   expectedAssetFailure: [false, { option: true }],
@@ -196,4 +197,138 @@ test('reset during a real draft write recreates an empty runtime without a stale
   await page.getByRole('button', { name: '교사 화면' }).click();
   await expect(page.getByRole('button', { name: '독립 검증' })).toBeDisabled();
   await expect(page.getByText('0 / 100', { exact: true })).toBeVisible();
+});
+
+async function cosmicState(page: Page, info: TestInfo, state: string) {
+  const result = await measureTheme(page, {
+    scope: '.cosmic-service',
+    surfaceSelectors: [
+      '.cosmic-service',
+      '.cosmic-rail',
+      '.cosmic-topbar',
+      '.cosmic-hero',
+      '.panel',
+      '.assignment-card',
+      '.player-canvas',
+      '.play-block',
+      '.rasa-panel',
+      '.boss-card',
+      '.status-banner',
+      '.progress-row',
+      '.empty-state',
+    ],
+    contrastSelectors: [
+      '.cosmic-service h1',
+      '.cosmic-service h2',
+      '.cosmic-service h3',
+      '.cosmic-service p',
+      '.cosmic-service label',
+      '.cosmic-service button',
+      '.cosmic-service a',
+      '.cosmic-service summary',
+      '.cosmic-service input',
+      '.cosmic-service select',
+      '.cosmic-service textarea',
+      '.cosmic-service .trail-step',
+      '.cosmic-service .progress-row span',
+      '.cosmic-service .progress-row strong',
+    ],
+  });
+  expect(result.surfaces.length).toBeGreaterThanOrEqual(4);
+  expect(result.contrasts.length).toBeGreaterThanOrEqual(8);
+  console.info(
+    JSON.stringify({
+      state,
+      width: result.width,
+      minTarget: Math.min(...result.targets.map((target) => Math.min(target.width, target.height))),
+      minContrast: Math.min(...result.contrasts.map((item) => item.ratio)),
+      maxSurface: Math.max(...result.surfaces.map((item) => item.luminance)),
+      violations: result.violations,
+    }),
+  );
+  expect(result.violations).toEqual([]);
+  await info.attach(`${state}-measurements`, {
+    body: JSON.stringify(result, null, 2),
+    contentType: 'application/json',
+  });
+  await page.screenshot({ path: info.outputPath(`${state}.png`), fullPage: true });
+}
+
+test('cosmic real service preserves readable mission controls through every learning state', async ({
+  page,
+}, info) => {
+  await page.goto('/');
+  await ready(page);
+  await cosmicState(page, info, 'teacher-initial');
+  const art = page.locator('.cosmic-astronaut:visible');
+  await expect(art).toHaveCount(1);
+  await expect
+    .poll(() => art.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0))
+    .toBe(true);
+  expect(new URL((await art.getAttribute('src')) ?? '', page.url()).origin).toBe(
+    new URL(page.url()).origin,
+  );
+  await page.getByRole('button', { name: '학생 화면' }).click();
+  await expect(page.getByText('지금 할 탐험이 없어요.')).toBeVisible();
+  await expect(page.getByRole('button', { name: '탐험 시작' })).toHaveCount(0);
+  await cosmicState(page, info, 'student-empty');
+  await page.getByRole('button', { name: '교사 화면' }).click();
+  await publish(page, '우주 항로 탐험');
+  await cosmicState(page, info, 'teacher-published');
+  await page.getByRole('button', { name: '학생 화면' }).click();
+  await expect(page.getByRole('article', { name: '우주 항로 탐험' })).toBeVisible();
+  await cosmicState(page, info, 'student-assigned');
+  await page.getByRole('button', { name: '탐험 시작' }).click();
+  await expect(page.getByRole('button', { name: '질량 6 kg 선택' })).toBeVisible();
+  await cosmicState(page, info, 'student-play');
+  await page.getByRole('button', { name: '질량 6 kg 선택' }).click();
+  await page.getByRole('button', { name: '힌트 받기' }).click();
+  await expect(page.getByText('문제에서 무엇이 계속 유지되는지 먼저 찾아보자.')).toBeVisible();
+  await cosmicState(page, info, 'student-hint');
+  await page.getByRole('button', { name: '질량 2 kg 선택' }).click();
+  await page.getByRole('button', { name: '탐험 완료', exact: true }).click();
+  await expect(page.getByText('탐험을 완료했습니다!')).toBeVisible();
+  await cosmicState(page, info, 'student-completed');
+  await page.getByRole('button', { name: '교사 화면' }).click();
+  await page.getByRole('button', { name: '교사 결과 보기' }).click();
+  await expect(page.getByText('힌트 1회')).toBeVisible();
+  await cosmicState(page, info, 'teacher-results');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const controls = page.locator(
+    '.cosmic-service button:visible:enabled, .cosmic-service a:visible, .cosmic-service summary:visible, .cosmic-service input:visible, .cosmic-service select:visible, .cosmic-service textarea:visible',
+  );
+  const visited = new Set<number>();
+  for (let i = 0; i < (await controls.count()) + 3; i++) {
+    await page.keyboard.press('Tab');
+    const index = await controls.evaluateAll((elements) =>
+      elements.findIndex((element) => element === document.activeElement),
+    );
+    if (index < 0) continue;
+    visited.add(index);
+    expect(
+      await controls.nth(index).evaluate((element) => ({
+        width: getComputedStyle(element).outlineWidth,
+        style: getComputedStyle(element).outlineStyle,
+      })),
+    ).toEqual({ width: '4px', style: 'solid' });
+  }
+  expect(visited.size).toBe(await controls.count());
+  await page.getByRole('button', { name: '학생 화면' }).hover();
+  expect(
+    await page
+      .getByRole('button', { name: '학생 화면' })
+      .evaluate((element) => getComputedStyle(element).transform),
+  ).toBe('none');
+  expect(
+    await page.locator('.cosmic-service *').evaluateAll(
+      (elements) =>
+        elements.filter(
+          (element) =>
+            getComputedStyle(element).animationName !== 'none' ||
+            getComputedStyle(element)
+              .transitionDuration.split(',')
+              .some((value) => parseFloat(value) !== 0),
+        ).length,
+    ),
+  ).toBe(0);
 });

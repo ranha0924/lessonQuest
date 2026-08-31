@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import type { StudentProgress } from '@lessonquest/contracts';
 
 import type { LessonQuestApi, ValidationReport } from '../api-client.js';
+import { MissionWelcome } from './cosmic-art.js';
 import { SandboxPreview } from './sandbox-preview.js';
 import { TeacherProgress } from './teacher-progress.js';
 import { BossCampaignPanel } from './boss-campaign-panel.js';
@@ -109,11 +110,22 @@ export function StudioWorkbench({
         <p>생성물을 검증하고, 교사가 직접 승인한 버전만 반으로 보냅니다.</p>
       </header>
 
+      <MissionWelcome teacher />
       <nav className="discovery-trail" aria-label="제작 단계">
         {['생성', '검증', '미리보기', '승인', '배포'].map((step, index) => (
           <span
             key={step}
-            className={index === 0 || versionId !== null ? 'trail-step active' : 'trail-step'}
+            className={
+              [
+                versionId !== null,
+                report?.verdict === 'PASS',
+                previewDocument !== null,
+                approved,
+                assignmentId !== null,
+              ][index]
+                ? 'trail-step active'
+                : 'trail-step'
+            }
           >
             <b>{index + 1}</b>
             {step}
@@ -121,7 +133,7 @@ export function StudioWorkbench({
         ))}
       </nav>
 
-      <div className="workbench-grid">
+      <div className="workbench-grid" id="studio-editor">
         <form className="panel author-panel" onSubmit={createDraft}>
           <p className="panel-kicker">01 · 생성 입력</p>
           <label>
