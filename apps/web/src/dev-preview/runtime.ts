@@ -4,6 +4,7 @@ import { LocalAuthProvider } from '@lessonquest/auth';
 import type { Actor } from '@lessonquest/contracts';
 import {
   GamificationRepository,
+  ClassroomRepository,
   initializeSchema,
   LearningRepository,
   RasaRepository,
@@ -91,6 +92,7 @@ export async function createPreviewRuntime() {
         ]),
       }),
       repository: tenants,
+      classroomRepository: new ClassroomRepository(database),
       learningRepository: learning,
       rasaRepository: new RasaRepository(database),
       gamificationRepository: gamification,

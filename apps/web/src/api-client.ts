@@ -12,6 +12,16 @@ import {
   rasaHintResultSchema,
   studentBossProgressSchema,
   teacherBossDetailSchema,
+  classroomListSchema,
+  createdClassSchema,
+  classDashboardSchema,
+  issuedClassInvitationSchema,
+  revokedClassInvitationSchema,
+  redeemedClassInvitationSchema,
+  type ClassroomSummary,
+  type ClassDashboard,
+  type IssuedClassInvitation,
+  type RedeemedClassInvitation,
   type Assignment,
   type AttemptSession,
   type ClientLearningEvent,
@@ -40,6 +50,26 @@ export type StudentAssignmentSummary = ContractStudentAssignmentSummary;
 
 interface RuntimeSchema<T> {
   parse(value: unknown): T;
+}
+
+export interface ClassroomApi {
+  listClasses(organizationId: string): Promise<ClassroomSummary[]>;
+  createClass(organizationId: string, input: { name: string }): Promise<ClassroomSummary>;
+  getClassDashboard(organizationId: string, classId: string): Promise<ClassDashboard>;
+  issueClassInvitation(
+    organizationId: string,
+    classId: string,
+    input: { maxUses: number },
+  ): Promise<IssuedClassInvitation>;
+  revokeClassInvitation(
+    organizationId: string,
+    classId: string,
+    invitationId: string,
+  ): Promise<{ revoked: true }>;
+  redeemClassInvitation(
+    organizationId: string,
+    input: { code: string },
+  ): Promise<RedeemedClassInvitation>;
 }
 
 export interface LessonQuestApi {
@@ -127,7 +157,7 @@ export function createHttpLessonQuestApi(options: {
   readonly baseUrl: string;
   readonly getAuthorization: () => string | null;
   readonly fetch?: typeof fetch;
-}): LessonQuestApi {
+}): LessonQuestApi & ClassroomApi {
   const request = async <T>(
     path: string,
     schema: RuntimeSchema<T>,
@@ -159,6 +189,36 @@ export function createHttpLessonQuestApi(options: {
   };
 
   return {
+    listClasses: (organizationId) =>
+      request(`/organizations/${organizationId}/classes`, classroomListSchema),
+    createClass: (organizationId, input) =>
+      request(`/organizations/${organizationId}/classes`, createdClassSchema, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    getClassDashboard: (organizationId, classId) =>
+      request(
+        `/organizations/${organizationId}/classes/${classId}/dashboard`,
+        classDashboardSchema,
+      ),
+    issueClassInvitation: (organizationId, classId, input) =>
+      request(
+        `/organizations/${organizationId}/classes/${classId}/invitations`,
+        issuedClassInvitationSchema,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
+    revokeClassInvitation: (organizationId, classId, invitationId) =>
+      request(
+        `/organizations/${organizationId}/classes/${classId}/invitations/${invitationId}/revoke`,
+        revokedClassInvitationSchema,
+        { method: 'POST', body: '{}' },
+      ),
+    redeemClassInvitation: (organizationId, input) =>
+      request(
+        `/organizations/${organizationId}/class-invitations/redeem`,
+        redeemedClassInvitationSchema,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
     createScienceExperience: (organizationId, input) =>
       request(
         `/organizations/${organizationId}/experiences/science`,

@@ -92,6 +92,20 @@ GET  /organizations/:organizationId/classes/:classId/assignments/:assignmentId/p
 
 ## 프로젝트 기준
 
+Phase 2의 첫 서비스 전달 단위는 반 만들기·선택, 학생 초대 및 교사 반 대시보드입니다. 개발 미리보기의 **반 관리**에서 사용합니다. 초대 코드는 24시간 만료, 인원 한도, 재발급·취소와 중복 가입 방지를 적용하고, 발급 교사/학생/기관의 현재 권한을 다시 검사합니다. 기존 브라우저 소유 합성 환경의 제한은 동일합니다. PWA/offline queue, 기존 계정 연결 및 실제 데이터 전환은 이 단위에 포함하지 않습니다. [Phase 2 진행 기록과 사용법](docs/PHASE2_PROGRESS.md)을 참고하세요.
+
+추가 classroom API는 `createApp`에 `ClassroomRepository`를 주입했을 때 기존 인증/Origin/JSON 경계 아래에서 활성화됩니다.
+
+```text
+GET  /organizations/:organizationId/classes
+GET  /organizations/:organizationId/classes/:classId/dashboard
+POST /organizations/:organizationId/classes/:classId/invitations
+POST /organizations/:organizationId/classes/:classId/invitations/:invitationId/revoke
+POST /organizations/:organizationId/class-invitations/redeem
+```
+
+초대 원문은 발급 응답/가입 JSON body에만 포함하며 URL, DB, 감사/진단에는 기록하지 않습니다. 교사 현황은 현재 활성 학생들의 반 합계이고, 학생에게는 해당 API를 공개하지 않습니다.
+
 - [프로젝트 기준 메모리](docs/PROJECT_CANON.md)
 - [통합 설계서](docs/INTEGRATION_PLAN_V2.md)
 - [Phase 1 기반 계약 구현 계획](docs/superpowers/plans/2026-08-29-phase-1-foundation-contracts.md)

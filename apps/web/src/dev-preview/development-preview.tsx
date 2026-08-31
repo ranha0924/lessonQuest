@@ -3,6 +3,8 @@ import { StudioWorkbench } from '../components/studio-workbench.js';
 import { StudentPlay } from '../components/student-play.js';
 import type { PreviewRuntime } from './runtime.js';
 import { CosmicShell } from '../components/cosmic-shell.js';
+import { ClassroomManager } from '../components/classroom-manager.js';
+import { JoinClass } from '../components/join-class.js';
 import './preview.css';
 
 export function DevelopmentPreview({
@@ -14,10 +16,14 @@ export function DevelopmentPreview({
 }) {
   const [role, setRole] = useState<'TEACHER' | 'STUDENT'>('TEACHER');
   const [teacherVisit, setTeacherVisit] = useState(0);
+  const [classId, setClassId] = useState(runtime.classId);
+  const [classroomsOpen, setClassroomsOpen] = useState(false);
+  const [studentVisit, setStudentVisit] = useState(0);
   // A refreshed client reference reloads the existing boss panel when the teacher returns.
   // The method closures always retain the same teacher identity, including in-flight work.
   const teacherApi = useMemo(() => ({ ...runtime.teacherApi }), [runtime, teacherVisit]);
   const selectTeacher = () => {
+    setClassroomsOpen(false);
     if (role !== 'TEACHER') {
       setTeacherVisit((value) => value + 1);
       setRole('TEACHER');
@@ -28,8 +34,23 @@ export function DevelopmentPreview({
       role={role}
       previewControls={
         <nav className="cosmic-role-nav" aria-label="개발 미리보기 역할">
-          <button type="button" aria-pressed={role === 'TEACHER'} onClick={selectTeacher}>
+          <button
+            type="button"
+            aria-pressed={role === 'TEACHER' && !classroomsOpen}
+            onClick={selectTeacher}
+          >
             <span aria-hidden="true">◇</span>교사 화면
+          </button>
+          <button
+            type="button"
+            aria-pressed={role === 'TEACHER' && classroomsOpen}
+            onClick={() => {
+              if (role !== 'TEACHER') setTeacherVisit((value) => value + 1);
+              setRole('TEACHER');
+              setClassroomsOpen(true);
+            }}
+          >
+            반 관리
           </button>
           <button
             type="button"
@@ -62,16 +83,36 @@ export function DevelopmentPreview({
             </p>
           </details>
         </aside>
-        <div hidden={role !== 'TEACHER'}>
-          <StudioWorkbench
+        {role === 'TEACHER' && classroomsOpen ? (
+          <ClassroomManager
             api={teacherApi}
             organizationId={runtime.organizationId}
-            classId={runtime.classId}
+            classId={classId}
+            onSelect={setClassId}
+          />
+        ) : null}
+        <div hidden={role !== 'TEACHER' || classroomsOpen}>
+          <StudioWorkbench
+            key={classId}
+            api={teacherApi}
+            organizationId={runtime.organizationId}
+            classId={classId}
             initialDraft={runtime.sampleDraft}
           />
         </div>
         {role === 'STUDENT' ? (
-          <StudentPlay api={runtime.studentApi} organizationId={runtime.organizationId} />
+          <>
+            <StudentPlay
+              key={studentVisit}
+              api={runtime.studentApi}
+              organizationId={runtime.organizationId}
+            />
+            <JoinClass
+              api={runtime.studentApi}
+              organizationId={runtime.organizationId}
+              onJoined={() => setStudentVisit((value) => value + 1)}
+            />
+          </>
         ) : null}
       </div>
     </CosmicShell>

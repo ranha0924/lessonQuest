@@ -43,6 +43,49 @@ async function ready(page: Page) {
   await expect(page.getByText(/새로고침하면 초기화/)).toBeVisible();
 }
 
+test('classroom invitations connect a new class to student play and teacher dashboard', async ({
+  page,
+}, info) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByRole('button', { name: '반 관리', exact: true }).click();
+  await expect(page.getByText('현재 학생 1명')).toBeVisible();
+  await page.getByLabel('새 반 이름').fill('우주 협동반');
+  await page.getByRole('button', { name: '반 만들기' }).click();
+  await expect(page.getByRole('heading', { name: '우주 협동반 현황' })).toBeVisible();
+  await page.getByRole('button', { name: '초대 코드 발급' }).click();
+  const oldCode = await page.getByLabel('발급된 초대 코드').textContent();
+  await page.getByRole('button', { name: '초대 코드 재발급' }).click();
+  await expect(page.getByLabel('발급된 초대 코드')).not.toHaveText(oldCode ?? '');
+  const code = await page.getByLabel('발급된 초대 코드').textContent();
+  expect(code).toMatch(/^lqi_[a-f0-9]{64}$/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('phase2-classroom.png'), fullPage: true });
+  await page.getByRole('button', { name: '교사 화면' }).click();
+  await publish(page, '협동반 첫 탐험');
+  await page.getByRole('button', { name: '학생 화면' }).click();
+  await expect(page.getByText('지금 할 탐험이 없어요.')).toBeVisible();
+  await page.getByLabel('초대 코드', { exact: true }).fill(oldCode ?? '');
+  await page.getByRole('button', { name: '반 참여하기' }).click();
+  await expect(page.getByRole('alert')).toContainText('참여 결과를 확인하지 못했습니다.');
+  await page.getByLabel('초대 코드', { exact: true }).fill(code ?? '');
+  await page.getByRole('button', { name: '반 참여하기' }).click();
+  await expect(page.getByText('우주 협동반에 참여했습니다.')).toBeVisible();
+  await page.getByRole('button', { name: '탐험 시작' }).click();
+  await page.getByRole('button', { name: '질량 2 kg 선택' }).click();
+  await expect(page.getByText('정답이에요!')).toBeVisible();
+  await page.getByRole('button', { name: '탐험 완료', exact: true }).click();
+  await expect(page.getByText('탐험을 완료했습니다!')).toBeVisible();
+  await page.getByRole('button', { name: '반 관리', exact: true }).click();
+  await expect(page.getByText('완료 1 / 1명')).toBeVisible();
+  await expect(page.getByLabel('발급된 초대 코드')).toHaveCount(0);
+  await page.getByLabel('수업할 반').selectOption({ label: '개발 체험반' });
+  await expect(page.getByRole('heading', { name: '개발 체험반 현황' })).toBeVisible();
+  await expect(
+    page.getByText('아직 배포한 과제가 없습니다. 교사 화면의 제작소에서 탐험을 준비하세요.'),
+  ).toBeVisible();
+});
+
 async function publish(page: Page, title: string) {
   await page.getByLabel('체험 제목', { exact: true }).fill(title);
   await page.getByRole('button', { name: '초안 저장' }).click();

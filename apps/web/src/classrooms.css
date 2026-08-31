@@ -1,0 +1,98 @@
+.classroom-manager,
+.classroom-join {
+  margin: 24px auto;
+  width: calc(100% - 64px);
+  max-width: 1376px;
+}
+.classroom-heading,
+.classroom-controls,
+.classroom-controls form,
+.classroom-invite form,
+.classroom-join form {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.classroom-heading {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.classroom-heading h2 {
+  margin: 8px 0;
+}
+.classroom-manager label,
+.classroom-join label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.classroom-controls > label {
+  flex: 1 1 240px;
+}
+.classroom-controls form {
+  flex: 2 1 300px;
+}
+.classroom-manager input,
+.classroom-manager select,
+.classroom-join input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.classroom-invite input {
+  max-width: 160px;
+}
+.classroom-invite label {
+  flex: 0 1 160px;
+  min-width: 120px;
+}
+.classroom-dashboard {
+  margin-top: 16px;
+}
+.classroom-invite {
+  border-block: 1px solid #394354;
+  padding: 20px 0;
+  margin: 20px 0;
+}
+.classroom-invite summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 0;
+}
+.invitation-secret {
+  padding: 16px;
+  border: 1px solid #42797f;
+  border-radius: 12px;
+  background: #14292f;
+}
+.invitation-secret output {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  font-family: ui-monospace, monospace;
+  color: #90f3ed;
+  line-height: 1.6;
+}
+.classroom-assignment {
+  border-top: 1px solid #394354;
+  padding: 16px 0;
+  overflow-wrap: anywhere;
+}
+.classroom-join form label {
+  flex: 1 1 240px;
+}
+@media (max-width: 600px) {
+  .classroom-manager,
+  .classroom-join {
+    width: calc(100% - 32px);
+  }
+  .classroom-heading > button {
+    width: 100%;
+  }
+  .classroom-controls form,
+  .classroom-invite form {
+    flex-basis: 100%;
+  }
+}
