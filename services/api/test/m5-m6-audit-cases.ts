@@ -399,6 +399,58 @@ describe('M5/M6 durable decision audits', () => {
       expect(all).not.toContain(secret);
   });
 
+  it.each(['create', 'student read', 'teacher detail', 'end', 'end replay'] as const)(
+    'denies %s for a disabled organization before any boss effect or replay',
+    async (operation) => {
+      let campaignId: string = randomUUID();
+      const endInput = { requestId: randomUUID() };
+      if (operation !== 'create') {
+        const created = await request(
+          `${classPath()}/boss/campaigns`,
+          m56TeacherToken,
+          campaignInput,
+        );
+        expect(created.status).toBe(201);
+        campaignId = teacherBossDetailSchema.parse(await created.json()).campaign.campaignId;
+      }
+      const endPath = `${classPath()}/boss/campaigns/${campaignId}/end`;
+      if (operation === 'end replay') {
+        expect((await request(endPath, m56TeacherToken, endInput)).status).toBe(200);
+      }
+      const before = (await fixture.database.query('SELECT * FROM class_boss_campaigns')).rows;
+      await fixture.database.query("UPDATE organizations SET status='DISABLED' WHERE id=$1", [
+        fixture.organization.id,
+      ]);
+      const isEnd = operation === 'end' || operation === 'end replay';
+      const isStudent = operation === 'student read';
+      const path = isEnd
+        ? endPath
+        : `${classPath()}/boss${operation === 'create' ? '/campaigns' : operation === 'teacher detail' ? '/detail' : ''}`;
+      const response = await request(
+        path,
+        isStudent ? m56StudentToken : m56TeacherToken,
+        operation === 'create' ? campaignInput : isEnd ? endInput : undefined,
+      );
+      await expectDecision(response, {
+        action: isEnd
+          ? 'BOSS_CAMPAIGN_ENDED'
+          : operation === 'create'
+            ? 'BOSS_CAMPAIGN_CREATED'
+            : isStudent
+              ? 'BOSS_PROGRESS_READ'
+              : 'BOSS_DETAIL_READ',
+        resourceType: isEnd ? 'BOSS_CAMPAIGN' : 'CLASS',
+        resourceId: isEnd ? campaignId : fixture.lessonClass.id,
+        outcome: 'DENIED',
+        actorId: isStudent ? m56Student.userId : m56Teacher.userId,
+      });
+      expect((await fixture.database.query('SELECT * FROM class_boss_campaigns')).rows).toEqual(
+        before,
+      );
+      expect((await fixture.database.query('SELECT * FROM boss_contributions')).rows).toEqual([]);
+    },
+  );
+
   it('records all four boss decisions against an existing foreign tenant without exposing its data', async () => {
     const tenants = new TenantRepository(fixture.database);
     const foreignTeacher = { ...m56Teacher, userId: randomUUID() };

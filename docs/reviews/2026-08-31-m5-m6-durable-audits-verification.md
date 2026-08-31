@@ -39,3 +39,33 @@ Before this change's delivery, GitHub repository metadata identified the existin
 No migration/schema, auth predicate, response contract, provider/output policy, projection algorithm, frontend, dependency or deployment configuration changes. All new code is original LessonQuest work. Only synthetic data and deliberate local test triggers are used. No Firebase, external AI, actual students or reference repository was accessed. No audit endpoint was added. No SQL exception, title, hint, step text, answer or credential is included in the audit writer.
 
 Audit writes cannot be guaranteed while the database is unavailable; safe 500 diagnostics remain the failure path. PGlite results do not establish real PostgreSQL multi-connection behavior. Broader E2E and visual-regression follow-ups remain open under the plan.
+
+## Independent gate failure and organization-lifecycle remediation
+
+The first independent review scored candidate `c15d25e` **82/100 FAIL**. It independently passed 301 tests, 32 integration tests, 30 scripted E2E tests, audit, and 12 adversarial probes, then reproduced an inherited disabled-organization bypass on all four boss endpoints. Its failed report is preserved; passing ordinary checks did not supersede the blocker.
+
+The separate remediation plan/review passed at **98/100** before further production edits. Five new real API cases (create, student read, teacher detail, end, exact end replay) were written with only organization status disabled; users, classes and memberships remain active.
+
+- RED: `corepack pnpm exec vitest run services/api/test/m5-m6.test.ts -t 'disabled organization'` failed **5/5 selected tests** (17 unrelated tests intentionally filtered out), with successful 200/201 responses instead of safe 404. Evidence: `/tmp/lessonquest-audit-org-red.log`.
+- Implementation: exactly two authorization query changes since the failing candidate, each adding an organization join with `status='ACTIVE'`. This supersedes the initial scope's unchanged-authorization-predicate statement. No auth provider, membership policy, schema, UI, projection or dependency changed.
+- GREEN: dependency build plus focused API/Rasa/boss repository checks passed **3 files / 24 tests**, with zero failures/skips. Evidence: `/tmp/lessonquest-audit-org-build.log`, `/tmp/lessonquest-audit-org-green.log`.
+
+The inherited generic Rasa-finalization DB-failure classification remains a separate, nonblocking diagnostic limitation in the first independent report. It is not a new wrapper regression and this remediation does not claim to fix it. A different fresh independent reviewer must validate the complete remediated diff before delivery.
+
+## Fresh remediated verification
+
+The first full run stopped on a test-only TypeScript inference error: `randomUUID()` inferred a narrower template type than the parsed API string. The test variable now explicitly has type `string`; no production change was needed. Failed evidence is preserved at `/tmp/lessonquest-audit-org-check-type-red.log`.
+
+The complete subsequent sequential verification session `65017` exited 0:
+
+| Check                                                 | Result                                                                                      | Evidence                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `corepack pnpm check`                                 | Lint/format/typechecks, 26 files / **306 tests**, all builds PASS                           | `/tmp/lessonquest-audit-org-check.log`                          |
+| `corepack pnpm test:integration`                      | 5 files / **37 tests** PASS                                                                 | `/tmp/lessonquest-audit-org-integration.log`                    |
+| `corepack pnpm test:e2e`                              | 5 files / **35 tests** PASS as scripted (includes API tests)                                | `/tmp/lessonquest-audit-org-e2e.log`                            |
+| `corepack pnpm audit --prod`                          | No known vulnerabilities                                                                    | `/tmp/lessonquest-audit-org-security.log`                       |
+| Static demo build                                     | PASS, 132 modules                                                                           | `/tmp/lessonquest-audit-org-demo.log`                           |
+| Secret-pattern scan                                   | 14 changed/new files, no matches                                                            | Current-task tool output                                        |
+| Full-range whitespace and protected-scope comparisons | PASS; schema/auth package/contracts/provider/UI/dependency/CI/Vercel config still unchanged | `git diff --check 9bcb2fb` and the protected-path command above |
+
+All ordinary remediated verification completed with zero failed/skipped tests. Independent final acceptance remains a distinct gate, recorded in the second review rather than inferred from these results.

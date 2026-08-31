@@ -190,7 +190,7 @@ export class GamificationRepository {
       () =>
         this.database.transaction(async (tx) => {
           const allowed = await tx.query(
-            `SELECT 1 FROM class_members cm JOIN organization_members om ON om.organization_id=cm.organization_id AND om.user_id=cm.user_id AND om.status='ACTIVE' JOIN users u ON u.id=cm.user_id AND u.platform_role='STUDENT' AND u.status='ACTIVE' JOIN classes c ON c.organization_id=cm.organization_id AND c.id=cm.class_id AND c.status='ACTIVE' WHERE cm.organization_id=$1 AND cm.class_id=$2 AND cm.user_id=$3 AND cm.status='ACTIVE'`,
+            `SELECT 1 FROM class_members cm JOIN organizations o ON o.id=cm.organization_id AND o.status='ACTIVE' JOIN organization_members om ON om.organization_id=cm.organization_id AND om.user_id=cm.user_id AND om.status='ACTIVE' JOIN users u ON u.id=cm.user_id AND u.platform_role='STUDENT' AND u.status='ACTIVE' JOIN classes c ON c.organization_id=cm.organization_id AND c.id=cm.class_id AND c.status='ACTIVE' WHERE cm.organization_id=$1 AND cm.class_id=$2 AND cm.user_id=$3 AND cm.status='ACTIVE'`,
             [organizationId, classId, actor.userId],
           );
           if (allowed.rows[0] === undefined) throw new ResourceNotFoundError();
@@ -413,7 +413,7 @@ export class GamificationRepository {
     classId: string,
   ) {
     const row = await q.query(
-      `SELECT 1 FROM classes c JOIN organization_members m ON m.organization_id=c.organization_id AND m.user_id=$3 AND m.status='ACTIVE' AND m.role IN('TEACHER','ORG_ADMIN') JOIN users u ON u.id=m.user_id AND u.status='ACTIVE' AND u.platform_role IN('TEACHER','SUPER_ADMIN') WHERE c.organization_id=$1 AND c.id=$2 AND c.status='ACTIVE' AND(c.owner_teacher_id=$3 OR m.role='ORG_ADMIN')`,
+      `SELECT 1 FROM classes c JOIN organizations o ON o.id=c.organization_id AND o.status='ACTIVE' JOIN organization_members m ON m.organization_id=c.organization_id AND m.user_id=$3 AND m.status='ACTIVE' AND m.role IN('TEACHER','ORG_ADMIN') JOIN users u ON u.id=m.user_id AND u.status='ACTIVE' AND u.platform_role IN('TEACHER','SUPER_ADMIN') WHERE c.organization_id=$1 AND c.id=$2 AND c.status='ACTIVE' AND(c.owner_teacher_id=$3 OR m.role='ORG_ADMIN')`,
       [organizationId, classId, actor.userId],
     );
     if (row.rows[0] === undefined) throw new ResourceNotFoundError();
