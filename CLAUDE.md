@@ -26,3 +26,9 @@
 - Selectively copy useful code or behavior with provenance; do not modify source repositories.
 - Do not connect to production Firebase or use real student data in Phase 1.
 - Do not push or deploy without explicit user authorization.
+
+## Delivery preference
+
+- On 2026-08-31, the user gave standing authorization for future requested LessonQuest changes: verify, commit, merge into `main`, push, and deploy to the configured LessonQuest Vercel project without asking for the routine integration choice again.
+- This replaces the earlier user-managed deployment preference. Preserve all review gates and repository/data boundaries; verify the actual deployed commit and live URL before claiming success.
+- Missing credentials, an unidentified deployment target, or materially expanded/destructive work still requires the user's input. See `AGENTS.md` for the complete delivery rule.

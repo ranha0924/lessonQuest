@@ -23,3 +23,11 @@ Documentation and planning changes needed to evaluate the gate are allowed befor
 - Do not access Firebase or real student data during Phase 1.
 - Keep organization data tenant-scoped and fail closed on authorization uncertainty.
 - Never push, deploy, or mutate an external system unless the user explicitly requests it.
+
+## Standing delivery authorization — 2026-08-31
+
+- The user explicitly authorizes future requested LessonQuest changes to be delivered through commit, merge into `main`, push to `origin/main`, and deployment to the configured LessonQuest Vercel project. Do not stop at a local commit or open PR, or routinely ask the user to choose the integration steps again.
+- This supersedes the earlier instruction that the user would handle deployment. It applies only to LessonQuest, not the reference repositories or their deployments.
+- All mandatory plan and independent final-validation gates still apply. Check the merged result and required CI before release; never bypass branch protection or a failing gate.
+- Prefer the existing Git-linked Vercel deployment when available. Verify the deployed commit, deployment status, and live URL before reporting deployment complete; do not create a duplicate deployment unnecessarily.
+- If the deployment target or credentials are missing, or delivery requires new paid resources, destructive data operations, or another material scope expansion, report the blocker and request only the missing authority or information.

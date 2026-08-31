@@ -5,6 +5,7 @@ import { App } from './app.js';
 import { createHttpLessonQuestApi } from './api-client.js';
 import { DemoShell } from './demo-shell.js';
 import './styles.css';
+import './demo-shell.css';
 
 declare global {
   interface Window {
