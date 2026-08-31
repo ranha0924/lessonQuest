@@ -1,8 +1,12 @@
-# Dark Demo Main Merge and Vercel Release Plan
+# Dark Demo Main Merge Plan
+
+## Current scope override
+
+The user's latest instruction on 2026-08-31 is to stop after merging into GitHub `main`. This overrides the earlier deploy-now request for this task. Do not execute, promote, reconfigure, monitor, or validate a Vercel deployment as part of completion. The existing Git integration may automatically react to an authorized push/merge; leave that integration unchanged and make no claim that deployment was performed or verified. The standing delivery preference remains applicable to future work unless overridden again.
 
 ## Scope and authority
 
-- User authorization on 2026-08-31: merge the current work into remote `main` and deploy now; future LessonQuest changes follow the same verified delivery workflow.
+- User authorization on 2026-08-31: merge the current work into remote `main` only for this task; future LessonQuest changes retain the verified delivery preference unless overridden.
 - Release the already-reviewed synthetic dark student/teacher demo from PR #4, `codex/student-home-redesign` into `ranha0924/lessonQuest:main`.
 - Include the user's delivery preference in `AGENTS.md`, `CLAUDE.md`, and `memory/projects/lessonquest.md`, plus this release plan and its reviews. No new production code, dependencies, environment variables, or deployment configuration changes are planned.
 - Controlling requirements: `docs/PROJECT_CANON.md`, the Vercel demo preview plan/review, and the unified dark theme plan/final review. The unchanged UI passed independent final validation at 97/100 with no critical blocker.
@@ -20,10 +24,9 @@
 1. Preserve the existing delivery-rule edits, review the actual diff, and pass the documented plan gate before any remote mutation.
 2. Run fresh `corepack pnpm check`, `corepack pnpm audit --prod`, the demo build, and `git diff --check db784b3`. The existing TDD and independent UI evidence remains valid because runtime files do not change in this release step.
 3. Obtain a fresh independent release-readiness review of the actual code lineage, documentation delta, target evidence, and checks. Require at least 86/100 and no critical blocker. The reviewer may edit only its review report.
-4. Commit the delivery documentation on the existing feature branch, push without force, and wait for the exact new PR head's CI and Vercel preview to succeed. Recheck head/base and merge using GitHub's expected-head guard without bypassing protections. Preserve commit history with a merge commit.
-5. Fetch and fast-forward local `main` to the remote merge commit. Observe the Git-triggered deployment instead of creating a duplicate. Verify the Vercel success status belongs to that exact merge SHA and confirm production environment/domain through available deployment evidence.
-6. At the verified live URL, check HTTP success and expected static assets/security headers when observable. Test student initial -> wrong answer -> fixed Rasa hint -> successful retry -> aggregate boss 40/100, teacher switch, dark surfaces, and a SPA deep link. No real credentials or student data are entered into the demo.
-7. Report merge SHA, PR status, deployment status, live URL, checks, and any unverified condition accurately. Do not call a queued deployment or an authentication-blocked live smoke test complete.
+4. Commit the delivery documentation on the existing feature branch, push without force, and wait for the exact new PR head's required CI to succeed. Recheck head/base and merge using GitHub's expected-head guard without bypassing protections. Preserve commit history with a merge commit.
+5. Fetch and fast-forward local `main` to the remote merge commit. Verify that GitHub reports the PR merged and that local `main` matches `origin/main` with a clean worktree.
+6. Stop after merge verification. Report the PR and merge SHA; distinguish this completed Git operation from any unverified automatic deployment. Do not request Vercel login or perform deployment steps for this merge-only task.
 
 ## Safety, observation, and rollback
 
@@ -42,4 +45,4 @@
 
 ## Acceptance
 
-Remote `main` contains the reviewed change and delivery rules; required checks pass; the existing Vercel project successfully deploys the merge SHA; its verified production URL serves the dark synthetic demo and passes the core smoke flow. Any missing production evidence is an explicit incomplete item, not an inferred success.
+Remote `main` contains the reviewed change and delivery rules, required CI passes, GitHub reports PR #4 merged, and local `main` matches the remote merge SHA with a clean worktree. Deployment execution and verification are excluded by the user's latest instruction.
