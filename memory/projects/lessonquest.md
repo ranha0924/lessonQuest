@@ -1,12 +1,16 @@
 # LessonQuest Project Memory
 
-Updated: 2026-08-30
+Updated: 2026-08-31
 
 ## Product and source of truth
 
 LessonQuest is a playable learning platform with four product areas: Studio, Play, Rasa, and Institution Console. The canonical product constraints live in `docs/PROJECT_CANON.md`; architecture and sequencing live in `docs/INTEGRATION_PLAN_V2.md` and the applicable plan under `docs/superpowers/plans/`.
 
 The existing GitHub repositories and their deployments are reference sources only. They must remain unchanged. Reuse is limited to selectively copying useful code, behavior, or tests into LessonQuest and recording provenance.
+
+## Standing delivery preference — 2026-08-31
+
+The user explicitly requested that future LessonQuest changes include merging into `main` and deployment. After the existing plan and independent final-review gates pass, complete commit, merge, push to `origin/main`, and deployment to the configured LessonQuest Vercel project without another routine integration-choice question. This supersedes the earlier preference that the user would deploy. Verify required CI, the deployed commit, deployment status, and the live URL; prefer observing the existing Git-triggered deployment over creating a duplicate. This permission does not extend to reference repositories, real student data, destructive operations, or new paid resources. Missing credentials or an unidentified deployment target must be reported, not bypassed. This entry records a prospective workflow instruction, not evidence that any pending PR has been remotely merged or deployed.
 
 ## Mandatory pre-implementation validation gate
 
