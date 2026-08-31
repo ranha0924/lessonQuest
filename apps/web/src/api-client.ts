@@ -126,6 +126,7 @@ function readErrorEnvelope(value: unknown): { code: string; message: string; ret
 export function createHttpLessonQuestApi(options: {
   readonly baseUrl: string;
   readonly getAuthorization: () => string | null;
+  readonly fetch?: typeof fetch;
 }): LessonQuestApi {
   const request = async <T>(
     path: string,
@@ -140,7 +141,10 @@ export function createHttpLessonQuestApi(options: {
     if (init.body !== undefined) {
       headers.set('content-type', 'application/json');
     }
-    const response = await fetch(new URL(path, options.baseUrl), { ...init, headers });
+    const response = await (options.fetch ?? fetch)(new URL(path, options.baseUrl), {
+      ...init,
+      headers,
+    });
     const value: unknown = await response.json();
     if (!response.ok) {
       const envelope = readErrorEnvelope(value);

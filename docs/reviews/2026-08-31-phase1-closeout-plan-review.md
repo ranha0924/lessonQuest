@@ -16,3 +16,15 @@
 | **Total**                              | **97/100** | **PASS**                                                                                                                                                                                                                                                                                                                                                 |
 
 No runtime edits preceded this review. The baseline installs from the frozen lockfile. The new browser dependency is development-only; registry resolution and official managed-server/CI instructions were checked before choosing the pin. Existing committed audit failure history is retained. If newly reproduced defects exceed the listed production files or change authorization/storage contracts, amend and re-score the plan first.
+
+## Hint-recovery clarification review — before runtime correction
+
+The SDK rejects synchronization with a pending event. An undelivered successful hint response can therefore leave a stale sequence while the UI enables answers. Conversely, exact replay of a received terminal 503 can never produce a hint because request states are immutable. The clarification distinguishes these states, locks competing writes only while outcome is uncertain, and offers an explicit new request after a known terminal failure without changing exact replay. It fits the approved `StudentPlay` file and API/provider boundaries. Fresh score: requirements **25/25**, architecture **20/20**, security **20/20**, tests **19/20**, execution **14/15** = **98/100 PASS**, no critical blocker. Real-boundary RED precedes both corrections. Original 97/100 evidence remains preserved.
+
+## Browser contrast/motion remediation review — before CSS edits
+
+The browser worker reproduced two small-text contrast failures and two reduced-motion hover-selector failures in all three viewports, without changing production CSS. The narrow plan amendment changes existing scoped tokens/selectors only and repeats the same computed browser assertions; original theme, layout and security boundaries remain. Score: requirements **25/25**, architecture **20/20**, security **20/20**, tests **20/20**, execution **15/15** = **100/100 PASS**, no critical blocker. Initial helper/setup errors are not counted as product RED. The whole-branch independent review remains mandatory.
+
+## Campaign field identity refinement — before component correction
+
+The full-flow browser-DOM test found SPECIAL's live value empty after the WEEKLY date input was reused; a dedicated assertion reproduced the failure before any correction. Distinct conditional React keys restore native defaults and submission while preserving campaign validation and data policy. This is within Task 1's approved component boundary. Requirements **25/25**, architecture **20/20**, security **20/20**, tests **20/20**, readiness **15/15** = **100/100 PASS**, no blocker; verify both switch directions and the real full-flow create before final review.

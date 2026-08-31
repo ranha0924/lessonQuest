@@ -12,7 +12,7 @@ export class ScienceGenerationError extends Error {
 const maximumSpecificationBytes = 32_768;
 
 export function parseGeneratedScienceSpec(input: string): ScienceBlockSpec {
-  if (Buffer.byteLength(input, 'utf8') > maximumSpecificationBytes) {
+  if (new TextEncoder().encode(input).byteLength > maximumSpecificationBytes) {
     throw new ScienceGenerationError('SPEC_TOO_LARGE');
   }
 

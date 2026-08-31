@@ -916,11 +916,21 @@ export class LearningRepository {
         }
         const existing = await transaction.query<AttemptRow>(
           `SELECT id, assignment_id, class_id, student_id, status FROM attempts
-         WHERE organization_id = $1 AND assignment_id = $2 AND student_id = $3`,
+         WHERE organization_id = $1 AND assignment_id = $2 AND student_id = $3 FOR UPDATE`,
           [organizationId, assignmentId, actor.userId],
         );
         const existingRow = existing.rows[0];
         if (existingRow !== undefined) {
+          // Provider work survives a client disconnect or unmount. Read resume
+          // state only once it cannot append hint events behind the new session.
+          const pendingHint = await transaction.query(
+            `SELECT 1 FROM rasa_sessions rs
+             JOIN rasa_requests rr ON rr.organization_id = rs.organization_id AND rr.session_id = rs.id
+             WHERE rs.organization_id = $1 AND rs.attempt_id = $2
+               AND rr.status IN ('QUEUED', 'RUNNING') LIMIT 1`,
+            [organizationId, existingRow.id],
+          );
+          if (pendingHint.rows.length > 0) throw new ConflictError();
           const resumeState = await readAttemptResumeState(transaction, existingRow.id);
           return {
             value: {

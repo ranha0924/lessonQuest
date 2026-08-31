@@ -8,18 +8,21 @@
   },
   "scripts": {
     "contracts:build": "pnpm --filter @lessonquest/contracts build",
-    "deps:build": "pnpm --filter @lessonquest/contracts build && pnpm --filter @lessonquest/auth build && pnpm --filter @lessonquest/science-studio build && pnpm --filter @lessonquest/experience-sdk build && pnpm --filter @lessonquest/rasa build && pnpm --filter @lessonquest/gamification build && pnpm --filter @lessonquest/db build",
+    "deps:build": "pnpm --filter @lessonquest/contracts build && pnpm --filter @lessonquest/auth build && pnpm --filter @lessonquest/science-studio build && pnpm --filter @lessonquest/experience-sdk build && pnpm --filter @lessonquest/rasa build && pnpm --filter @lessonquest/gamification build && pnpm --filter @lessonquest/db build && pnpm --filter @lessonquest/api build",
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier --check .",
     "typecheck": "pnpm deps:build && tsc --noEmit -p tsconfig.json && pnpm --filter @lessonquest/web exec tsc --noEmit -p tsconfig.json",
     "test": "pnpm deps:build && vitest run",
     "test:integration": "pnpm deps:build && vitest run packages/db/test/learning-repository.test.ts packages/db/test/rasa-repository.test.ts packages/db/test/gamification-repository.test.ts services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts",
-    "test:e2e": "pnpm deps:build && vitest run services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts apps/web/test/app.test.tsx apps/web/test/m3-m4-e2e.test.tsx apps/web/test/m5-m6-e2e.test.tsx",
+    "test:e2e": "pnpm deps:build && vitest run services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts apps/web/test/app.test.tsx apps/web/test/m3-m4-e2e.test.tsx apps/web/test/m5-m6-e2e.test.tsx apps/web/test/phase1-flow.test.tsx apps/web/test/phase1-recovery.test.tsx apps/web/test/phase1-negative.test.tsx",
+    "test:browser": "pnpm deps:build && VITE_DEV_PREVIEW=false VITE_DEMO_MODE=true pnpm --filter @lessonquest/web build && playwright test",
     "build": "pnpm -r --sort --if-present build",
-    "check": "pnpm deps:build && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm deps:build && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
+    "test:preview": "pnpm deps:build && VITE_DEMO_MODE=false VITE_DEV_PREVIEW=false pnpm --filter @lessonquest/web build --outDir dist-normal-check --base /normal-build/ && VITE_DEMO_MODE=false VITE_DEV_PREVIEW=true pnpm --filter @lessonquest/web build --outDir dist-preview && playwright test --config playwright.preview.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
     "@types/emscripten": "catalog:",
     "@types/node": "24.13.3",
     "eslint": "10.9.1",

@@ -10,6 +10,8 @@
 
 **Spec:** `docs/PROJECT_CANON.md`, `docs/INTEGRATION_PLAN_V2.md` sections 13–14, `docs/superpowers/specs/2026-08-30-phase-1-m5-m6-design.md`, `docs/superpowers/plans/2026-08-30-phase-1-m5-m6.md`, and the remaining findings in `docs/reviews/2026-08-31-m5-m6-durable-audits-final-review-attempt-2.md`.
 
+**Approved scope update:** The user's subsequent Vercel development-preview request supersedes only this plan's original unchanged-Vercel/static-demo constraint. Follow `2026-08-31-phase1-vercel-development-preview.md` and its96/100 pre-implementation review for that added scope. All closeout tests, independent final gates and real-data exclusions still apply; the original constraints below preserve planning history.
+
 ## Constraints and acceptance
 
 - Base: `fe206c1f9f69e10dbc15a7abc656d0b1636ad93d`; isolated branch `codex/phase1-closeout`.
@@ -106,5 +108,17 @@ Reference: [Playwright managed web server](https://playwright.dev/docs/test-webs
 - [ ] Commit and push only after acceptance gate. Open PR, require exact-head full/browser CI, recheck base and head, merge with expected-head guard, sync local main and check merged tree/tests. Verify main CI, existing Vercel Production deployment SHA/status and public URL/assets. Never manually duplicate deployment.
 
 ## Recovery
+
+### Full-flow RED refinement — campaign period input identity
+
+The real authoring flow reproduced a blank SPECIAL version input after switching from WEEKLY: React reused the date input as a number input, leaving its live value empty although the `defaultValue` attribute showed 1. Native required validation prevented the submit event. Within the already authorized `BossCampaignPanel` file, give the two conditional period fields distinct React keys. Verify both switch directions and the real create API/DB flow without manually repairing the default field in tests. No period policy/default-date or repository change is included. RED: `/tmp/lessonquest-closeout-special-input-red.log`.
+
+### Clarification before runtime correction: uncertain hints versus terminal failure
+
+An unknown transport failure may hide already-committed server hint events. Keep answer/completion disabled until the exact hint request is replayed or the player is reloaded from server state. A received terminal retryable Rasa error (provider failure/timeout/finalization failure) has a known no-hint outcome: retain the existing exact replay behavior, but also expose an explicit `새 힌트 요청` action that starts a fresh UUID at the same server-derived level. This avoids trapping the learner in an immutable failed request. Add real-boundary RED cases for the uncertain-answer lock and fresh-request recovery; no storage, authorization, provider or contract widening. The normal `힌트 받기` retry still reuses the prior ID, preserving earlier regression requirements.
+
+### Browser RED remediation — approved before CSS edits
+
+The durable Chromium matrix reproduced existing small CLASS BOSS/RASA kicker contrast of 2.7271/2.4259 and reduced-motion hover transforms on primary/choice controls. Extend Task 3's runtime scope only to `apps/web/src/demo-shell.css`: use the existing high-contrast cyan token for the student boss/Rasa kicker selectors and match/override the hover selector specificity inside the existing reduced-motion media query. Preserve default motion, the approved dark theme and global non-demo selectors. Re-run the same real computed-style matrix at all three widths; acceptance requires contrast ≥4.5 and no hover transform with reduced motion. Evidence: `/tmp/lessonquest-closeout-browser-{red,state-red,matrix-red}.log`. No UI restructuring or unrelated CSS change is authorized.
 
 No migrations or real data writes. Recover code via reviewed revert without restoring known authorization holes. Existing immutable event/audit evidence remains intact. Browser tooling can be reverted independently without changing runtime. If local database/audit storage is unavailable, fail closed with safe errors; never promise durability while storage is down. If any added test exposes a broader issue, write a narrow plan amendment and score it before modifying production outside this file list.

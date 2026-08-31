@@ -31,7 +31,11 @@ export interface RequestRasaHintOptions {
 
 export class RasaRequestError extends Error {
   constructor(
-    readonly code: 'RASA_OUTPUT_REJECTED' | 'RASA_PROVIDER_FAILED' | 'RASA_PROVIDER_TIMEOUT',
+    readonly code:
+      | 'RASA_OUTPUT_REJECTED'
+      | 'RASA_PROVIDER_FAILED'
+      | 'RASA_PROVIDER_TIMEOUT'
+      | 'RASA_FINALIZATION_FAILED',
     readonly retryable: boolean,
     options?: ErrorOptions,
   ) {
@@ -93,12 +97,13 @@ export class RasaRepository {
           );
           const existing = await tx.query<{
             status: string;
+            error_code: string | null;
             action: unknown;
             session_id: string;
             attempt_id: string;
             step_id: string;
           }>(
-            `SELECT rr.status, ra.action, rr.session_id, rs.attempt_id, rr.step_id
+            `SELECT rr.status, rr.error_code, ra.action, rr.session_id, rs.attempt_id, rr.step_id
          FROM rasa_requests rr JOIN rasa_sessions rs ON rs.organization_id = rr.organization_id AND rs.id = rr.session_id
          LEFT JOIN rasa_actions ra ON ra.organization_id = rr.organization_id AND ra.request_id = rr.id AND ra.status = 'ACCEPTED'
          WHERE rr.organization_id = $1 AND rr.id = $2`,
@@ -129,7 +134,16 @@ export class RasaRepository {
             }
             if (prior.status === 'TIMED_OUT')
               throw new RasaRequestError('RASA_PROVIDER_TIMEOUT', true);
-            if (prior.status === 'FAILED') throw new RasaRequestError('RASA_PROVIDER_FAILED', true);
+            if (prior.status === 'FAILED') {
+              if (prior.error_code === 'RASA_AUTHORIZATION_REVOKED')
+                throw new ResourceNotFoundError();
+              throw new RasaRequestError(
+                prior.error_code === 'RASA_FINALIZATION_FAILED'
+                  ? 'RASA_FINALIZATION_FAILED'
+                  : 'RASA_PROVIDER_FAILED',
+                true,
+              );
+            }
             if (prior.status === 'REJECTED')
               throw new RasaRequestError('RASA_OUTPUT_REJECTED', false);
             throw new ConflictError();
@@ -442,16 +456,18 @@ export class RasaRepository {
         });
       });
     } catch (error) {
+      const authorizationRevoked = error instanceof ResourceNotFoundError;
       await this.failRequest(
         organizationId,
         input.requestId,
         actor.userId,
         traceId,
         'FAILED',
-        'RASA_AUTHORIZATION_REVOKED',
-        error instanceof ResourceNotFoundError ? 'DENIED' : 'CONFLICT',
+        authorizationRevoked ? 'RASA_AUTHORIZATION_REVOKED' : 'RASA_FINALIZATION_FAILED',
+        authorizationRevoked ? 'DENIED' : null,
       );
-      throw error;
+      if (authorizationRevoked) throw error;
+      throw new RasaRequestError('RASA_FINALIZATION_FAILED', true, { cause: error });
     }
   }
 
@@ -462,17 +478,18 @@ export class RasaRepository {
     traceId: string,
     status: 'REJECTED' | 'FAILED' | 'TIMED_OUT',
     code: string,
-    outcome: 'DENIED' | 'CONFLICT' = 'CONFLICT',
+    outcome: 'DENIED' | 'CONFLICT' | null = 'CONFLICT',
   ): Promise<void> {
     await this.database.transaction(async (tx) => {
       await tx.query(
         "UPDATE rasa_requests SET status=$1,error_code=$2,finished_at=CURRENT_TIMESTAMP WHERE organization_id=$3 AND id=$4 AND status='RUNNING'",
         [status, code, organizationId, requestId],
       );
-      await tx.query(
-        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'RASA_HINT_REJECTED','RASA_REQUEST',$5,$6)`,
-        [randomUUID(), traceId, actorId, organizationId, requestId, outcome],
-      );
+      if (outcome !== null)
+        await tx.query(
+          `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'RASA_HINT_REJECTED','RASA_REQUEST',$5,$6)`,
+          [randomUUID(), traceId, actorId, organizationId, requestId, outcome],
+        );
     });
   }
 }

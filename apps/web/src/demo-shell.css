@@ -576,6 +576,11 @@
   margin: 0.25rem 0 0.7rem;
 }
 
+.demo-shell .demo-question-card .rasa-panel .panel-kicker,
+.demo-shell .demo-support-column .boss-card .panel-kicker {
+  color: var(--lq-ion);
+}
+
 .demo-shell .demo-question-card .rasa-panel button {
   color: var(--lq-paper);
   background: var(--lq-orbit);
@@ -932,6 +937,8 @@
     animation: none !important;
   }
 
+  .demo-shell .demo-primary:hover:not(:disabled),
+  .demo-shell .demo-question-card .choice-grid button:hover:not(:disabled),
   .demo-shell button:hover:not(:disabled),
   .demo-shell a:hover {
     transform: none;

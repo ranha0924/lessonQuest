@@ -26,7 +26,28 @@ if (rootElement === null) {
 const environment = import.meta.env as unknown as Record<string, unknown>;
 const demoMode = environment['VITE_DEMO_MODE'] === 'true';
 const session = window.lessonQuestSession;
-if (demoMode) {
+if (import.meta.env.VITE_DEV_PREVIEW === 'true') {
+  const root = createRoot(rootElement);
+  root.render(
+    <main className="configuration-notice">
+      <h1>개발용 서비스 미리보기</h1>
+      <p role="status">개발 화면을 불러오고 있습니다.</p>
+    </main>,
+  );
+  void import('./dev-preview/mount.js')
+    .then(({ mountDevelopmentPreview }) => mountDevelopmentPreview(root))
+    .catch(() => {
+      root.render(
+        <main className="configuration-notice">
+          <h1>개발 화면을 불러오지 못했습니다.</h1>
+          <p>연결을 확인한 뒤 다시 시도해 주세요.</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            다시 불러오기
+          </button>
+        </main>,
+      );
+    });
+} else if (demoMode) {
   createRoot(rootElement).render(
     <StrictMode>
       <DemoShell />

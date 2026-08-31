@@ -13,7 +13,7 @@ import {
 } from '@lessonquest/db';
 import { LocalRasaProvider, type RasaHintProvider } from '../../../packages/rasa/src/index.js';
 
-import { createApp } from '../../../services/api/src/app.js';
+import { createApp, type DiagnosticSink } from '../../../services/api/src/app.js';
 
 export const m56Origin = 'https://play.lessonquest.test';
 export const m56TeacherToken = `dev_${'t'.repeat(32)}`;
@@ -30,7 +30,7 @@ export const m56Student: Actor = {
 };
 
 export async function createM56Fixture(
-  options: { provider?: RasaHintProvider; timeoutMs?: number } = {},
+  options: { provider?: RasaHintProvider; timeoutMs?: number; diagnostics?: DiagnosticSink } = {},
 ) {
   const database = new PGlite();
   await initializeSchema(database);
@@ -77,7 +77,7 @@ export async function createM56Fixture(
     rasaProvider: options.provider ?? new LocalRasaProvider(),
     ...(options.timeoutMs === undefined ? {} : { rasaTimeoutMs: options.timeoutMs }),
     trustedOrigin: m56Origin,
-    diagnostics: { record() {} },
+    diagnostics: options.diagnostics ?? { record() {} },
   });
   return { database, app, organization, lessonClass, assignment, gamification };
 }

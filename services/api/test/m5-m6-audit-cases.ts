@@ -8,6 +8,7 @@ import {
 import { RasaRepository, ResourceNotFoundError, TenantRepository } from '@lessonquest/db';
 import { LocalRasaProvider, type RasaHintProvider } from '@lessonquest/rasa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { ApiDiagnosticEvent } from '../src/app.js';
 
 import {
   createM56Fixture,
@@ -30,10 +31,17 @@ const campaignInput = {
 describe('M5/M6 durable decision audits', () => {
   let fixture: Awaited<ReturnType<typeof createM56Fixture>>;
   let provider: RasaHintProvider;
+  let diagnostics: ApiDiagnosticEvent[];
   beforeEach(async () => {
+    diagnostics = [];
     provider = new LocalRasaProvider();
     fixture = await createM56Fixture({
       provider: { generateHint: (...args) => provider.generateHint(...args) },
+      diagnostics: {
+        record: (event) => {
+          diagnostics.push(event);
+        },
+      },
     });
   });
   afterEach(async () => fixture?.database.close());
@@ -659,5 +667,106 @@ describe('M5/M6 durable decision audits', () => {
     expect(JSON.stringify(await response.json())).not.toContain('synthetic-private-database-fault');
     expect(await audits(response.headers.get('x-trace-id'))).toEqual([]);
     expect((await fixture.database.query('SELECT * FROM class_boss_campaigns')).rows).toEqual([]);
+  });
+
+  it('classifies finalization storage failure accurately and replays it without a second provider call', async () => {
+    const input = await startAttempt();
+    let calls = 0;
+    provider = {
+      generateHint: (...args) => {
+        calls++;
+        return new LocalRasaProvider().generateHint(...args);
+      },
+    };
+    await fixture.database
+      .exec(`CREATE FUNCTION reject_hint_action() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'synthetic-private-finalization-fault'; END $$;
+      CREATE TRIGGER reject_hint_action BEFORE INSERT ON rasa_actions FOR EACH ROW EXECUTE FUNCTION reject_hint_action();`);
+    const first = await hint(input);
+    expect(first.status).toBe(503);
+    const traceId = first.headers.get('x-trace-id');
+    const body: unknown = await first.json();
+    expect(body).toMatchObject({
+      error: { code: 'RASA_FINALIZATION_FAILED', retryable: true, traceId },
+    });
+    expect(JSON.stringify(body)).not.toContain('synthetic-private-finalization-fault');
+    expect(diagnostics).toHaveLength(1);
+    const { durationMs, ...diagnostic } = diagnostics[0]!;
+    expect(durationMs).toBeGreaterThanOrEqual(0);
+    expect(diagnostic).toEqual({
+      type: 'API_ERROR',
+      traceId,
+      code: 'RASA_FINALIZATION_FAILED',
+      status: 503,
+      retryable: true,
+      method: 'POST',
+      organizationId: fixture.organization.id,
+      resourceId: fixture.lessonClass.id,
+    });
+    expect(JSON.stringify(diagnostics)).not.toMatch(
+      /synthetic-private|dev_|authorization|cause|stack/i,
+    );
+    expect(
+      (await fixture.database.query('SELECT status,error_code FROM rasa_requests')).rows,
+    ).toEqual([{ status: 'FAILED', error_code: 'RASA_FINALIZATION_FAILED' }]);
+    expect(await effects()).toEqual([
+      { requests: 1, actions: 0, usage: 0, events: 2, campaigns: 0 },
+    ]);
+    expect(await audits(traceId)).toEqual([
+      {
+        trace_id: traceId,
+        actor_user_id: m56Student.userId,
+        organization_id: fixture.organization.id,
+        action: 'RASA_HINT_REQUESTED',
+        resource_type: 'RASA_REQUEST',
+        resource_id: input.requestId,
+        outcome: 'SUCCEEDED',
+      },
+    ]);
+    const failed = (await fixture.database.query('SELECT * FROM rasa_requests')).rows;
+    await fixture.database.exec('DROP TRIGGER reject_hint_action ON rasa_actions');
+    const replay = await hint(input);
+    expect(replay.status).toBe(503);
+    expect(await replay.json()).toMatchObject({
+      error: { code: 'RASA_FINALIZATION_FAILED', retryable: true },
+    });
+    expect(calls).toBe(1);
+    expect((await fixture.database.query('SELECT * FROM rasa_requests')).rows).toEqual(failed);
+    expect(await effects()).toEqual([
+      { requests: 1, actions: 0, usage: 0, events: 2, campaigns: 0 },
+    ]);
+    expect((await hint({ ...input, requestId: randomUUID() })).status).toBe(200);
+    expect(calls).toBe(2);
+    expect(await effects()).toEqual([
+      { requests: 2, actions: 1, usage: 1, events: 4, campaigns: 0 },
+    ]);
+  });
+
+  it('keeps a revoked terminal request denied after membership is reactivated', async () => {
+    const input = await startAttempt();
+    let calls = 0;
+    provider = {
+      generateHint: async (...args) => {
+        calls++;
+        await fixture.database.query(
+          "UPDATE class_members SET status='DISABLED' WHERE class_id=$1",
+          [fixture.lessonClass.id],
+        );
+        return new LocalRasaProvider().generateHint(...args);
+      },
+    };
+    expect((await hint(input)).status).toBe(404);
+    await fixture.database.query("UPDATE class_members SET status='ACTIVE' WHERE class_id=$1", [
+      fixture.lessonClass.id,
+    ]);
+    const replay = await hint(input);
+    expect(replay.status).toBe(404);
+    expect(await replay.json()).toMatchObject({
+      error: { code: 'RESOURCE_NOT_FOUND', retryable: false },
+    });
+    expect(calls).toBe(1);
+    expect(await effects()).toEqual([
+      { requests: 1, actions: 0, usage: 0, events: 2, campaigns: 0 },
+    ]);
   });
 });

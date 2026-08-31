@@ -1,0 +1,58 @@
+.development-preview .preview-notice {
+  margin: 20px auto;
+  padding: 24px;
+  max-width: 1160px;
+  border: 2px solid #809cff;
+  border-radius: 20px;
+  background: #12213a;
+  color: #f5f7ff;
+  overflow-wrap: anywhere;
+}
+.development-preview .preview-kicker {
+  color: #a5ceff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.development-preview .preview-notice h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 4vw, 2rem);
+}
+.development-preview .preview-notice nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.development-preview .preview-notice button {
+  min-height: 44px;
+  padding: 10px 18px;
+}
+.development-preview .preview-notice button[aria-pressed='true'] {
+  background: #d5e6ff;
+  color: #10233f;
+}
+.development-preview [hidden] {
+  display: none;
+}
+.development-preview input,
+.development-preview textarea,
+.development-preview select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.development-preview .workbench-grid > *,
+.development-preview .player-canvas {
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .development-preview .preview-notice {
+    margin: 12px;
+    padding: 16px;
+  }
+  .development-preview .workbench,
+  .development-preview .student-shell {
+    padding: 16px;
+  }
+  .development-preview .workbench-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

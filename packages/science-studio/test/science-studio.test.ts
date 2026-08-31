@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import type { ScienceBlockSpec } from '@lessonquest/contracts';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   ScienceGenerationError,
@@ -22,6 +22,20 @@ beforeAll(async () => {
 });
 
 describe('parseGeneratedScienceSpec', () => {
+  it('parses legal multibyte JSON without Buffer and retains the byte limit', () => {
+    vi.stubGlobal('Buffer', undefined);
+    try {
+      expect(parseGeneratedScienceSpec(validText).title).toBe(
+        '가벼운 손수레가 더 빨리 움직이는 이유',
+      );
+      expect(() => parseGeneratedScienceSpec('가'.repeat(11_000))).toThrowError(
+        expect.objectContaining({ code: 'SPEC_TOO_LARGE' }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('parses a strict bounded generated JSON specification', () => {
     expect(parseGeneratedScienceSpec(validText)).toEqual(validSpec);
   });
