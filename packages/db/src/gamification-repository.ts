@@ -22,6 +22,7 @@ import {
   type VerifiedBossOutcome,
 } from '@lessonquest/gamification';
 
+import { withDecisionAudit } from './decision-audit.js';
 import { ConflictError, ResourceNotFoundError } from './tenant-repository.js';
 
 type Queryable = Pick<PGliteInterface, 'query'> | Pick<Transaction, 'query'>;
@@ -51,43 +52,55 @@ export class GamificationRepository {
     const classId = uuidSchema.parse(classIdInput);
     const input = createBossCampaignInputSchema.parse(inputValue);
     const traceId = uuidSchema.parse(traceIdInput);
-    return this.database.transaction(async (tx) => {
-      await this.requireTeacher(tx, actor, organizationId, classId);
-      const active = await tx.query(
-        "SELECT id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 AND status='ACTIVE' FOR UPDATE",
-        [organizationId, classId],
-      );
-      if (active.rows[0] !== undefined) throw new ConflictError();
-      const id = uuidSchema.parse(this.createId());
-      const key =
-        input.period.kind === 'WEEKLY'
-          ? buildWeeklyBossKey(input.period.weekStart, classId)
-          : buildSpecialBossKey(input.period.version, classId);
-      await tx.query(
-        `INSERT INTO class_boss_campaigns(id,organization_id,class_id,campaign_key,title,target_hp,policy,status,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,'ACTIVE',$8,$9)`,
-        [
-          id,
-          organizationId,
-          classId,
-          key,
-          input.title,
-          input.targetHp,
-          JSON.stringify(input.policy),
-          actor.userId,
-          this.now().toISOString(),
-        ],
-      );
-      await this.audit(
-        tx,
+    return withDecisionAudit(
+      this.database,
+      {
         traceId,
-        actor.userId,
+        actorUserId: actor.userId,
         organizationId,
-        'BOSS_CAMPAIGN_CREATED',
-        id,
-        'SUCCEEDED',
-      );
-      return this.readDetail(tx, organizationId, classId, id);
-    });
+        action: 'BOSS_CAMPAIGN_CREATED',
+        resourceType: 'CLASS',
+        resourceId: classId,
+      },
+      () =>
+        this.database.transaction(async (tx) => {
+          await this.requireTeacher(tx, actor, organizationId, classId);
+          const active = await tx.query(
+            "SELECT id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 AND status='ACTIVE' FOR UPDATE",
+            [organizationId, classId],
+          );
+          if (active.rows[0] !== undefined) throw new ConflictError();
+          const id = uuidSchema.parse(this.createId());
+          const key =
+            input.period.kind === 'WEEKLY'
+              ? buildWeeklyBossKey(input.period.weekStart, classId)
+              : buildSpecialBossKey(input.period.version, classId);
+          await tx.query(
+            `INSERT INTO class_boss_campaigns(id,organization_id,class_id,campaign_key,title,target_hp,policy,status,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,'ACTIVE',$8,$9)`,
+            [
+              id,
+              organizationId,
+              classId,
+              key,
+              input.title,
+              input.targetHp,
+              JSON.stringify(input.policy),
+              actor.userId,
+              this.now().toISOString(),
+            ],
+          );
+          await this.audit(
+            tx,
+            traceId,
+            actor.userId,
+            organizationId,
+            'BOSS_CAMPAIGN_CREATED',
+            id,
+            'SUCCEEDED',
+          );
+          return this.readDetail(tx, organizationId, classId, id);
+        }),
+    );
   }
 
   async endCampaign(
@@ -104,33 +117,54 @@ export class GamificationRepository {
     const campaignId = uuidSchema.parse(campaignIdInput);
     const input = endBossCampaignInputSchema.parse(inputValue);
     const traceId = uuidSchema.parse(traceIdInput);
-    return this.database.transaction(async (tx) => {
-      await this.requireTeacher(tx, actor, organizationId, classId);
-      const row = await tx.query<{ status: string; end_request_id: string | null }>(
-        'SELECT status,end_request_id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 AND id=$3 FOR UPDATE',
-        [organizationId, classId, campaignId],
-      );
-      const campaign = row.rows[0];
-      if (campaign === undefined) throw new ResourceNotFoundError();
-      if (campaign.status === 'ENDED') {
-        if (campaign.end_request_id !== input.requestId) throw new ConflictError();
-        return this.readDetail(tx, organizationId, classId, campaignId);
-      }
-      await tx.query(
-        "UPDATE class_boss_campaigns SET status='ENDED',ended_at=$1,end_request_id=$2 WHERE id=$3",
-        [this.now().toISOString(), input.requestId, campaignId],
-      );
-      await this.audit(
-        tx,
+    return withDecisionAudit(
+      this.database,
+      {
         traceId,
-        actor.userId,
+        actorUserId: actor.userId,
         organizationId,
-        'BOSS_CAMPAIGN_ENDED',
-        campaignId,
-        'SUCCEEDED',
-      );
-      return this.readDetail(tx, organizationId, classId, campaignId);
-    });
+        action: 'BOSS_CAMPAIGN_ENDED',
+        resourceType: 'BOSS_CAMPAIGN',
+        resourceId: campaignId,
+      },
+      () =>
+        this.database.transaction(async (tx) => {
+          await this.requireTeacher(tx, actor, organizationId, classId);
+          const row = await tx.query<{ status: string; end_request_id: string | null }>(
+            'SELECT status,end_request_id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 AND id=$3 FOR UPDATE',
+            [organizationId, classId, campaignId],
+          );
+          const campaign = row.rows[0];
+          if (campaign === undefined) throw new ResourceNotFoundError();
+          if (campaign.status === 'ENDED') {
+            if (campaign.end_request_id !== input.requestId) throw new ConflictError();
+            await this.audit(
+              tx,
+              traceId,
+              actor.userId,
+              organizationId,
+              'BOSS_CAMPAIGN_ENDED',
+              campaignId,
+              'DUPLICATE',
+            );
+            return this.readDetail(tx, organizationId, classId, campaignId);
+          }
+          await tx.query(
+            "UPDATE class_boss_campaigns SET status='ENDED',ended_at=$1,end_request_id=$2 WHERE id=$3",
+            [this.now().toISOString(), input.requestId, campaignId],
+          );
+          await this.audit(
+            tx,
+            traceId,
+            actor.userId,
+            organizationId,
+            'BOSS_CAMPAIGN_ENDED',
+            campaignId,
+            'SUCCEEDED',
+          );
+          return this.readDetail(tx, organizationId, classId, campaignId);
+        }),
+    );
   }
 
   async getStudentProgress(
@@ -143,39 +177,51 @@ export class GamificationRepository {
     const organizationId = uuidSchema.parse(organizationIdInput);
     const classId = uuidSchema.parse(classIdInput);
     const traceId = uuidSchema.parse(traceIdInput);
-    return this.database.transaction(async (tx) => {
-      const allowed = await tx.query(
-        `SELECT 1 FROM class_members cm JOIN organization_members om ON om.organization_id=cm.organization_id AND om.user_id=cm.user_id AND om.status='ACTIVE' JOIN users u ON u.id=cm.user_id AND u.platform_role='STUDENT' AND u.status='ACTIVE' JOIN classes c ON c.organization_id=cm.organization_id AND c.id=cm.class_id AND c.status='ACTIVE' WHERE cm.organization_id=$1 AND cm.class_id=$2 AND cm.user_id=$3 AND cm.status='ACTIVE'`,
-        [organizationId, classId, actor.userId],
-      );
-      if (allowed.rows[0] === undefined) throw new ResourceNotFoundError();
-      const row = await tx.query<{
-        id: string;
-        title: string;
-        target_hp: number;
-        damage: number;
-      }>(
-        `SELECT c.id,c.title,c.target_hp,COALESCE(SUM(b.amount),0)::int damage FROM class_boss_campaigns c LEFT JOIN boss_contributions b ON b.organization_id=c.organization_id AND b.campaign_id=c.id WHERE c.organization_id=$1 AND c.class_id=$2 AND c.status='ACTIVE' GROUP BY c.id,c.title,c.target_hp`,
-        [organizationId, classId],
-      );
-      const value = row.rows[0];
-      const result = studentBossProgressSchema.parse(
-        value === undefined
-          ? null
-          : {
-              campaignId: value.id,
-              title: value.title,
-              targetHp: value.target_hp,
-              damage: value.damage,
-              completed: value.damage >= value.target_hp,
-            },
-      );
-      await tx.query(
-        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROGRESS_READ','BOSS_CAMPAIGN',$5,'SUCCEEDED')`,
-        [randomUUID(), traceId, actor.userId, organizationId, value?.id ?? null],
-      );
-      return result;
-    });
+    return withDecisionAudit(
+      this.database,
+      {
+        traceId,
+        actorUserId: actor.userId,
+        organizationId,
+        action: 'BOSS_PROGRESS_READ',
+        resourceType: 'CLASS',
+        resourceId: classId,
+      },
+      () =>
+        this.database.transaction(async (tx) => {
+          const allowed = await tx.query(
+            `SELECT 1 FROM class_members cm JOIN organization_members om ON om.organization_id=cm.organization_id AND om.user_id=cm.user_id AND om.status='ACTIVE' JOIN users u ON u.id=cm.user_id AND u.platform_role='STUDENT' AND u.status='ACTIVE' JOIN classes c ON c.organization_id=cm.organization_id AND c.id=cm.class_id AND c.status='ACTIVE' WHERE cm.organization_id=$1 AND cm.class_id=$2 AND cm.user_id=$3 AND cm.status='ACTIVE'`,
+            [organizationId, classId, actor.userId],
+          );
+          if (allowed.rows[0] === undefined) throw new ResourceNotFoundError();
+          const row = await tx.query<{
+            id: string;
+            title: string;
+            target_hp: number;
+            damage: number;
+          }>(
+            `SELECT c.id,c.title,c.target_hp,COALESCE(SUM(b.amount),0)::int damage FROM class_boss_campaigns c LEFT JOIN boss_contributions b ON b.organization_id=c.organization_id AND b.campaign_id=c.id WHERE c.organization_id=$1 AND c.class_id=$2 AND c.status='ACTIVE' GROUP BY c.id,c.title,c.target_hp`,
+            [organizationId, classId],
+          );
+          const value = row.rows[0];
+          const result = studentBossProgressSchema.parse(
+            value === undefined
+              ? null
+              : {
+                  campaignId: value.id,
+                  title: value.title,
+                  targetHp: value.target_hp,
+                  damage: value.damage,
+                  completed: value.damage >= value.target_hp,
+                },
+          );
+          await tx.query(
+            `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_PROGRESS_READ','BOSS_CAMPAIGN',$5,'SUCCEEDED')`,
+            [randomUUID(), traceId, actor.userId, organizationId, value?.id ?? null],
+          );
+          return result;
+        }),
+    );
   }
 
   async getTeacherDetail(
@@ -188,20 +234,32 @@ export class GamificationRepository {
     const organizationId = uuidSchema.parse(organizationIdInput);
     const classId = uuidSchema.parse(classIdInput);
     const traceId = uuidSchema.parse(traceIdInput);
-    return this.database.transaction(async (tx) => {
-      await this.requireTeacher(tx, actor, organizationId, classId);
-      const campaign = await tx.query<{ id: string }>(
-        "SELECT id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 ORDER BY (status='ACTIVE') DESC,created_at DESC LIMIT 1",
-        [organizationId, classId],
-      );
-      if (campaign.rows[0] === undefined) throw new ResourceNotFoundError();
-      const detail = await this.readDetail(tx, organizationId, classId, campaign.rows[0].id);
-      await tx.query(
-        `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_DETAIL_READ','BOSS_CAMPAIGN',$5,'SUCCEEDED')`,
-        [randomUUID(), traceId, actor.userId, organizationId, campaign.rows[0].id],
-      );
-      return detail;
-    });
+    return withDecisionAudit(
+      this.database,
+      {
+        traceId,
+        actorUserId: actor.userId,
+        organizationId,
+        action: 'BOSS_DETAIL_READ',
+        resourceType: 'CLASS',
+        resourceId: classId,
+      },
+      () =>
+        this.database.transaction(async (tx) => {
+          await this.requireTeacher(tx, actor, organizationId, classId);
+          const campaign = await tx.query<{ id: string }>(
+            "SELECT id FROM class_boss_campaigns WHERE organization_id=$1 AND class_id=$2 ORDER BY (status='ACTIVE') DESC,created_at DESC LIMIT 1",
+            [organizationId, classId],
+          );
+          if (campaign.rows[0] === undefined) throw new ResourceNotFoundError();
+          const detail = await this.readDetail(tx, organizationId, classId, campaign.rows[0].id);
+          await tx.query(
+            `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome) VALUES($1,$2,$3,$4,'BOSS_DETAIL_READ','BOSS_CAMPAIGN',$5,'SUCCEEDED')`,
+            [randomUUID(), traceId, actor.userId, organizationId, campaign.rows[0].id],
+          );
+          return detail;
+        }),
+    );
   }
 
   async drainPendingJobs(limit = 100): Promise<{ processed: number; failed: number }> {
@@ -412,7 +470,7 @@ export class GamificationRepository {
     organizationId: string,
     action: 'BOSS_CAMPAIGN_CREATED' | 'BOSS_CAMPAIGN_ENDED',
     resourceId: string,
-    outcome: string,
+    outcome: 'SUCCEEDED' | 'DUPLICATE',
   ) {
     await q.query(
       `INSERT INTO audit_logs(id,trace_id,actor_user_id,organization_id,action,resource_type,resource_id,outcome)VALUES($1,$2,$3,$4,$5,'BOSS_CAMPAIGN',$6,$7)`,

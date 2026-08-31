@@ -14,6 +14,7 @@ import { LocalRasaProvider } from '@lessonquest/rasa';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
+import './m5-m6-audit-cases.js';
 
 const origin = 'https://play.lessonquest.test';
 const teacherToken = `dev_${'t'.repeat(32)}`;
