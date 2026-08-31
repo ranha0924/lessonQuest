@@ -1,0 +1,68 @@
+import { useMemo, useState } from 'react';
+import { StudioWorkbench } from '../components/studio-workbench.js';
+import { StudentPlay } from '../components/student-play.js';
+import type { PreviewRuntime } from './runtime.js';
+import './preview.css';
+
+export function DevelopmentPreview({
+  runtime,
+  reset,
+}: {
+  readonly runtime: PreviewRuntime;
+  readonly reset: () => void;
+}) {
+  const [role, setRole] = useState<'TEACHER' | 'STUDENT'>('TEACHER');
+  const [teacherVisit, setTeacherVisit] = useState(0);
+  // A refreshed client reference reloads the existing boss panel when the teacher returns.
+  // The method closures always retain the same teacher identity, including in-flight work.
+  const teacherApi = useMemo(() => ({ ...runtime.teacherApi }), [runtime, teacherVisit]);
+  const selectTeacher = () => {
+    if (role !== 'TEACHER') {
+      setTeacherVisit((value) => value + 1);
+      setRole('TEACHER');
+    }
+  };
+  return (
+    <div className="development-preview">
+      <aside className="preview-notice" aria-label="개발 환경 안내">
+        <p className="preview-kicker">LESSONQUEST · DEVELOPMENT</p>
+        <h1>개발용 서비스 미리보기</h1>
+        <p>가상 교사·학생 계정과 데이터가 이 탭 안에서만 동작합니다. 새로고침하면 초기화됩니다.</p>
+        <p>
+          실제 로그인·영구 저장·외부 AI는 연결되지 않았습니다. Rasa는 정해진 로컬 힌트를 제공합니다.
+          실제 학생 정보를 입력하지 마세요.
+        </p>
+        <p>
+          샘플 JSON을 저장 → 검증 → 승인 → 반에 배포한 뒤 학생 화면에서 플레이하고, 교사 화면으로
+          돌아와 결과를 확인하세요.
+        </p>
+        <nav aria-label="개발 미리보기 역할">
+          <button type="button" aria-pressed={role === 'TEACHER'} onClick={selectTeacher}>
+            교사 화면
+          </button>
+          <button
+            type="button"
+            aria-pressed={role === 'STUDENT'}
+            onClick={() => setRole('STUDENT')}
+          >
+            학생 화면
+          </button>
+          <button type="button" onClick={reset}>
+            데이터 초기화
+          </button>
+        </nav>
+      </aside>
+      <div hidden={role !== 'TEACHER'}>
+        <StudioWorkbench
+          api={teacherApi}
+          organizationId={runtime.organizationId}
+          classId={runtime.classId}
+          initialDraft={runtime.sampleDraft}
+        />
+      </div>
+      {role === 'STUDENT' ? (
+        <StudentPlay api={runtime.studentApi} organizationId={runtime.organizationId} />
+      ) : null}
+    </div>
+  );
+}

@@ -35,3 +35,12 @@ jobs:
 
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
+
+      - name: Install Chromium for local browser checks
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Verify synthetic demo in Chromium
+        run: pnpm test:browser
+
+      - name: Verify actual service development preview in Chromium
+        run: pnpm test:preview

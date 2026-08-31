@@ -11,11 +11,17 @@ interface StudioWorkbenchProps {
   readonly api: LessonQuestApi;
   readonly organizationId: string;
   readonly classId: string;
+  readonly initialDraft?: { readonly title: string; readonly generatedSpecText: string };
 }
 
-export function StudioWorkbench({ api, organizationId, classId }: StudioWorkbenchProps) {
-  const [title, setTitle] = useState('');
-  const [generatedSpecText, setGeneratedSpecText] = useState('');
+export function StudioWorkbench({
+  api,
+  organizationId,
+  classId,
+  initialDraft,
+}: StudioWorkbenchProps) {
+  const [title, setTitle] = useState(initialDraft?.title ?? '');
+  const [generatedSpecText, setGeneratedSpecText] = useState(initialDraft?.generatedSpecText ?? '');
   const [versionId, setVersionId] = useState<string | null>(null);
   const [report, setReport] = useState<ValidationReport | null>(null);
   const [previewDocument, setPreviewDocument] = useState<string | null>(null);

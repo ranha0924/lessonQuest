@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe('M5/M6 real React-to-database boundary', () => {
-  it('persists a safe hint and projects correct-first class damage through HTTP', async () => {
+  it('persists a safe hint and projects retry-correct class damage through HTTP', async () => {
     const fixture = await createM56Fixture();
     try {
       vi.stubGlobal(

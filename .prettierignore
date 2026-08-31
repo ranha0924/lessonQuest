@@ -1,1 +1,3 @@
 pnpm-lock.yaml
+**/dist-preview/**
+**/dist-normal-check/**

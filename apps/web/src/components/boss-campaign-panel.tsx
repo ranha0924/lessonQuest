@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { TeacherBossDetail } from '@lessonquest/contracts';
 import type { LessonQuestApi } from '../api-client.js';
+import { LessonQuestApiError } from '../api-client.js';
 
 export function BossCampaignPanel({
   api,
@@ -14,6 +15,9 @@ export function BossCampaignPanel({
   const [detail, setDetail] = useState<TeacherBossDetail | null>(null);
   const [periodKind, setPeriodKind] = useState<'WEEKLY' | 'SPECIAL'>('WEEKLY');
   const [status, setStatus] = useState('공동 보스를 시작할 수 있습니다.');
+  const endRequestId = useRef<string | null>(null);
+  const endInFlight = useRef(false);
+  const [ending, setEnding] = useState(false);
   useEffect(() => {
     let active = true;
     void api
@@ -56,16 +60,27 @@ export function BossCampaignPanel({
       .catch(() => setStatus('공동 보스를 시작하지 못했습니다.'));
   };
   const end = () => {
-    if (detail === null) return;
+    if (detail === null || endInFlight.current) return;
+    endInFlight.current = true;
+    setEnding(true);
+    endRequestId.current ??= crypto.randomUUID();
     void api
       .endBossCampaign(organizationId, classId, detail.campaign.campaignId, {
-        requestId: crypto.randomUUID(),
+        requestId: endRequestId.current,
       })
       .then((value) => {
         setDetail(value);
+        endRequestId.current = null;
         setStatus('공동 보스를 종료했습니다. 새 보스를 시작할 수 있습니다.');
       })
-      .catch(() => setStatus('공동 보스를 종료하지 못했습니다.'));
+      .catch((error: unknown) => {
+        if (error instanceof LessonQuestApiError && !error.retryable) endRequestId.current = null;
+        setStatus('공동 보스를 종료하지 못했습니다.');
+      })
+      .finally(() => {
+        endInFlight.current = false;
+        setEnding(false);
+      });
   };
   const canCreate = detail === null || detail.campaign.status === 'ENDED';
   return (
@@ -89,12 +104,12 @@ export function BossCampaignPanel({
             </select>
           </label>
           {periodKind === 'WEEKLY' ? (
-            <label>
+            <label key="weekly-period">
               주 시작일
               <input name="weekStart" type="date" defaultValue="2026-08-24" required />
             </label>
           ) : (
-            <label>
+            <label key="special-period">
               특별 캠페인 버전
               <input name="version" type="number" min={1} max={1000000} defaultValue={1} required />
             </label>
@@ -125,7 +140,7 @@ export function BossCampaignPanel({
           <p>
             대기 {detail.projectionHealth.pending} · 실패 {detail.projectionHealth.failed}
           </p>
-          <button type="button" onClick={end}>
+          <button type="button" onClick={end} disabled={ending}>
             보스 종료
           </button>
           {detail.contributions.map((row) => (

@@ -4,19 +4,22 @@ LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학�
 
 현재 구현 범위는 Phase 1 M1–M6입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
 
-## Vercel 합성 데모
+## Vercel 개발용 서비스 미리보기
 
-루트의 `vercel.json`은 Vite 웹 앱을 `VITE_DEMO_MODE=true`로 빌드해 `apps/web/dist`를 게시합니다. 이 모드는 학생/교사 화면을 전환하고 Rasa 힌트 및 반 공동 보스를 체험하기 위한 정적 합성 데모입니다. 학생과 교사 화면은 Cosmic Quest의 미션 몰입감을 강조한 통일된 다크 게임 인터페이스를 사용합니다.
+루트 `vercel.json`은 `VITE_DEV_PREVIEW=true`로 실제 과학 제작소·학생 플레이·교사 결과 화면을 빌드합니다. HTTP client → Hono API → 기존 저장소 → PGlite 경계를 브라우저의 한 탭 안에서 실행합니다. 교사 화면에서 예제 JSON을 저장·검증·승인·반 배포한 뒤 학생 화면으로 전환하면 실제 학습 기록과 공동 보스 기여를 확인할 수 있습니다.
+
+이는 **합성 계정과 임시 데이터만 사용하는 개발 환경**입니다. DB와 인증 목록이 브라우저 안에 있으므로 운영 보안 경계가 아니며, 실제 학생 정보를 입력하면 안 됩니다. 다른 사용자·탭과 데이터를 공유하지 않고 새로고침 또는 초기화하면 지워집니다. Rasa는 고정된 로컬 힌트이며 외부 AI 생성·회원가입·영구 저장은 연결하지 않았습니다. 첫 실행에는 약 16MB의 DB 실행 파일을 같은 사이트에서 불러옵니다.
 
 ```bash
 corepack pnpm install --frozen-lockfile
 corepack pnpm deps:build
-VITE_DEMO_MODE=true corepack pnpm --filter @lessonquest/web build
+VITE_DEMO_MODE=false VITE_DEV_PREVIEW=true corepack pnpm --filter @lessonquest/web build
+corepack pnpm --filter @lessonquest/web exec vite preview
 ```
 
-Vercel에서 저장소 루트를 프로젝트 Root Directory로 선택하면 설정 파일의 빌드/출력/SPA rewrite가 적용됩니다. 로컬 Vercel CLI로 미리보기 배포하려면 계정에 로그인한 뒤 루트에서 `vercel`을 실행할 수 있습니다. 이 작업은 외부 배포를 생성하므로 별도 승인이 필요합니다.
+기존 Git 연결 Vercel 프로젝트가 검증된 `main` 변경을 자동 배포합니다. 별도 프로젝트나 중복 수동 배포를 만들지 않습니다. 변경 승인에는 계획 심사와 독립 최종 심사, CI 통과가 필요합니다. Phase 1의 범위와 검증 결과는 [마무리 기록](docs/PHASE1_COMPLETION.md), 병합 이후의 CI·실제 배포 확인은 해당 변경의 병합 PR 본문에 남깁니다.
 
-데모는 실제 API·DB·인증·Firebase·외부 AI에 연결되지 않으며 모든 상태가 새로고침 때 초기화됩니다. 인증된 운영 앱이 아니라 디자인과 합성 상호작용을 검토하기 위한 프리뷰입니다.
+기존 다크 디자인 데모도 `VITE_DEMO_MODE=true VITE_DEV_PREVIEW=false`로 따로 빌드할 수 있으며 `pnpm test:browser`로 검증합니다. 두 플래그를 모두 켜면 빌드가 거절됩니다. 개발 미리보기 브라우저 검증은 `pnpm test:preview`입니다. 두 플래그를 모두 끈 일반 빌드에는 미리보기 DB·합성 인증 실행물을 넣지 않습니다.
 
 ## 개발 환경
 
@@ -74,16 +77,17 @@ GET  /organizations/:organizationId/classes/:classId/assignments/:assignmentId/p
 - 존재하는 타 기관 리소스와 없는 리소스는 같은 `404` 오류 형태를 사용합니다.
 - 감사 로그는 trace/Actor/기관/resource UUID, action, outcome만 저장하며 성공·거절·충돌을 기록합니다. token, request body, 이름과 stack/SQL은 저장하지 않습니다.
 - `createApp`에는 `DiagnosticSink`를 주입해야 합니다. 오류 응답의 trace ID는 감사 로그 및 allowlist 기반 진단 이벤트와 동일하며, 진단에는 code/status/method/UUID/duration만 포함됩니다.
-- 이 단계는 Firebase, 네트워크 PostgreSQL, 실제 학생 데이터, cookie 인증과 배포를 사용하지 않습니다.
+- API 검증은 Firebase, 네트워크 PostgreSQL, 실제 학생 데이터와 cookie 인증을 사용하지 않습니다. Vercel 개발 미리보기에서도 API를 운영 서버로 실행하지 않습니다.
 - 실행 콘텐츠는 자유 HTML/JavaScript가 아닌 엄격한 JSON과 LessonQuest 고정 renderer입니다. 미리보기 iframe은 `sandbox="allow-scripts"`만 사용하고 CSP로 network를 기본 차단합니다.
 - 검증과 교사 승인 행은 동일한 canonical artifact SHA-256을 기록합니다. PostgreSQL trigger가 `GENERATED → VALIDATED/REJECTED → APPROVED/PUBLISHED/RETIRED` 전이와 검증 이후 콘텐츠 불변성을 직접 강제합니다.
 - 학생은 option ID만 제출하며 정답 여부를 보낼 수 없습니다. 서버가 공개되지 않은 승인 artifact의 answer key로 결과를 판정하고, 이어하기 sequence와 답안 상태도 서버에서 복원합니다.
 - 학생 목록·시도·player·event는 동일한 활성 기관/반/소속/과제 기간 조건을 사용합니다. React → HTTP client → Hono → PGlite 통합 테스트가 새로고침 뒤 이어하기와 권위 있는 재도전 projection을 통과합니다.
 - M5 Rasa는 결정론적 `local-rasa-v1`만 사용합니다. 네트워크·API key 없이 동작하며 token 추정치와 0원 비용을 기록합니다. 교사는 과제별 사용 여부와 1–3단계 최대 힌트를 명시합니다.
 - M6는 반마다 활성 공동 보스 하나를 두고 저장된 정답·재도전·완료 이벤트에서만 기여를 계산합니다. 학생 응답은 반 전체 damage/target만 포함하고 교사 상세는 현재 역할과 반 소유권을 다시 확인합니다.
-- M5/M6 검증은 fresh PGlite만 사용합니다. 운영 인증·DB, Firebase, 외부 AI, 실제 학생 데이터, Vercel 배포는 이 구현 범위에 포함되지 않습니다.
+- M5/M6 검증은 fresh PGlite만 사용합니다. 운영 인증·DB, Firebase, 외부 AI와 실제 학생 데이터는 이 구현 범위에 포함되지 않습니다.
 - M5/M6의 권한 거절·요청 충돌은 트랜잭션 롤백 후에도 감사 로그에 남습니다. 힌트 생성 중 권한 철회는 `DENIED`, 동일한 보스 종료 요청의 재전송은 `DUPLICATE`로 기록합니다. 감사 로그의 기관·리소스 UUID는 접근을 시도한 범위를 뜻하며 권한을 부여하지 않습니다. 답안·힌트·제목·토큰·오류 원문은 기록하지 않습니다.
-- 감사 저장소 오류는 안전한 `500` 응답으로 처리하며 거절된 학습·보스 작업을 성공시키지 않습니다. 감사 회귀 테스트는 `services/api/test/m5-m6.test.ts`에서 실행되어 전체·통합·E2E 검증 명령에 포함됩니다. Vercel에는 계속 정적 합성 데모만 배포되며 이 로컬 API가 운영 서버로 배포되는 것은 아닙니다.
+- 감사 저장소 오류는 안전한 `500` 응답으로 처리하며 거절된 학습·보스 작업을 성공시키지 않습니다. 감사 회귀 테스트는 `services/api/test/m5-m6.test.ts`에서 실행되어 전체·통합·E2E 검증 명령에 포함됩니다. Rasa 힌트 최종 저장의 일반 오류는 `RASA_FINALIZATION_FAILED`/`FAILED`로 분류하고 동일 요청 재전송에서도 안전한 `503`을 반환합니다. 실제 권한 철회만 `DENIED`로 기록하며 저장 장애를 권한 거절이나 요청 충돌로 꾸미지 않습니다.
+- 학생 화면은 확인되지 않은 답안·완료 이벤트를 동일한 ID로 재전송합니다. 힌트 응답이 유실되면 동일 요청을 확인할 때까지 다른 기록을 막고, 확정된 힌트 생성 실패 뒤에는 별도의 새 요청을 선택할 수 있습니다. 보스 종료 응답이 유실돼도 동일 요청 ID를 유지합니다.
 - 비활성 기관에서는 공동 보스 조회·상세·생성·종료와 동일 종료 요청의 재전송을 모두 `404`로 거절하고 `DENIED` 감사 기록을 남깁니다. 활성 사용자·반 소속이 남아 있어도 기관 비활성 상태가 우선합니다.
 
 ## 프로젝트 기준
