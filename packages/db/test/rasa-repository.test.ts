@@ -9,6 +9,7 @@ import {
   initializeSchema,
   LearningRepository,
   RasaRepository,
+  ResourceNotFoundError,
   TenantRepository,
 } from '../src/index.js';
 
@@ -138,7 +139,7 @@ describe('RasaRepository', () => {
       generateHint: async (...args: Parameters<LocalRasaProvider['generateHint']>) => {
         const result = await provider.generateHint(...args);
         await database.query(
-          "UPDATE class_members SET status='REMOVED' WHERE organization_id=$1 AND class_id=$2 AND user_id=$3",
+          "UPDATE class_members SET status='DISABLED' WHERE organization_id=$1 AND class_id=$2 AND user_id=$3",
           [org.id, lessonClass.id, student.userId],
         );
         return result;
@@ -153,7 +154,7 @@ describe('RasaRepository', () => {
         '018f72a4-cc52-7c5a-a6f9-8b21aa27a404',
         { provider: revokingProvider },
       ),
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
     await database.query(
       "UPDATE class_members SET status='ACTIVE' WHERE organization_id=$1 AND class_id=$2 AND user_id=$3",
       [org.id, lessonClass.id, student.userId],
