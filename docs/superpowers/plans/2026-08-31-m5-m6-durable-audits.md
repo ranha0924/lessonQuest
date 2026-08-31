@@ -102,7 +102,7 @@ async function withDecisionAudit<T>(
 
 - [x] Run `corepack pnpm check`, `corepack pnpm test:integration`, `corepack pnpm test:e2e`, `corepack pnpm audit --prod`, `VITE_DEMO_MODE=true corepack pnpm --filter @lessonquest/web build`, changed-file secret-pattern scan, `git diff --check 9bcb2fb`.
 - [x] Record RED/GREEN counts, full checks and limitations. No React/browser claims from Hono tests.
-- [ ] Fresh independent reviewer inspects complete baseline diff, runs relevant adversarial/full checks, edits only its review, scores using project rubric. Require >85 and no critical blocker. Fix/re-review if necessary.
+- [x] Fresh independent reviewer inspects complete baseline diff, runs relevant adversarial/full checks, edits only its review, scores using project rubric. Require >85 and no critical blocker. Attempt 1 scored 82/100 FAIL; the separately gated organization remediation was reviewed by a different agent in Attempt 2 at 96/100 PASS with no critical blocker.
 - [ ] Commit all reviewed work, push branch, open PR, verify exact head CI, recheck main/head and use expected-head merge without protection bypass. Sync local main; inspect merged tree and run focused checks.
 - [ ] Observe the existing Git-linked Vercel status for the merged commit, verify live URL from deployment evidence when available. Static demo remains synthetic; deploying its unchanged assets does not deploy the local API audit feature.
 
