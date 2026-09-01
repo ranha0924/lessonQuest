@@ -1,5 +1,6 @@
 export * from './bridge.js';
 export * from './classrooms.js';
+export * from './data-transition.js';
 export * from './events.js';
 export * from './identity.js';
 export * from './learning.js';

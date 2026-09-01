@@ -1,0 +1,27 @@
+{
+  "format": "lessonquest.wordquest.identity-export",
+  "version": 1,
+  "exportId": "018f72a4-cc52-7c5a-a6f9-8b21aa27e001",
+  "exportedAt": "2026-09-01T12:34:56+09:00",
+  "sourceSystem": "WORDQUEST_FIREBASE",
+  "sourceCounts": {
+    "users": 2,
+    "privateStateDocuments": 2,
+    "summaryDocuments": 2,
+    "learningRecords": 7
+  },
+  "accounts": [
+    {
+      "externalAuthId": "synthetic-firebase-student-01",
+      "legacyOrganizationKey": "synthetic-school-01",
+      "sourceRole": "STUDENT",
+      "sourceStatus": "ACTIVE"
+    },
+    {
+      "externalAuthId": "synthetic-firebase-teacher-01",
+      "legacyOrganizationKey": "synthetic-school-01",
+      "sourceRole": "TEACHER",
+      "sourceStatus": "ACTIVE"
+    }
+  ]
+}
