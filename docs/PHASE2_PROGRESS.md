@@ -7,7 +7,7 @@ Phase 2는 WordQuest의 기능을 LessonQuest의 기관 경계와 학습 이벤�
 | 서버 검증 quiz/boss      | 기존 구현             | Phase 1 학습 API와 공동 보스, 원본 출처가 기록된 순수 보스 규칙                                 |
 | 반·초대·교사 대시보드    | 독립 검증 통과 96/100 | 소유 반/기관 관리자 목록, 반 만들기·선택, 만료/한도/재발급/취소 초대, 학생 자기 가입, 과제 현황 |
 | PWA와 offline queue      | 독립 검증 통과 91/100 | 설치 shell, 계정·기관별 20건/24시간 queue, exact replay, 세션/초기화 clear                      |
-| 기존 계정 및 export 대조 | 후속 단위             | externalAuthId mapping, read-only export 형식과 합성 fixture부터 검증                           |
+| 기존 계정 및 export 대조 | 독립 검증 통과 94/100 | versioned 합성 export, 명시적 계정·기관 mapping, 결정적 checksum, redacted readiness report     |
 | 실제 데이터 전환         | 별도 승인 필요        | 백업, dry-run, 사용자 수/학습 합계 checksum, rollback rehearsal 이후 승인                       |
 
 ## 반·초대 사용법
@@ -44,6 +44,13 @@ Phase 2는 WordQuest의 기능을 LessonQuest의 기관 경계와 학습 이벤�
 - 첫 온라인 방문 전에는 offline shell을 보장하지 않는다. 공개 Vercel 미리보기의 API/DB는 탭 메모리 PGlite이므로 offline 새로고침은 새 합성 DB로 shell을 여는 시연이다. queue의 reload 복구를 운영 기능으로 주장하려면 지속 API, 재수립된 로그인 세션, 운영 브라우저 정책을 별도로 검증해야 한다.
 - IndexedDB를 사용할 수 없는 환경은 기존 메모리 재전송 동작을 유지한다. 저장 공간 오류는 localStorage나 토큰 저장으로 우회하지 않는다.
 
+## 기존 계정·export 대조 준비 범위
+
+- `@lessonquest/data-transition`은 호출자가 메모리로 제공한 strict v1 WordQuest identity export와 명시적 LessonQuest 계정·기관 mapping만 검증한다. 배열 순서와 관계없는 canonical JSON과 SHA-256을 만들고, 누락·중복·충돌·미사용 mapping을 모두 차단 finding으로 반환한다.
+- 원본 `externalAuthId`와 legacy 기관 key는 권한이 아니다. 결과에는 raw source ID 대신 SHA-256 fingerprint만 기록한다. `MASTER`는 항상 `PRIVILEGED_ROLE_REQUIRES_REVIEW`로 readiness를 차단하며 `ORG_ADMIN`이나 `SUPER_ADMIN`으로 승격되지 않는다.
+- 전환 계약은 전용 `@lessonquest/contracts/data-transition` subpath로만 공개된다. 기존 contracts barrel, API, auth, DB와 web runtime은 새 패키지를 import하지 않으며 normal·demo·preview 브라우저 산출물에도 형식·finding·fixture 표식이 없다.
+- 이 단위는 Firebase exporter, 파일 reader, CLI, API, DB schema/column, auth adapter, migration, 실제 데이터 dry-run 또는 write 도구가 아니다. 실제 전환은 백업·합계 checksum·rollback rehearsal와 별도 승인을 거쳐야 한다.
+
 ## 검토 기록
 
 - [설계](superpowers/specs/2026-08-31-phase2-classrooms-design.md)
@@ -59,8 +66,15 @@ Phase 2는 WordQuest의 기능을 LessonQuest의 기관 경계와 학습 이벤�
 - [PWA·offline 독립 최종 검토 Attempt 2 — 82/100 실패](reviews/2026-09-01-phase2-pwa-offline-final-review-attempt-2.md)
 - [PWA·offline 독립 최종 검토 Attempt 3 — 80/100 실패](reviews/2026-09-01-phase2-pwa-offline-final-review-attempt-3.md)
 - [PWA·offline 독립 최종 검토 Attempt 4 — 91/100 통과](reviews/2026-09-01-phase2-pwa-offline-final-review-attempt-4.md)
+- [Identity export readiness 설계](superpowers/specs/2026-09-01-phase2-identity-export-design.md)
+- [Identity export readiness 구현 계획](superpowers/plans/2026-09-01-phase2-identity-export.md)
+- [Identity export readiness 사전 검토 98/100](reviews/2026-09-01-phase2-identity-export-plan-review.md)
+- [Identity export readiness 구현 검증](reviews/2026-09-01-phase2-identity-export-verification.md)
+- [Identity export readiness 독립 최종 검토 94/100 — 차단 문제 없음](reviews/2026-09-01-phase2-identity-export-final-review.md)
 
-반·초대 단위는 구현 검증과 독립 심사를 거쳐 전달됐다. PWA·offline 독립 심사 Attempt 1은 API 응답 shell 캐시와 손상된 조직 레코드 재생을 찾아 80/100으로 실패했다. Attempt 2는 세션 종료 후 늦은 전달 오류 재저장과 손상 primary key 중복을 찾아 82/100으로 실패했다. Attempt 3는 그 수정은 확인했지만 세션 종료가 초기 put/prune과 교차할 때의 재저장과 동시 enqueue FIFO 위반을 찾아 80/100으로 실패했다. enqueue 전체를 lifecycle 세대와 FIFO staging lock에 묶고 단일 전달 예약으로 수정했다. Attempt 4는 실제 diff, 26개 파일 해시, 전체 382개 테스트, E2E 77개와 33개 서비스 미리보기 브라우저 검증을 독립 실행한 뒤 91/100, 치명적 차단 문제 없음으로 통과했다. Git/CI/Vercel 전달과 실제 공개 URL 확인은 아직 남아 있다. 병합 PR 본문에는 최종 main 커밋, CI, 배포 상태와 실제 화면 확인 결과를 남긴다. 이 문서는 Phase 2 전체 완료를 뜻하지 않는다.
+반·초대 단위는 구현 검증과 독립 심사를 거쳐 전달됐다. PWA·offline 독립 심사 Attempt 1은 API 응답 shell 캐시와 손상된 조직 레코드 재생을 찾아 80/100으로 실패했다. Attempt 2는 세션 종료 후 늦은 전달 오류 재저장과 손상 primary key 중복을 찾아 82/100으로 실패했다. Attempt 3는 그 수정은 확인했지만 세션 종료가 초기 put/prune과 교차할 때의 재저장과 동시 enqueue FIFO 위반을 찾아 80/100으로 실패했다. enqueue 전체를 lifecycle 세대와 FIFO staging lock에 묶고 단일 전달 예약으로 수정했다. Attempt 4는 실제 diff, 26개 파일 해시, 전체 382개 테스트, E2E 77개와 33개 서비스 미리보기 브라우저 검증을 독립 실행한 뒤 91/100, 치명적 차단 문제 없음으로 통과했다. 이 변경은 PR #9로 `main`에 병합됐다.
+
+Identity export readiness 후보는 합성 입력만 사용해 focused 41개, 전체 423개, 통합 52개, E2E 77개, demo browser 12개와 service preview browser 33개를 통과했다. 첫 산출물 격리 검사는 contracts root barrel 때문에 transition 표식이 웹 번들에 포함된 것을 찾아냈고, 전용 subpath와 회귀 테스트로 수정한 뒤 세 웹 모드의 JS/source map에서 표식 부재를 확인했다. 독립 최종 심사는 동일 행렬, 13개 finding probe, 37개 산출물 byte scan과 13/13 해시를 확인해 94/100, 치명적 차단 문제 없음으로 통과했다. 비차단 항목인 C1 제어문자 U+0080–U+009F 거절은 실제 exporter나 실제 identity 데이터 연결 전에 회귀 테스트와 함께 보완한다. Git/CI/Vercel 전달이 완료되기 전까지 이 기록만으로 출시를 인증하지 않는다. 이 문서는 Phase 2 전체 완료를 뜻하지 않는다.
 
 Attempt 4의 비차단 후속 항목은 retry metadata 저장 실패 시 즉시 재시도될 수 있는 경로와 reload 상태 콜백 안에서 동기 dispose될 때 남는 비활성 online listener다. 현재 합성 미리보기의 서버 권위, 범위 clear, exact replay, 저장 최소화에는 영향을 주지 않지만 지속 backend에 연결하기 전에 수정한다.
 

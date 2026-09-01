@@ -37,3 +37,9 @@ This score authorizes Tasks 1–4 exactly as written. It does not authorize Fire
 ## Revision 1 — workspace lock entry
 
 The initial package scaffold proved that pnpm requires a lockfile importer for the new workspace package even though it adds no external dependency. The plan now permits exactly the `packages/data-transition` importer linking `@lessonquest/contracts` through `workspace:*` and continues to forbid any external dependency/version change. This is a narrower, verifiable form of the original contracts-only dependency rule. The architecture, security boundary, verification commands, total **98/100** score and PASS decision remain unchanged.
+
+## Revision 2 — dedicated transition contract subpath
+
+The planned emitted-asset check correctly caught the transition format and `PRIVILEGED_ROLE_REQUIRES_REVIEW` marker in normal, demo and preview web bundles. Inspection traced this to re-exporting the transition schemas from the existing contracts root barrel. The plan now requires a dedicated `@lessonquest/contracts/data-transition` subpath, forbids the transition export from the runtime barrel, adds a focused containment regression and requires clean rebuilt JS/source maps in every web mode.
+
+This revision strengthens the original isolation requirement and keeps the public transition API explicit. It adds no dependency, behavior, persistence or authority surface. The rubric remains **98/100 PASS** with no critical blocker: architecture/runtime isolation is more precise, the failing asset evidence is reproducible, and the verification now proves the corrective boundary before independent review.

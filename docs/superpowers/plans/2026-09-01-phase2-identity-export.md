@@ -1,6 +1,6 @@
 # Phase 2 Identity Export Readiness Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a versioned, side-effect-free WordQuest identity export and explicit mapping-readiness validator using synthetic fixtures only.
 
@@ -28,7 +28,8 @@
 | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `packages/contracts/src/data-transition.ts`                                                           | Strict export, plan, finding and report schemas/types                 |
 | `packages/contracts/test/data-transition.test.ts`                                                     | Structural contract bounds and rejection tests                        |
-| `packages/contracts/src/index.ts`                                                                     | Public contract export                                                |
+| `packages/contracts/package.json`                                                                     | Dedicated `./data-transition` contract subpath export                 |
+| `packages/contracts/src/index.ts`                                                                     | Existing runtime contract barrel; deliberately excludes transition    |
 | `packages/data-transition/package.json`                                                               | Private side-effect-free package metadata; contracts-only dependency  |
 | `packages/data-transition/tsconfig.json`                                                              | Standard workspace TypeScript build                                   |
 | `packages/data-transition/src/canonical-json.ts`                                                      | Stable object-key serialization and SHA-256 helpers                   |
@@ -46,11 +47,11 @@
 
 Produces: versioned schemas whose values cannot carry unintended identity, credential or authority fields.
 
-- [ ] Add `packages/contracts/test/data-transition.test.ts` first. Assert a minimal valid export/plan/report, exact opaque identifier preservation, offset-aware timestamp validation, safe integer/count bounds, 100,000-record caps, content-hash/UUID validation, strict unknown-field rejection and invalid format/version/source/role/status rejection.
-- [ ] Include explicit cases proving display name, email, token, organization label and target-role injection are rejected; leading/trailing whitespace and control characters in opaque identifiers are rejected rather than normalized.
-- [ ] Run `corepack pnpm exec vitest run packages/contracts/test/data-transition.test.ts` and record RED because the module/exports do not exist.
-- [ ] Add `packages/contracts/src/data-transition.ts` with named constants for formats/version, bounded exact-identifier schema, strict `sourceCounts`, account/mapping schemas, finding-code enum, finding schema and strict report schema. Export inferred public types.
-- [ ] Export the module from `packages/contracts/src/index.ts` and rerun the focused contract test GREEN.
+- [x] Add `packages/contracts/test/data-transition.test.ts` first. Assert a minimal valid export/plan/report, exact opaque identifier preservation, offset-aware timestamp validation, safe integer/count bounds, 100,000-record caps, content-hash/UUID validation, strict unknown-field rejection and invalid format/version/source/role/status rejection.
+- [x] Include explicit cases proving display name, email, token, organization label and target-role injection are rejected; leading/trailing whitespace and control characters in opaque identifiers are rejected rather than normalized.
+- [x] Run `corepack pnpm exec vitest run packages/contracts/test/data-transition.test.ts` and record RED because the module/exports do not exist.
+- [x] Add `packages/contracts/src/data-transition.ts` with named constants for formats/version, bounded exact-identifier schema, strict `sourceCounts`, account/mapping schemas, finding-code enum, finding schema and strict report schema. Export inferred public types.
+- [x] Export the module only through the dedicated `@lessonquest/contracts/data-transition` package subpath. Keep it out of `packages/contracts/src/index.ts` so existing API/web imports cannot pull transition schemas into browser/runtime bundles. Rerun the focused contract test GREEN.
 
 Exact report fields:
 
@@ -91,18 +92,19 @@ Finding codes are exactly: `SOURCE_CHECKSUM_MISMATCH`, `SOURCE_USER_COUNT_MISMAT
 
 Produces: one isolated package that returns a deterministic complete report and performs no I/O.
 
-- [ ] Scaffold the package config and synthetic fixture, then write `packages/data-transition/test/identity-reconciliation.test.ts` before implementation. Import the missing public functions so the focused suite is RED.
-- [ ] Cover a complete ready fixture; pin exact source/mapping checksums; prove reordered accounts/mappings keep checksums and reports identical; prove any metadata/count/identifier/mapping mutation changes the relevant checksum.
-- [ ] Add table cases for all 13 finding codes. Include identical duplicate source records, conflicting duplicates, duplicate mappings, canonical UUID collisions, missing and unused mappings, user-count mismatch, source-checksum mismatch and `MASTER` blocking.
-- [ ] Assert `ready` is true only with zero findings, `readyAccounts` excludes every blocked account, proposed roles count only ready `STUDENT`/`TEACHER` accounts, and findings sort by code/index/fingerprint.
-- [ ] Serialize reports and thrown public validation errors, then assert none contain the fixture's raw external account/organization keys, injected email/token/display name, Zod input dump, stack or cause.
-- [ ] Add a package-containment test reading only repository metadata/test sources to assert production source imports no `fs`, Firebase, HTTP, DB, auth, API, web or environment module and `package.json` has only `@lessonquest/contracts` as a dependency.
-- [ ] Run the focused suite and record RED before functions exist.
-- [ ] Implement `canonical-json.ts`: recursively sort plain-object keys, preserve array order, reject non-JSON values internally, encode UTF-8 with `JSON.stringify`, hash with `node:crypto`, and fingerprint each raw identifier independently.
-- [ ] Implement domain canonicalizers: parse first, sort export accounts and mapping arrays by their full stable record strings, then stable-stringify and hash. This makes conflict ordering deterministic without merging or trimming values.
-- [ ] Implement a constant-message `DataTransitionValidationError`. Catch only input-schema failures and throw it without attaching source input/cause; let unexpected programming failures propagate.
-- [ ] Implement reconciliation as a read-only multi-pass index. Collect every blocker, use source indexes from the original input for findings, fingerprint raw identifiers, never emit them, and validate the final object through `identityReadinessReportV1Schema` before returning.
-- [ ] Export public functions/types, add the package to `deps:build`, and rerun focused contract and package tests GREEN.
+- [x] Scaffold the package config and synthetic fixture, then write `packages/data-transition/test/identity-reconciliation.test.ts` before implementation. Import the missing public functions so the focused suite is RED.
+- [x] Cover a complete ready fixture; pin exact source/mapping checksums; prove reordered accounts/mappings keep checksums and reports identical; prove any metadata/count/identifier/mapping mutation changes the relevant checksum.
+- [x] Add table cases for all 13 finding codes. Include identical duplicate source records, conflicting duplicates, duplicate mappings, canonical UUID collisions, missing and unused mappings, user-count mismatch, source-checksum mismatch and `MASTER` blocking.
+- [x] Assert `ready` is true only with zero findings, `readyAccounts` excludes every blocked account, proposed roles count only ready `STUDENT`/`TEACHER` accounts, and findings sort by code/index/fingerprint.
+- [x] Serialize reports and thrown public validation errors, then assert none contain the fixture's raw external account/organization keys, injected email/token/display name, Zod input dump, stack or cause.
+- [x] Add a package-containment test reading only repository metadata/test sources to assert production source imports no `fs`, Firebase, HTTP, DB, auth, API, web or environment module and `package.json` has only `@lessonquest/contracts` as a dependency.
+- [x] Assert the transition contract is available through the dedicated package subpath and absent from the existing contracts barrel. Build normal/demo/preview web outputs and treat either transition format/finding markers or fixture identifiers in emitted JS/source maps as a failing containment check.
+- [x] Run the focused suite and record RED before functions exist.
+- [x] Implement `canonical-json.ts`: recursively sort plain-object keys, preserve array order, reject non-JSON values internally, encode UTF-8 with `JSON.stringify`, hash with `node:crypto`, and fingerprint each raw identifier independently.
+- [x] Implement domain canonicalizers: parse first, sort export accounts and mapping arrays by their full stable record strings, then stable-stringify and hash. This makes conflict ordering deterministic without merging or trimming values.
+- [x] Implement a constant-message `DataTransitionValidationError`. Catch only input-schema failures and throw it without attaching source input/cause; let unexpected programming failures propagate.
+- [x] Implement reconciliation as a read-only multi-pass index. Collect every blocker, use source indexes from the original input for findings, fingerprint raw identifiers, never emit them, and validate the final object through `identityReadinessReportV1Schema` before returning.
+- [x] Export public functions/types, add the package to `deps:build`, and rerun focused contract and package tests GREEN.
 
 Public functions:
 
@@ -129,17 +131,17 @@ reconcileIdentityExport(
 
 Produces: a reviewed candidate whose package remains outside operating runtime paths.
 
-- [ ] Run focused tests, `corepack pnpm check`, `corepack pnpm test:integration`, `corepack pnpm test:e2e`, `corepack pnpm test:browser`, `corepack pnpm test:preview`, `corepack pnpm audit --prod --audit-level high` and `git diff --check` sequentially. Do not increase timeouts to hide failures.
-- [ ] Inspect normal/preview build manifests or emitted assets and prove `@lessonquest/data-transition`, its fixture strings and raw synthetic identifiers are absent from browser output.
-- [ ] Update README, Phase 2 progress, provenance and project memory. State that this is synthetic mapping readiness, not a Firebase exporter, migration, real-data dry run, schema change or authorization adapter.
-- [ ] Record RED/GREEN commands, exact final counts, build warnings, containment evidence and limitations in `docs/reviews/2026-09-01-phase2-identity-export-verification.md`.
-- [ ] Freeze SHA-256 hashes for every implementation/test/script file reviewed by the independent agent. Documentation-only status edits after the gate must not alter the reviewed manifest.
+- [x] Run focused tests, `corepack pnpm check`, `corepack pnpm test:integration`, `corepack pnpm test:e2e`, `corepack pnpm test:browser`, `corepack pnpm test:preview`, `corepack pnpm audit --prod --audit-level high` and `git diff --check` sequentially. Do not increase timeouts to hide failures.
+- [x] Inspect normal/preview build manifests or emitted assets and prove `@lessonquest/data-transition`, its fixture strings and raw synthetic identifiers are absent from browser output.
+- [x] Update README, Phase 2 progress, provenance and project memory. State that this is synthetic mapping readiness, not a Firebase exporter, migration, real-data dry run, schema change or authorization adapter.
+- [x] Record RED/GREEN commands, exact final counts, build warnings, containment evidence and limitations in `docs/reviews/2026-09-01-phase2-identity-export-verification.md`.
+- [x] Freeze SHA-256 hashes for every implementation/test/script file reviewed by the independent agent. Documentation-only status edits after the gate must not alter the reviewed manifest.
 
 ## Task 4 — independent gate and authorized delivery
 
 Produces: independently accepted code merged and released through the existing Git-linked workflow.
 
-- [ ] Assign a fresh non-implementing agent to inspect the actual diff and hash manifest, run the relevant focused/full/regression/containment checks, and score the five project rubric categories. Preserve a failed report and remediate test-first if the score is 85 or below or any critical blocker exists.
+- [x] Assign a fresh non-implementing agent to inspect the actual diff and hash manifest, run the relevant focused/full/regression/containment checks, and score the five project rubric categories. Preserve a failed report and remediate test-first if the score is 85 or below or any critical blocker exists.
 - [ ] After a score of at least 86 with no blocker, commit the exact reviewed candidate, push the feature branch, open a PR and require exact-head CI. Confirm `main` did not move unexpectedly and merge only with the expected reviewed head SHA.
 - [ ] Synchronize local `main`; verify exact-merge main CI and the existing Git-linked Vercel status. Do not create a duplicate manual deployment.
 - [ ] Verify the live synthetic preview remains healthy with no external request/browser error and that its delivered JS/assets contain no data-transition fixture or source identifier. Record head SHA, merge SHA, CI, deployment and live evidence in the PR body.
@@ -151,3 +153,7 @@ Produces: independently accepted code merged and released through the existing G
 - Mapping ambiguity: require explicit corrected mappings; do not infer from names, email, role or organization label.
 - Future transition: a Firebase exporter, I/O, schema, writes, real-data checks, backups and rollback rehearsal remain separate gated work.
 - Acceptance trace: spec versioned inputs → Tasks 1–2; canonical checksum and redaction → Task 2; tenant/role fail-closed behavior → Tasks 1–2; no runtime/data access → Tasks 2–3; full/independent/release evidence → Tasks 3–4.
+
+## Revision 2 — contract subpath containment
+
+The first emitted-asset inspection found the transition format and privileged-role finding code in all web bundles even though no runtime imported `@lessonquest/data-transition`. The cause was the new schema module being re-exported from the existing `@lessonquest/contracts` root barrel, which web/API code already imports. The reviewed fix is to expose the new contracts only through `@lessonquest/contracts/data-transition`, remove them from the root barrel, add a focused metadata/source containment test, and rebuild all three web modes before accepting the candidate. This narrows runtime reach without changing schemas, dependencies, external versions or transition behavior.

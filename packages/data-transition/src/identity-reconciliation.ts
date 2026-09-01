@@ -9,7 +9,7 @@ import {
   type IdentityReadinessReportV1,
   type WordQuestIdentityAccountV1,
   type WordQuestIdentityExportV1,
-} from '@lessonquest/contracts';
+} from '@lessonquest/contracts/data-transition';
 
 import {
   compareCodeUnits,

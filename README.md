@@ -2,7 +2,7 @@
 
 LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학생들이 그 안에서 미션·실험·탐험·이야기·공동 보스를 함께 플레이하며 배우는 플랫폼입니다. Rasa는 정답 대신 스스로 답을 찾는 길을 안내하고, 교사는 학생의 과정과 성장을 확인합니다.
 
-현재 구현 범위는 Phase 1 M1–M6와 Phase 2의 반·초대·교사 현황, PWA shell·offline 학습 이벤트 queue입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
+현재 구현 범위는 Phase 1 M1–M6와 Phase 2의 반·초대·교사 현황, PWA shell·offline 학습 이벤트 queue, 합성 identity export mapping-readiness validator입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
 
 ## Vercel 개발용 서비스 미리보기
 
@@ -42,6 +42,7 @@ pnpm check
 ## 현재 패키지
 
 - `packages/contracts` — Experience Manifest, LearningEvent, Rasa, sandbox bridge, identity와 요청 runtime schema
+- `packages/data-transition` — 합성 WordQuest identity export와 명시적 계정·기관 mapping을 정규화·해시·대조하는 side-effect-free 검증기
 - `packages/auth` — 불투명한 개발용 bearer token을 서버 소유 Actor로 해석하는 로컬 인증 경계
 - `packages/db` — PGlite 기반 PostgreSQL 호환 기관·반·학생 소속, tenant guard와 최소 감사 로그
 - `packages/science-studio` — 제한된 과학 BlockSpec parser, 독립 validator, 고정 artifact/hash와 네트워크 차단 sandbox document
@@ -96,7 +97,7 @@ GET  /organizations/:organizationId/classes/:classId/assignments/:assignmentId/p
 
 ## 프로젝트 기준
 
-Phase 2의 첫 서비스 단위는 반 만들기·선택, 학생 초대 및 교사 반 대시보드이며 개발 미리보기의 **반 관리**에서 사용합니다. 다음 단위는 위의 PWA shell과 계정·기관별 offline 학습 이벤트 queue입니다. 두 단위 모두 기존 브라우저 소유 합성 환경의 제한을 유지합니다. 기존 계정 연결, read-only export 대조 및 실제 데이터 전환은 아직 포함하지 않습니다. [Phase 2 진행 기록과 사용법](docs/PHASE2_PROGRESS.md)을 참고하세요.
+Phase 2의 첫 서비스 단위는 반 만들기·선택, 학생 초대 및 교사 반 대시보드이며 개발 미리보기의 **반 관리**에서 사용합니다. 다음 단위는 위의 PWA shell과 계정·기관별 offline 학습 이벤트 queue입니다. 세 번째 단위는 호출자가 제공한 합성 identity export와 명시적 계정·기관 mapping만 대조하는 순수 검증기입니다. Firebase exporter, 파일/네트워크 I/O, DB·auth·API·UI 연결, 실제 데이터 dry-run과 migration은 포함하지 않습니다. [Phase 2 진행 기록과 사용법](docs/PHASE2_PROGRESS.md)을 참고하세요.
 
 추가 classroom API는 `createApp`에 `ClassroomRepository`를 주입했을 때 기존 인증/Origin/JSON 경계 아래에서 활성화됩니다.
 

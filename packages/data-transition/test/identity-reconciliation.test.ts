@@ -6,7 +6,7 @@ import {
   type IdentityMappingPlanV1,
   type IdentityReadinessFindingCode,
   type WordQuestIdentityExportV1,
-} from '@lessonquest/contracts';
+} from '@lessonquest/contracts/data-transition';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -404,5 +404,21 @@ describe('package containment', () => {
     expect(source).not.toMatch(
       /node:fs|firebase|https?:|@lessonquest\/(?:auth|db|api|web)|process\.env|\bfetch\b|XMLHttpRequest/,
     );
+  });
+
+  it('exposes transition contracts only through their dedicated package subpath', () => {
+    const contractsPackage = JSON.parse(
+      readFileSync(new URL('../../contracts/package.json', import.meta.url), 'utf8'),
+    ) as { exports: Record<string, unknown> };
+    const contractsBarrel = readFileSync(
+      new URL('../../contracts/src/index.ts', import.meta.url),
+      'utf8',
+    );
+
+    expect(contractsPackage.exports['./data-transition']).toEqual({
+      types: './dist/data-transition.d.ts',
+      default: './dist/data-transition.js',
+    });
+    expect(contractsBarrel).not.toContain("export * from './data-transition.js'");
   });
 });
