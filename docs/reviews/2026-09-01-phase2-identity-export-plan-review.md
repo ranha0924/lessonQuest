@@ -33,3 +33,7 @@ Spec: `docs/superpowers/specs/2026-09-01-phase2-identity-export-design.md`
 ## Authorization boundary
 
 This score authorizes Tasks 1–4 exactly as written. It does not authorize Firebase access, a real export, a database identity column/table, membership writes, a migration dry run, backup/restore operations or use of real account/student identifiers.
+
+## Revision 1 — workspace lock entry
+
+The initial package scaffold proved that pnpm requires a lockfile importer for the new workspace package even though it adds no external dependency. The plan now permits exactly the `packages/data-transition` importer linking `@lessonquest/contracts` through `workspace:*` and continues to forbid any external dependency/version change. This is a narrower, verifiable form of the original contracts-only dependency rule. The architecture, security boundary, verification commands, total **98/100** score and PASS decision remain unchanged.

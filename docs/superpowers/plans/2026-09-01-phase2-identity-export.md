@@ -17,7 +17,7 @@
 - Do not add a DB column/table, auth adapter, API, CLI, file reader, environment variable, UI or browser bundle import.
 - Treat source organization keys and roles as data to reconcile, never authorization. `MASTER` always blocks readiness and never implies `ORG_ADMIN` or `SUPER_ADMIN`.
 - Do not silently trim opaque identifiers. Never echo raw `externalAuthId`, `legacyOrganizationKey` or rejected input in errors or findings.
-- Preserve current dependencies and lockfile. The new package may depend only on `@lessonquest/contracts`; hashing uses built-in `node:crypto`.
+- Preserve every external dependency and version. The lockfile may add only the new workspace importer's `workspace:*` link to `@lessonquest/contracts`; hashing uses built-in `node:crypto`.
 - Implementation begins only after the recorded plan score is at least 86/100 with no critical blocker. Completion requires a different independent reviewer to score the actual candidate above 85 with no critical blocker.
 
 ---
@@ -36,6 +36,7 @@
 | `packages/data-transition/src/index.ts`                                                               | Public package export                                                 |
 | `packages/data-transition/test/fixtures/wordquest-identity-export-v1.json`                            | Synthetic valid v1 export                                             |
 | `packages/data-transition/test/identity-reconciliation.test.ts`                                       | Determinism, blockers, readiness and redaction tests                  |
+| `pnpm-lock.yaml`                                                                                      | New workspace importer with a contracts-only local link               |
 | `package.json`                                                                                        | Build the package in dependency order                                 |
 | `README.md`, `docs/PHASE2_PROGRESS.md`, `docs/SOURCE_PROVENANCE.md`, `memory/projects/lessonquest.md` | Scope, status, provenance and remaining transition limits             |
 | `docs/reviews/2026-09-01-phase2-identity-export-verification.md`                                      | Implementer evidence and exact counts                                 |
