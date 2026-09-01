@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './app.js';
 import { createHttpLessonQuestApi } from './api-client.js';
 import { DemoShell } from './demo-shell.js';
+import { registerLessonQuestServiceWorker, warmLessonQuestServiceWorker } from './pwa.js';
 import './styles.css';
 import './demo-shell.css';
 import './cosmic-service.css';
@@ -15,6 +16,7 @@ declare global {
       readonly role: 'TEACHER' | 'STUDENT';
       readonly organizationId: string;
       readonly classId: string;
+      readonly offlineQueueKey?: string;
     };
   }
 }
@@ -26,8 +28,14 @@ if (rootElement === null) {
 
 const environment = import.meta.env as unknown as Record<string, unknown>;
 const demoMode = environment['VITE_DEMO_MODE'] === 'true';
+const developmentPreview = import.meta.env.VITE_DEV_PREVIEW === 'true';
 const session = window.lessonQuestSession;
-if (import.meta.env.VITE_DEV_PREVIEW === 'true') {
+void registerLessonQuestServiceWorker(developmentPreview || (!demoMode && session !== undefined))
+  .then((registration) =>
+    registration === null ? undefined : warmLessonQuestServiceWorker().catch(() => undefined),
+  )
+  .catch(() => undefined);
+if (developmentPreview) {
   const root = createRoot(rootElement);
   root.render(
     <main className="configuration-notice">
@@ -75,6 +83,9 @@ if (import.meta.env.VITE_DEV_PREVIEW === 'true') {
         role={session.role}
         organizationId={session.organizationId}
         classId={session.classId}
+        {...(session.offlineQueueKey === undefined
+          ? {}
+          : { offlineQueueKey: session.offlineQueueKey })}
       />
     </StrictMode>,
   );

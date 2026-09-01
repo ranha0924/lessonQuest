@@ -28,6 +28,7 @@ const student: Actor = {
 };
 const teacherToken = `dev_${'t'.repeat(32)}`;
 const studentToken = `dev_${'s'.repeat(32)}`;
+const studentOfflineQueueKey = `lqs_${'2'.repeat(64)}`;
 
 async function createDatabase() {
   if (typeof window === 'undefined') return new PGlite('memory://');
@@ -135,6 +136,7 @@ export async function createPreviewRuntime() {
       classId: lessonClass.id,
       teacherApi: api(teacherToken),
       studentApi: api(studentToken),
+      studentOfflineQueueKey,
       sampleDraft: { title: '가벼운 손수레 탐험', generatedSpecText: sampleText },
       close() {
         closing = true;

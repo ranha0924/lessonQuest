@@ -150,4 +150,44 @@ describe('createExperienceEventSession', () => {
     expect(() => session.acknowledge(ids[0], 6)).toThrow();
     expect(() => session.synchronize(5)).toThrow(/backward/i);
   });
+
+  it('restores one exact pending envelope and acknowledges it once', () => {
+    const pending = createExperienceEventSession(context, {
+      initialSequence: 4,
+      createId: () => ids[0],
+      now: () => new Date('2026-09-01T00:00:00.000Z'),
+    }).retried('quiz_force', 'light', 3, 500);
+    const restored = createExperienceEventSession(context, {
+      initialSequence: pending.sequence,
+      pendingEvent: pending,
+    });
+
+    expect(restored.retried('quiz_force', 'light', 3, 500)).toEqual(pending);
+    expect(() => restored.completed('complete', 8_000)).toThrow(/pending/i);
+    restored.acknowledge(pending.eventId, 5);
+    expect(restored.completed('complete', 8_000).sequence).toBe(5);
+    expect(() => restored.acknowledge(pending.eventId, 5)).toThrow();
+  });
+
+  it('rejects restored pending envelopes outside the exact authority context and sequence', () => {
+    const pending = createExperienceEventSession(context, {
+      initialSequence: 2,
+      createId: () => ids[0],
+    }).answered('quiz_force', 'heavy', 1, 1_000);
+    for (const changed of [
+      { organizationId: ids[1] },
+      { assignmentId: ids[1] },
+      { attemptId: ids[1] },
+      { experienceId: 'science_other_01' },
+      { experienceVersion: 2 },
+      { sequence: 3 },
+    ]) {
+      expect(() =>
+        createExperienceEventSession(context, {
+          initialSequence: 2,
+          pendingEvent: { ...pending, ...changed },
+        }),
+      ).toThrow();
+    }
+  });
 });

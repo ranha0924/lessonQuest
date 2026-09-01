@@ -19,6 +19,8 @@
 
 2026-08-31 Phase 2 반·초대·대시보드: `packages/contracts/src/classrooms.ts`, `packages/db/src/classroom-repository.ts`, `services/api/src/classroom-routes.ts`, `apps/web/src/components/{classroom-manager,join-class}.tsx` 및 대응 테스트는 승인된 LessonQuest 통합 설계의 클래스·초대·교사 현황 요구에서 새로 작성했다. 이번 단위에서는 외부 WordQuest 소스를 읽거나 복사하지 않았으므로 원본 commit/parity를 주장하지 않는다. LessonQuest UUID tenant 경계, 현재 권한, 해시 저장 초대, 합성 DB와 기존 서버 projection을 사용한다. 기존 보스 규칙 이식 출처는 위 표를 유지한다.
 
+2026-09-01 Phase 2 PWA·offline queue: `packages/experience-sdk/src/{event-session,offline-event-queue}.ts`, `apps/web/src/offline/**`, `apps/web/public/{manifest.webmanifest,pwa-icon.svg,service-worker.js}` 및 연결 UI·테스트는 LessonQuest 통합 설계의 PWA/queue 요구에서 새로 작성했다. 외부 WordQuest 또는 다른 참조 저장소 파일·서비스를 읽거나 복사하지 않았다. queue는 기존 LessonQuest `ClientLearningEvent` 계약과 서버 idempotency만 사용하며 새로운 parity 또는 제3자 코드 출처를 주장하지 않는다.
+
 - 원본 저장소 이름만 적지 않고 전체 `owner/repository`와 40자리 commit SHA를 기록한다.
 - 파일 전체를 복사했다는 표현 대신 실제 이식한 함수·컴포넌트·fixture를 적는다.
 - 인증, tenant, 데이터 저장, 브라우저 권한처럼 원본과 달라진 가정을 명시한다.

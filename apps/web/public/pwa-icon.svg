@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LessonQuest">
+  <rect width="512" height="512" rx="112" fill="#050816"/>
+  <circle cx="256" cy="256" r="170" fill="#101b3f" stroke="#78e8ff" stroke-width="18"/>
+  <path d="M128 302c62-18 104-70 128-156 25 87 67 138 128 156-72 5-115 31-128 78-13-47-56-73-128-78Z" fill="#ffc85a"/>
+  <circle cx="256" cy="230" r="38" fill="#f7fbff"/>
+  <path d="M204 334h104" stroke="#78e8ff" stroke-width="18" stroke-linecap="round"/>
+</svg>

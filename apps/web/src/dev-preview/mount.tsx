@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import type { Root } from 'react-dom/client';
 import { DevelopmentPreview } from './development-preview.js';
 import { createPreviewRuntime, type PreviewRuntime } from './runtime.js';
+import { warmLessonQuestServiceWorker } from '../pwa.js';
 
 // Resource ownership stays outside React effects: StrictMode cannot double-initialize it.
 export function mountDevelopmentPreview(root: Root) {
@@ -24,6 +25,7 @@ export function mountDevelopmentPreview(root: Root) {
       runtime = undefined;
       await previous?.close();
       runtime = await createPreviewRuntime();
+      await warmLessonQuestServiceWorker().catch(() => undefined);
       root.render(
         <StrictMode>
           <DevelopmentPreview

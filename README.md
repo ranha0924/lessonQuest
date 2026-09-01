@@ -2,13 +2,17 @@
 
 LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학생들이 그 안에서 미션·실험·탐험·이야기·공동 보스를 함께 플레이하며 배우는 플랫폼입니다. Rasa는 정답 대신 스스로 답을 찾는 길을 안내하고, 교사는 학생의 과정과 성장을 확인합니다.
 
-현재 구현 범위는 Phase 1 M1–M6입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
+현재 구현 범위는 Phase 1 M1–M6와 Phase 2의 반·초대·교사 현황, PWA shell·offline 학습 이벤트 queue입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
 
 ## Vercel 개발용 서비스 미리보기
 
 루트 `vercel.json`은 `VITE_DEV_PREVIEW=true`로 실제 과학 제작소·학생 플레이·교사 결과 화면을 빌드합니다. HTTP client → Hono API → 기존 저장소 → PGlite 경계를 브라우저의 한 탭 안에서 실행합니다. 교사 화면에서 예제 JSON을 저장·검증·승인·반 배포한 뒤 학생 화면으로 전환하면 실제 학습 기록과 공동 보스 기여를 확인할 수 있습니다.
 
-이는 **합성 계정과 임시 데이터만 사용하는 개발 환경**입니다. DB와 인증 목록이 브라우저 안에 있으므로 운영 보안 경계가 아니며, 실제 학생 정보를 입력하면 안 됩니다. 다른 사용자·탭과 데이터를 공유하지 않고 새로고침 또는 초기화하면 지워집니다. Rasa는 고정된 로컬 힌트이며 외부 AI 생성·회원가입·영구 저장은 연결하지 않았습니다. 첫 실행에는 약 16MB의 DB 실행 파일을 같은 사이트에서 불러옵니다.
+이는 **합성 계정과 임시 데이터만 사용하는 개발 환경**입니다. DB와 인증 목록이 브라우저 안에 있으므로 운영 보안 경계가 아니며, 실제 학생 정보를 입력하면 안 됩니다. 다른 사용자·탭과 서버 데이터를 공유하지 않고 새로고침 또는 초기화하면 합성 PGlite 데이터가 지워집니다. Rasa는 고정된 로컬 힌트이며 외부 AI 생성·회원가입·영구 저장은 연결하지 않았습니다. 첫 실행에는 약 16MB의 DB 실행 파일을 같은 사이트에서 불러옵니다.
+
+한 번 온라인으로 연 뒤에는 설치 가능한 shell이 같은 사이트의 정적 자산만 캐시해 오프라인에서도 화면을 다시 열 수 있습니다. 학생의 시작·답안·재도전·완료 이벤트는 호스트가 불투명한 `lqs_…` 계정 저장 키를 제공한 경우 IndexedDB에 먼저 보관하고 같은 이벤트 ID와 본문으로 재전송합니다. 계정·기관 범위마다 최대 20건, 24시간만 유지하며 bearer token, 정답 여부, 제목, 힌트, 생성 콘텐츠와 학생 프로필은 저장하지 않습니다. 세션 종료와 **데이터 초기화**는 현재 범위만 지웁니다. Rasa 힌트, 과제 시작 요청과 모든 읽기는 온라인 전용입니다.
+
+공개 미리보기의 서버는 탭 메모리이므로 새로고침 뒤에는 새 합성 DB가 만들어집니다. 따라서 공개 사이트의 오프라인 재열기는 shell 가용성만 뜻하며 운영 서버 데이터가 지속된다는 뜻이 아닙니다. 대기 기록은 연결이 돌아오면 자동 전송되고, 화면에서 즉시 재시도하거나 현재 기기 범위만 지울 수 있습니다. 권한·과제 생명주기 거절은 다른 계정으로 옮기지 않고 해당 기록을 삭제한 뒤 다시 로그인하거나 과제를 다시 열도록 안내합니다.
 
 ```bash
 corepack pnpm install --frozen-lockfile
@@ -41,10 +45,10 @@ pnpm check
 - `packages/auth` — 불투명한 개발용 bearer token을 서버 소유 Actor로 해석하는 로컬 인증 경계
 - `packages/db` — PGlite 기반 PostgreSQL 호환 기관·반·학생 소속, tenant guard와 최소 감사 로그
 - `packages/science-studio` — 제한된 과학 BlockSpec parser, 독립 validator, 고정 artifact/hash와 네트워크 차단 sandbox document
-- `packages/experience-sdk` — 서버가 발급한 문맥·재개 sequence를 고정하고 시작·선택·재도전·완료 이벤트를 만드는 브라우저 SDK
+- `packages/experience-sdk` — 서버가 발급한 문맥·재개 sequence를 고정하고 시작·선택·재도전·완료 이벤트와 범위가 제한된 exact-replay queue를 관리하는 브라우저 SDK
 - `packages/gamification` — WordQuest parity를 유지하는 보스 kill switch, 반별 key, HP, 중복 합산과 서버 검증 결과 기반 기여 projection
 - `services/api` — Hono 기반 보안 미들웨어와 기관·반·Science Studio·Assignment·Event API application
-- `apps/web` — React/Vite 기반 교사 과학 제작소, scripts-only sandbox preview, 학생 탐험·이어하기, 교사 과정 기록
+- `apps/web` — React/Vite 기반 교사 과학 제작소, scripts-only sandbox preview, 학생 탐험·이어하기, 교사 과정 기록, PWA shell과 IndexedDB queue adapter
 - 각 `test` 디렉터리 — 위조 입력, 권한 상승, IDOR, 비활성 상태, rollback과 오류 redaction 회귀 테스트
 
 ## 로컬 M1–M4 API
@@ -92,7 +96,7 @@ GET  /organizations/:organizationId/classes/:classId/assignments/:assignmentId/p
 
 ## 프로젝트 기준
 
-Phase 2의 첫 서비스 전달 단위는 반 만들기·선택, 학생 초대 및 교사 반 대시보드입니다. 개발 미리보기의 **반 관리**에서 사용합니다. 초대 코드는 24시간 만료, 인원 한도, 재발급·취소와 중복 가입 방지를 적용하고, 발급 교사/학생/기관의 현재 권한을 다시 검사합니다. 기존 브라우저 소유 합성 환경의 제한은 동일합니다. PWA/offline queue, 기존 계정 연결 및 실제 데이터 전환은 이 단위에 포함하지 않습니다. [Phase 2 진행 기록과 사용법](docs/PHASE2_PROGRESS.md)을 참고하세요.
+Phase 2의 첫 서비스 단위는 반 만들기·선택, 학생 초대 및 교사 반 대시보드이며 개발 미리보기의 **반 관리**에서 사용합니다. 다음 단위는 위의 PWA shell과 계정·기관별 offline 학습 이벤트 queue입니다. 두 단위 모두 기존 브라우저 소유 합성 환경의 제한을 유지합니다. 기존 계정 연결, read-only export 대조 및 실제 데이터 전환은 아직 포함하지 않습니다. [Phase 2 진행 기록과 사용법](docs/PHASE2_PROGRESS.md)을 참고하세요.
 
 추가 classroom API는 `createApp`에 `ClassroomRepository`를 주입했을 때 기존 인증/Origin/JSON 경계 아래에서 활성화됩니다.
 
