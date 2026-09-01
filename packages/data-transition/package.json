@@ -1,5 +1,5 @@
 {
-  "name": "@lessonquest/contracts",
+  "name": "@lessonquest/data-transition",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./data-transition": {
-      "types": "./dist/data-transition.d.ts",
-      "default": "./dist/data-transition.js"
     }
   },
   "files": [
@@ -22,6 +18,6 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "zod": "4.5.2"
+    "@lessonquest/contracts": "workspace:*"
   }
 }
