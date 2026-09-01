@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StudioWorkbench } from '../components/studio-workbench.js';
 import { StudentPlay } from '../components/student-play.js';
 import type { PreviewRuntime } from './runtime.js';
@@ -6,6 +6,10 @@ import { CosmicShell } from '../components/cosmic-shell.js';
 import { ClassroomManager } from '../components/classroom-manager.js';
 import { JoinClass } from '../components/join-class.js';
 import './preview.css';
+import {
+  canUseBrowserOfflineQueue,
+  createBrowserOfflineEventQueue,
+} from '../offline/browser-event-queue.js';
 
 export function DevelopmentPreview({
   runtime,
@@ -22,6 +26,23 @@ export function DevelopmentPreview({
   // A refreshed client reference reloads the existing boss panel when the teacher returns.
   // The method closures always retain the same teacher identity, including in-flight work.
   const teacherApi = useMemo(() => ({ ...runtime.teacherApi }), [runtime, teacherVisit]);
+  const studentOfflineQueue = useMemo(
+    () =>
+      canUseBrowserOfflineQueue()
+        ? createBrowserOfflineEventQueue({
+            accountStorageKey: runtime.studentOfflineQueueKey,
+            organizationId: runtime.organizationId,
+            api: runtime.studentApi,
+          })
+        : undefined,
+    [runtime],
+  );
+  useEffect(
+    () => () => {
+      studentOfflineQueue?.dispose();
+    },
+    [studentOfflineQueue],
+  );
   const selectTeacher = () => {
     setClassroomsOpen(false);
     if (role !== 'TEACHER') {
@@ -59,7 +80,14 @@ export function DevelopmentPreview({
           >
             <span aria-hidden="true">↗</span>학생 화면
           </button>
-          <button className="cosmic-reset" type="button" onClick={reset}>
+          <button
+            className="cosmic-reset"
+            type="button"
+            onClick={() => {
+              if (studentOfflineQueue === undefined) reset();
+              else void studentOfflineQueue.clear().finally(reset);
+            }}
+          >
             데이터 초기화
           </button>
         </nav>
@@ -106,6 +134,7 @@ export function DevelopmentPreview({
               key={studentVisit}
               api={runtime.studentApi}
               organizationId={runtime.organizationId}
+              {...(studentOfflineQueue === undefined ? {} : { offlineQueue: studentOfflineQueue })}
             />
             <JoinClass
               api={runtime.studentApi}

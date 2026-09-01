@@ -14,7 +14,7 @@
     "typecheck": "pnpm deps:build && tsc --noEmit -p tsconfig.json && pnpm --filter @lessonquest/web exec tsc --noEmit -p tsconfig.json",
     "test": "pnpm deps:build && vitest run",
     "test:integration": "pnpm deps:build && vitest run packages/db/test/learning-repository.test.ts packages/db/test/rasa-repository.test.ts packages/db/test/gamification-repository.test.ts services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts packages/db/test/classroom-repository.test.ts services/api/test/classrooms.test.ts",
-    "test:e2e": "pnpm deps:build && vitest run services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts apps/web/test/app.test.tsx apps/web/test/m3-m4-e2e.test.tsx apps/web/test/m5-m6-e2e.test.tsx apps/web/test/phase1-flow.test.tsx apps/web/test/phase1-recovery.test.tsx apps/web/test/phase1-negative.test.tsx services/api/test/classrooms.test.ts apps/web/test/classrooms-e2e.test.tsx",
+    "test:e2e": "pnpm deps:build && vitest run services/api/test/m3-m4.test.ts services/api/test/m5-m6.test.ts apps/web/test/app.test.tsx apps/web/test/m3-m4-e2e.test.tsx apps/web/test/m5-m6-e2e.test.tsx apps/web/test/phase1-flow.test.tsx apps/web/test/phase1-recovery.test.tsx apps/web/test/phase1-negative.test.tsx apps/web/test/offline-queue-e2e.test.tsx services/api/test/classrooms.test.ts apps/web/test/classrooms-e2e.test.tsx",
     "test:browser": "pnpm deps:build && VITE_DEV_PREVIEW=false VITE_DEMO_MODE=true pnpm --filter @lessonquest/web build && playwright test",
     "build": "pnpm -r --sort --if-present build",
     "check": "pnpm deps:build && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",

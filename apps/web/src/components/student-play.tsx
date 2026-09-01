@@ -1,9 +1,11 @@
 import {
   createExperienceEventSession,
   type ExperienceEventSession,
+  type OfflineEventQueue,
+  type OfflineEventQueueState,
 } from '@lessonquest/experience-sdk';
-import { useEffect, useRef, useState } from 'react';
-import type { ClientLearningEvent } from '@lessonquest/contracts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ClientLearningEvent, EventIngestionResult } from '@lessonquest/contracts';
 
 import { LessonQuestApiError } from '../api-client.js';
 import type {
@@ -14,13 +16,23 @@ import type {
 import { MissionWelcome, RasaCompanion } from './cosmic-art.js';
 import { ClassBossCard } from './class-boss-card.js';
 import { RasaHintPanel } from './rasa-hint-panel.js';
+import { OfflineEventStatus } from './offline-event-status.js';
 
 interface StudentPlayProps {
   readonly api: LessonQuestApi;
   readonly organizationId: string;
+  readonly offlineQueue?: OfflineEventQueue;
 }
 
-export function StudentPlay({ api, organizationId }: StudentPlayProps) {
+const emptyQueueState: OfflineEventQueueState = {
+  pendingCount: 0,
+  sending: false,
+  nextRetryAt: null,
+  lastAttemptAt: null,
+  now: 0,
+};
+
+export function StudentPlay({ api, organizationId, offlineQueue }: StudentPlayProps) {
   const [assignments, setAssignments] = useState<StudentAssignmentSummary[]>([]);
   const [specification, setSpecification] = useState<StudentScienceSpecification | null>(null);
   const [status, setStatus] = useState('내 탐험을 불러오는 중');
@@ -46,6 +58,92 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
     useState<Awaited<ReturnType<LessonQuestApi['getStudentBossProgress']>>>(null);
   const hintRequestId = useRef<string | null>(null);
   const sessionRef = useRef<ExperienceEventSession | null>(null);
+  const [queueState, setQueueState] = useState<OfflineEventQueueState>(
+    offlineQueue?.getState() ?? emptyQueueState,
+  );
+  const [queueMessage, setQueueMessage] = useState('');
+
+  const applyEventResult = useCallback(
+    (event: ClientLearningEvent, result: EventIngestionResult) => {
+      const pending = pendingEventRef.current;
+      const session = sessionRef.current;
+      if (pending?.eventId !== event.eventId || session === null) return;
+      if (
+        (event.type === 'QUESTION_ANSWERED' || event.type === 'ANSWER_RETRIED') &&
+        result.answer === null
+      ) {
+        setStatus('학습 기록 응답을 확인하지 못했어요. 과제를 다시 열어 주세요.');
+        return;
+      }
+      try {
+        session.acknowledge(event.eventId, result.nextSequence);
+      } catch {
+        setStatus('학습 순서를 다시 확인해야 해요. 과제를 다시 열어 주세요.');
+        return;
+      }
+      pendingEventRef.current = null;
+      setPendingEvent(null);
+      if (event.type === 'EXPERIENCE_COMPLETED') {
+        setCompleted(true);
+        setStatus('탐험을 완료했습니다!');
+      } else if (result.answer !== null) {
+        setAnswerAttempts(result.answer.attempt);
+        setQuizCorrect(result.answer.correct);
+        setStatus(
+          result.answer.correct
+            ? result.answer.attempt === 1
+              ? '정답이에요!'
+              : '재도전 성공'
+            : '다시 생각해 볼까요?',
+        );
+      } else if (event.type === 'EXPERIENCE_STARTED') {
+        setStatus('탐험 진행 중');
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (offlineQueue === undefined) {
+      setQueueState(emptyQueueState);
+      setQueueMessage('');
+      return;
+    }
+    let active = true;
+    const unsubscribe = offlineQueue.subscribe((update) => {
+      if (!active) return;
+      if (update.kind === 'STATE') {
+        setQueueState(update.state);
+        if (update.state.pendingCount > 0) {
+          setQueueMessage(
+            `오프라인 대기 기록 ${update.state.pendingCount}건 · 연결되면 자동 전송합니다.`,
+          );
+        }
+      } else if (update.kind === 'DELIVERED') {
+        setQueueMessage('대기하던 학습 기록을 전송했습니다.');
+        applyEventResult(update.event, update.result);
+      } else {
+        if (pendingEventRef.current?.eventId === update.event.eventId) {
+          pendingEventRef.current = null;
+          setPendingEvent(null);
+        }
+        setQueueMessage(
+          '이 학습 기록은 현재 권한으로 전송할 수 없어 기기에서 지웠습니다. 다시 로그인하거나 과제를 다시 열어 주세요.',
+        );
+      }
+    });
+    void offlineQueue.start().catch(() => {
+      if (active) {
+        setQueueMessage(
+          '이 기기에 학습 기록을 보관할 수 없습니다. 연결을 확인한 뒤 다시 시도해 주세요.',
+        );
+      }
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [applyEventResult, offlineQueue]);
 
   useEffect(() => {
     let active = true;
@@ -79,7 +177,12 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
     setStarting(true);
     void (async () => {
       const attempt = await api.startAttempt(organizationId, assignmentId);
-      if (attempt.status === 'COMPLETED') {
+      const restoredEvent = await offlineQueue?.pendingForAttempt(attempt.id);
+      if (restoredEvent === undefined || restoredEvent === null) {
+        pendingEventRef.current = null;
+        setPendingEvent(null);
+      }
+      if (attempt.status === 'COMPLETED' && restoredEvent == null) {
         setStatus('이미 완료한 탐험입니다.');
         return;
       }
@@ -93,7 +196,10 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
           experienceVersion: player.experienceVersion,
         },
         {
-          initialSequence: attempt.nextSequence,
+          initialSequence: restoredEvent?.sequence ?? attempt.nextSequence,
+          ...(restoredEvent === undefined || restoredEvent === null
+            ? {}
+            : { pendingEvent: restoredEvent }),
         },
       );
       sessionRef.current = session;
@@ -111,10 +217,21 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
       setAnswerAttempts(answerState?.attempts ?? 0);
       setQuizCorrect(answerState?.correct ?? false);
       setCompleted(false);
+      if (restoredEvent !== undefined && restoredEvent !== null) {
+        setSpecification(player.specification);
+        pendingEventRef.current = restoredEvent;
+        setPendingEvent(restoredEvent);
+        setQueueMessage(
+          `오프라인 대기 기록 ${Math.max(1, offlineQueue?.getState().pendingCount ?? 1)}건 · 연결되면 자동 전송합니다.`,
+        );
+        setStatus('대기 중인 학습 기록을 먼저 전송해 주세요.');
+        return;
+      }
       if (attempt.status === 'READY') {
+        if (offlineQueue !== undefined) setSpecification(player.specification);
         const event = session.started('start');
-        const result = await api.ingestEvent(event);
-        session.acknowledge(event.eventId, result.nextSequence);
+        await sendPreparedEvent(event);
+        if (pendingEventRef.current !== null) return;
       }
       setSpecification(player.specification);
       setStatus(
@@ -138,48 +255,50 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
       });
   };
 
-  const sendEvent = (event: ClientLearningEvent) => {
+  const sendPreparedEvent = async (event: ClientLearningEvent) => {
     const session = sessionRef.current;
-    if (session === null || writeInFlight.current) return;
-    writeInFlight.current = true;
+    if (session === null) return;
     pendingEventRef.current = event;
     setPendingEvent(event);
-    setSubmitting(true);
-    void api
-      .ingestEvent(event)
-      .then((result) => {
-        if (event.type !== 'EXPERIENCE_COMPLETED' && result.answer === null) {
-          throw new TypeError('Answer outcome missing');
-        }
-        session.acknowledge(event.eventId, result.nextSequence);
-        pendingEventRef.current = null;
-        setPendingEvent(null);
-        if (event.type === 'EXPERIENCE_COMPLETED') {
-          setCompleted(true);
-          setStatus('탐험을 완료했습니다!');
-        } else if (result.answer !== null) {
-          setAnswerAttempts(result.answer.attempt);
-          setQuizCorrect(result.answer.correct);
-          setStatus(
-            result.answer.correct
-              ? result.answer.attempt === 1
-                ? '정답이에요!'
-                : '재도전 성공'
-              : '다시 생각해 볼까요?',
-          );
-        }
-      })
-      .catch(() =>
-        setStatus(
-          event.type === 'EXPERIENCE_COMPLETED'
-            ? '완료를 기록하지 못했어요.'
+    try {
+      if (offlineQueue === undefined) {
+        applyEventResult(event, await api.ingestEvent(event));
+        return;
+      }
+      const result = await offlineQueue.enqueue(event);
+      if (result.status === 'QUEUED') {
+        setQueueMessage(
+          `오프라인 대기 기록 ${Math.max(1, offlineQueue.getState().pendingCount)}건 · 연결되면 자동 전송합니다.`,
+        );
+        setStatus('학습 기록을 이 기기에 보관했습니다.');
+      }
+    } catch {
+      if (pendingEventRef.current?.eventId !== event.eventId) return;
+      if (offlineQueue !== undefined) {
+        setQueueMessage(
+          '이 기기에 학습 기록을 보관하거나 전송하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.',
+        );
+      }
+      setStatus(
+        event.type === 'EXPERIENCE_COMPLETED'
+          ? '완료를 기록하지 못했어요.'
+          : event.type === 'EXPERIENCE_STARTED'
+            ? offlineQueue === undefined
+              ? '탐험을 시작하지 못했어요.'
+              : '탐험 시작을 기록하지 못했어요.'
             : '답을 기록하지 못했어요.',
-        ),
-      )
-      .finally(() => {
-        writeInFlight.current = false;
-        setSubmitting(false);
-      });
+      );
+    }
+  };
+
+  const sendEvent = (event: ClientLearningEvent) => {
+    if (writeInFlight.current) return;
+    writeInFlight.current = true;
+    setSubmitting(true);
+    void sendPreparedEvent(event).finally(() => {
+      writeInFlight.current = false;
+      setSubmitting(false);
+    });
   };
 
   const submitChoice = (stepId: string, optionId: string) => {
@@ -215,6 +334,23 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
   };
 
   const quiz = specification?.blocks.find((block) => block.kind === 'QUIZ');
+  const clearQueuedRecords = () => {
+    if (offlineQueue === undefined || queueState.sending) return;
+    void offlineQueue
+      .clear()
+      .then(() => {
+        pendingEventRef.current = null;
+        setPendingEvent(null);
+        sessionRef.current = null;
+        setSpecification(null);
+        setAttemptId(null);
+        setQueueMessage('이 기기의 대기 기록을 지웠습니다. 과제를 다시 열어 주세요.');
+        setStatus('과제를 다시 열어 서버 상태를 확인해 주세요.');
+      })
+      .catch(() => {
+        setQueueMessage('이 기기의 대기 기록을 지우지 못했습니다. 다시 시도해 주세요.');
+      });
+  };
   const requestHint = () => {
     const session = sessionRef.current;
     if (
@@ -442,10 +578,20 @@ export function StudentPlay({ api, organizationId }: StudentPlayProps) {
           </button>
         </section>
       )}
-      {pendingEvent !== null ? (
+      {pendingEvent !== null && offlineQueue === undefined ? (
         <button type="button" disabled={submitting} onClick={() => sendEvent(pendingEvent)}>
           기록 다시 전송
         </button>
+      ) : null}
+      {offlineQueue !== undefined ? (
+        <OfflineEventStatus
+          state={queueState}
+          message={queueMessage}
+          onRetry={() => {
+            void offlineQueue.retryNow();
+          }}
+          onClear={clearQueuedRecords}
+        />
       ) : null}
       <p className="status-banner" role="status" aria-live="polite">
         {status}

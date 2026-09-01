@@ -39,6 +39,7 @@ export interface ExperienceEventSessionOptions {
   readonly createId?: () => string;
   readonly initialSequence?: number;
   readonly now?: () => Date;
+  readonly pendingEvent?: ClientLearningEvent;
 }
 
 export function createExperienceEventSession(
@@ -48,12 +49,28 @@ export function createExperienceEventSession(
   const context = eventContextSchema.parse(contextInput);
   const createId = options.createId ?? (() => globalThis.crypto.randomUUID());
   const now = options.now ?? (() => new Date());
-  let sequence = z
-    .int()
-    .min(0)
-    .max(1_000_000)
-    .parse(options.initialSequence ?? 0);
+  const sequenceSchema = z.int().min(0).max(1_000_000);
+  let sequence = sequenceSchema.parse(options.initialSequence ?? 0);
   let pending: { signature: string; event: ClientLearningEvent } | undefined;
+  if (options.pendingEvent !== undefined) {
+    const restored = clientLearningEventSchema.parse(options.pendingEvent);
+    if (
+      restored.organizationId !== context.organizationId ||
+      restored.assignmentId !== context.assignmentId ||
+      restored.attemptId !== context.attemptId ||
+      restored.experienceId !== context.experienceId ||
+      restored.experienceVersion !== context.experienceVersion ||
+      restored.sequence !== sequence
+    ) {
+      throw new Error('Restored pending event does not match the session context and sequence');
+    }
+    Object.freeze(restored.payload);
+    const frozen = Object.freeze(restored);
+    pending = {
+      signature: JSON.stringify([frozen.type, frozen.stepId, frozen.payload]),
+      event: frozen,
+    };
+  }
 
   const build = (
     type: ClientLearningEvent['type'],
@@ -80,7 +97,7 @@ export function createExperienceEventSession(
     return frozen;
   };
 
-  const nextSequenceSchema = z.int().min(0).max(1_000_000);
+  const nextSequenceSchema = sequenceSchema;
 
   return Object.freeze({
     started: (stepId: string) => build('EXPERIENCE_STARTED', stepId, {}),

@@ -73,6 +73,7 @@ describe('Phase 1 real delivery recovery', () => {
               runtime={{
                 organizationId: fixture.organization.id,
                 classId: fixture.lessonClass.id,
+                studentOfflineQueueKey: `lqs_${'2'.repeat(64)}`,
                 teacherApi,
                 studentApi,
                 sampleDraft: { title: '복구 검증', generatedSpecText: '{}' },

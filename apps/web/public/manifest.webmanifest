@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "LessonQuest",
+  "short_name": "LessonQuest",
+  "description": "질문에서 시작해 함께 탐험하는 플레이형 학습 공간",
+  "lang": "ko-KR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050816",
+  "theme_color": "#101b3f",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
