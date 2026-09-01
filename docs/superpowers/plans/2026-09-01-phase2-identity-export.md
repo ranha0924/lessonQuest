@@ -142,9 +142,9 @@ Produces: a reviewed candidate whose package remains outside operating runtime p
 Produces: independently accepted code merged and released through the existing Git-linked workflow.
 
 - [x] Assign a fresh non-implementing agent to inspect the actual diff and hash manifest, run the relevant focused/full/regression/containment checks, and score the five project rubric categories. Preserve a failed report and remediate test-first if the score is 85 or below or any critical blocker exists.
-- [ ] After a score of at least 86 with no blocker, commit the exact reviewed candidate, push the feature branch, open a PR and require exact-head CI. Confirm `main` did not move unexpectedly and merge only with the expected reviewed head SHA.
-- [ ] Synchronize local `main`; verify exact-merge main CI and the existing Git-linked Vercel status. Do not create a duplicate manual deployment.
-- [ ] Verify the live synthetic preview remains healthy with no external request/browser error and that its delivered JS/assets contain no data-transition fixture or source identifier. Record head SHA, merge SHA, CI, deployment and live evidence in the PR body.
+- [x] After a score of at least 86 with no blocker, commit the exact reviewed candidate, push the feature branch, open a PR and require exact-head CI. Confirm `main` did not move unexpectedly and merge only with the expected reviewed head SHA.
+- [x] Synchronize local `main`; verify exact-merge main CI and the existing Git-linked Vercel status. Do not create a duplicate manual deployment.
+- [x] Verify the live synthetic preview remains healthy with no external request/browser error and that its delivered JS/assets contain no data-transition fixture or source identifier. Record head SHA, merge SHA, CI, deployment and live evidence in the PR body.
 
 ## Recovery and acceptance trace
 

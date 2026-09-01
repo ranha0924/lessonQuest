@@ -33,31 +33,31 @@
 
 ## Task 1 — reproduce the exact gap
 
-- [ ] Add contract table cases for U+0080, U+0085 and U+009F embedded in otherwise valid synthetic `externalAuthId` values. Prove all are rejected rather than normalized.
-- [ ] Exercise the shared schema through export `externalAuthId`, export `legacyOrganizationKey`, account mapping `externalAuthId` and organization mapping `legacyOrganizationKey` so no identity-key path bypasses the predicate.
-- [ ] Retain the existing C0/DEL cases and add adjacent accepted-boundary evidence where it does not conflict with the existing edge-whitespace rule.
-- [ ] Add a pure-package case proving C1 input throws only the constant `DataTransitionValidationError`, with no raw identifier, Zod input, cause or stack serialized into the public error value.
-- [ ] Run the two focused files and record RED showing C1 values are accepted before production code changes.
+- [x] Add contract table cases for U+0080, U+0085 and U+009F embedded in otherwise valid synthetic `externalAuthId` values. Prove all are rejected rather than normalized.
+- [x] Exercise the shared schema through export `externalAuthId`, export `legacyOrganizationKey`, account mapping `externalAuthId` and organization mapping `legacyOrganizationKey` so no identity-key path bypasses the predicate.
+- [x] Retain the existing C0/DEL cases and add adjacent accepted-boundary evidence where it does not conflict with the existing edge-whitespace rule.
+- [x] Add a pure-package case proving C1 input throws only the constant `DataTransitionValidationError`, with no raw identifier, Zod input, cause or stack serialized into the public error value.
+- [x] Run the two focused files and record RED showing C1 values are accepted before production code changes.
 
 ## Task 2 — implement the minimal shared correction
 
-- [ ] Change `containsControlCharacter` to reject code points U+0000–U+001F and U+007F–U+009F. Keep code-point iteration so surrogate pairs are not split and avoid a lint-banned control-character regex.
-- [ ] Do not alter schema messages, shapes, versions, canonicalization, hashes, mappings or reconciliation behavior.
-- [ ] Rerun the focused files GREEN and confirm the pinned source/mapping checksums remain exactly unchanged.
+- [x] Change `containsControlCharacter` to reject code points U+0000–U+001F and U+007F–U+009F. Keep code-point iteration so surrogate pairs are not split and avoid a lint-banned control-character regex.
+- [x] Do not alter schema messages, shapes, versions, canonicalization, hashes, mappings or reconciliation behavior.
+- [x] Rerun the focused files GREEN and confirm the pinned source/mapping checksums remain exactly unchanged.
 
 ## Task 3 — regression and containment evidence
 
-- [ ] Run `corepack pnpm check`, integration, E2E, demo browser, service-preview browser, production audit and `git diff --check` without increasing timeouts.
-- [ ] Rebuild normal/demo/preview outputs and scan JS/source maps for all transition formats, the package name, privileged-role finding and synthetic fixture identifiers. Require zero matches.
-- [ ] Inspect the lockfile and dependency manifests; require no dependency/version change.
-- [ ] Update Phase 2 progress and project memory. State that this closes F1 but does not authorize a real exporter, real-data dry run or migration.
-- [ ] Record exact RED/GREEN/final counts, warnings, scope and containment in the implementer verification report.
-- [ ] Freeze SHA-256 hashes for implementation/test/script files before independent review.
+- [x] Run `corepack pnpm check`, integration, E2E, demo browser, service-preview browser, production audit and `git diff --check` without increasing timeouts.
+- [x] Rebuild normal/demo/preview outputs and scan JS/source maps for all transition formats, the package name, privileged-role finding and synthetic fixture identifiers. Require zero matches.
+- [x] Inspect the lockfile and dependency manifests; require no dependency/version change.
+- [x] Update Phase 2 progress and project memory. State that this closes F1 but does not authorize a real exporter, real-data dry run or migration.
+- [x] Record exact RED/GREEN/final counts, warnings, scope and containment in the implementer verification report.
+- [x] Freeze SHA-256 hashes for implementation/test/script files before independent review.
 
 ## Task 4 — independent gate and authorized delivery
 
-- [ ] Assign a fresh non-implementing agent to inspect the actual diff and manifest, rerun focused/full/containment checks and adversarial boundary probes, and score the five project rubric categories.
-- [ ] If the result is 85 or lower or has a critical blocker, preserve the report, remediate test-first and obtain a fresh independent review.
+- [x] Assign a fresh non-implementing agent to inspect the actual diff and manifest, rerun focused/full/containment checks and adversarial boundary probes, and score the five project rubric categories.
+- [x] The result was 99/100 with no critical blocker, so the conditional test-first remediation path was not required.
 - [ ] After a passing review, commit the exact candidate, push, open a PR and require exact-head CI. Confirm `main` remains the expected base and merge only with the reviewed head SHA.
 - [ ] Verify exact-merge main CI, the existing Git-linked Vercel deployment and the live synthetic preview/asset isolation. Record all release evidence in the PR body.
 

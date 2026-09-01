@@ -64,6 +64,12 @@ const validReport = {
   findings: [],
 } as const;
 
+const c1ControlCharacters = [
+  ['U+0080', '\u0080'],
+  ['U+0085', '\u0085'],
+  ['U+009F', '\u009f'],
+] as const;
+
 describe('WordQuestIdentityExportV1', () => {
   it('accepts a bounded synthetic identity export and preserves opaque identifiers exactly', () => {
     expect(wordQuestIdentityExportV1Schema.parse(validExport)).toEqual(validExport);
@@ -94,6 +100,7 @@ describe('WordQuestIdentityExportV1', () => {
     ['leading whitespace', ` ${exportAccount.externalAuthId}`],
     ['trailing whitespace', `${exportAccount.externalAuthId} `],
     ['control characters', `${exportAccount.externalAuthId}\n`],
+    ['DEL control character', `${exportAccount.externalAuthId}\u007f`],
     ['empty identifiers', ''],
     ['oversized identifiers', 'x'.repeat(129)],
   ])('rejects %s instead of normalizing opaque identifiers', (_label, externalAuthId) => {
@@ -103,6 +110,51 @@ describe('WordQuestIdentityExportV1', () => {
         accounts: [{ ...exportAccount, externalAuthId }],
       }),
     ).toThrow();
+  });
+
+  it.each(c1ControlCharacters)(
+    'rejects C1 control character %s through every opaque identity-key path',
+    (_label, controlCharacter) => {
+      const externalAuthId = `synthetic${controlCharacter}external`;
+      const legacyOrganizationKey = `synthetic${controlCharacter}organization`;
+
+      expect(() =>
+        wordQuestIdentityExportV1Schema.parse({
+          ...validExport,
+          accounts: [{ ...exportAccount, externalAuthId }],
+        }),
+      ).toThrow();
+      expect(() =>
+        wordQuestIdentityExportV1Schema.parse({
+          ...validExport,
+          accounts: [{ ...exportAccount, legacyOrganizationKey }],
+        }),
+      ).toThrow();
+      expect(() =>
+        identityMappingPlanV1Schema.parse({
+          ...validPlan,
+          accountMappings: [{ ...validPlan.accountMappings[0], externalAuthId }],
+        }),
+      ).toThrow();
+      expect(() =>
+        identityMappingPlanV1Schema.parse({
+          ...validPlan,
+          organizationMappings: [{ ...validPlan.organizationMappings[0], legacyOrganizationKey }],
+        }),
+      ).toThrow();
+    },
+  );
+
+  it.each([
+    ['U+007E', `synthetic~external`],
+    ['U+00A0', `synthetic\u00a0external`],
+  ])('preserves adjacent accepted boundary %s exactly', (_label, externalAuthId) => {
+    const parsed = wordQuestIdentityExportV1Schema.parse({
+      ...validExport,
+      accounts: [{ ...exportAccount, externalAuthId }],
+    });
+
+    expect(parsed.accounts[0]?.externalAuthId).toBe(externalAuthId);
   });
 
   it.each(['displayName', 'email', 'token', 'organizationLabel', 'targetRole'])(
