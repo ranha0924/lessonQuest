@@ -167,6 +167,29 @@ describe('identity transition canonicalization', () => {
     expect(JSON.stringify(failure)).not.toContain(raw);
     expect(String(failure)).not.toContain(raw);
   });
+
+  it('uses the same constant redacted public error for a C1 identity key', () => {
+    const raw = 'synthetic\u0085private-identity';
+    let failure: unknown;
+    try {
+      canonicalizeWordQuestIdentityExport({
+        ...baseExport,
+        accounts: [{ ...baseExport.accounts[0]!, externalAuthId: raw }],
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(DataTransitionValidationError);
+    expect(failure).toMatchObject({
+      name: 'DataTransitionValidationError',
+      message: 'Invalid data-transition input',
+    });
+    expect((failure as Error & { cause?: unknown }).cause).toBeUndefined();
+    expect(JSON.stringify(failure)).toBe('{"name":"DataTransitionValidationError"}');
+    expect(JSON.stringify(failure)).not.toContain(raw);
+    expect(String(failure)).not.toContain(raw);
+  });
 });
 
 describe('identity mapping readiness', () => {
