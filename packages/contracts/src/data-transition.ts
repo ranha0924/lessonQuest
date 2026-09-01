@@ -15,13 +15,21 @@ const transitionIndexSchema = z
   .nonnegative()
   .max(MAX_IDENTITY_TRANSITION_RECORDS - 1);
 
+function containsControlCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint !== undefined && (codePoint <= 31 || codePoint === 127)) return true;
+  }
+  return false;
+}
+
 export const externalIdentityKeySchema = z
   .string()
   .min(1)
   .max(128)
   .refine((value) => value === value.trim(), 'Opaque identifiers cannot have edge whitespace')
   .refine(
-    (value) => !/[\u0000-\u001f\u007f]/u.test(value),
+    (value) => !containsControlCharacter(value),
     'Opaque identifiers cannot contain control characters',
   );
 
