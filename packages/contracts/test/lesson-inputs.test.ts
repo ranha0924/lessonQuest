@@ -3,7 +3,6 @@ import {
   createLessonInputInputSchema,
   lessonInputListSchema,
   lessonInputMutationResultSchema,
-  lessonInputSchema,
   lessonInputSummarySchema,
   updateLessonInputInputSchema,
 } from '../src/lesson-inputs.js';
@@ -44,8 +43,12 @@ describe('F01 lesson input contracts', () => {
       expect(createLessonInputInputSchema.safeParse({ ...validCreate, ...invalid }).success).toBe(
         false,
       );
-    expect(createLessonInputInputSchema.safeParse({ ...validCreate, gradeBand: 'unknown' }).success).toBe(false);
-    expect(createLessonInputInputSchema.safeParse({ ...validCreate, mutationId: 'not-a-uuid' }).success).toBe(false);
+    expect(
+      createLessonInputInputSchema.safeParse({ ...validCreate, gradeBand: 'unknown' }).success,
+    ).toBe(false);
+    expect(
+      createLessonInputInputSchema.safeParse({ ...validCreate, mutationId: 'not-a-uuid' }).success,
+    ).toBe(false);
     for (const expectedRevision of [0, -1, 1.5, 1_000_001, '1', null])
       expect(
         updateLessonInputInputSchema.safeParse({ ...validCreate, expectedRevision }).success,
@@ -61,7 +64,9 @@ describe('F01 lesson input contracts', () => {
       'updatedAt',
       'extra',
     ])
-      expect(createLessonInputInputSchema.safeParse({ ...validCreate, [key]: 'forged' }).success).toBe(false);
+      expect(
+        createLessonInputInputSchema.safeParse({ ...validCreate, [key]: 'forged' }).success,
+      ).toBe(false);
   });
 
   it('parses complete responses and rejects unknown response keys', () => {
@@ -79,28 +84,46 @@ describe('F01 lesson input contracts', () => {
     };
     const result = lessonInputMutationResultSchema.parse({ lessonInput, duplicate: false });
     expect(result.lessonInput).toEqual(lessonInput);
-    expect(lessonInputSummarySchema.parse({
-      id: lessonInput.id,
-      title: lessonInput.title,
-      gradeBand: lessonInput.gradeBand,
-      revision: lessonInput.revision,
-      updatedAt: lessonInput.updatedAt,
-    })).toEqual({
+    expect(
+      lessonInputSummarySchema.parse({
+        id: lessonInput.id,
+        title: lessonInput.title,
+        gradeBand: lessonInput.gradeBand,
+        revision: lessonInput.revision,
+        updatedAt: lessonInput.updatedAt,
+      }),
+    ).toEqual({
       id: lessonInput.id,
       title: lessonInput.title,
       gradeBand: lessonInput.gradeBand,
       revision: lessonInput.revision,
       updatedAt: lessonInput.updatedAt,
     });
-    expect(lessonInputListSchema.parse([{
-      id: lessonInput.id,
-      title: lessonInput.title,
-      gradeBand: lessonInput.gradeBand,
-      revision: lessonInput.revision,
-      updatedAt: lessonInput.updatedAt,
-    }])).toHaveLength(1);
-    expect(lessonInputMutationResultSchema.safeParse({ lessonInput, duplicate: false, extra: true }).success).toBe(false);
-    for (const key of ['organizationId', 'ownerTeacherId', 'revision', 'createdAt', 'updatedAt', 'extra'])
-      expect(lessonInputSummarySchema.safeParse({ ...lessonInput, [key]: 'forged' }).success).toBe(false);
+    expect(
+      lessonInputListSchema.parse([
+        {
+          id: lessonInput.id,
+          title: lessonInput.title,
+          gradeBand: lessonInput.gradeBand,
+          revision: lessonInput.revision,
+          updatedAt: lessonInput.updatedAt,
+        },
+      ]),
+    ).toHaveLength(1);
+    expect(
+      lessonInputMutationResultSchema.safeParse({ lessonInput, duplicate: false, extra: true })
+        .success,
+    ).toBe(false);
+    for (const key of [
+      'organizationId',
+      'ownerTeacherId',
+      'revision',
+      'createdAt',
+      'updatedAt',
+      'extra',
+    ])
+      expect(lessonInputSummarySchema.safeParse({ ...lessonInput, [key]: 'forged' }).success).toBe(
+        false,
+      );
   });
 });
