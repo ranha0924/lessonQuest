@@ -1,6 +1,6 @@
 # F01 Lesson Input Authoring Design
 
-Date: 2026-09-07  
+Date: 2026-09-07
 Status: user-approved design, pending implementation plan and mandatory plan review
 
 ## Goal and controlling scope
