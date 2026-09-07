@@ -809,6 +809,9 @@ test('cosmic real service preserves readable mission controls through every lear
 }, info) => {
   await page.goto('/');
   await ready(page);
+  await page.getByLabel('수업 제목').fill('합성 수업 대비 확인');
+  await page.getByLabel('학습 내용').fill('합성 학습 내용의 입력값 대비를 확인한다.');
+  await page.getByLabel('학습목표 (한 줄에 하나)').fill('입력된 학습목표가 읽기 쉬운지 확인한다.');
   const teacherInitial = await cosmicState(page, info, 'teacher-initial');
   expect(teacherInitial.targets.map((target) => target.element)).toEqual(
     expect.arrayContaining([
@@ -827,10 +830,13 @@ test('cosmic real service preserves readable mission controls through every lear
       expect.stringContaining('label. 저장된 수업 자료'),
       expect.stringContaining('select#lesson-input-library'),
       expect.stringContaining('label. 수업 제목'),
+      expect.stringContaining('input#lesson-input-title-field'),
       expect.stringContaining('label. 대상 학년'),
       expect.stringContaining('select#lesson-input-grade'),
       expect.stringContaining('label. 학습 내용'),
+      expect.stringContaining('textarea#lesson-input-content'),
       expect.stringContaining('label. 학습목표 (한 줄에 하나)'),
+      expect.stringContaining('textarea#lesson-input-objectives'),
       expect.stringContaining('새 수업 자료'),
       expect.stringContaining('수업 자료 저장'),
     ]),

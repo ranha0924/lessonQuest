@@ -68,6 +68,10 @@ export async function measureTheme(
     const violations: Violation[] = [];
     const visible = (element: Element) =>
       element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+    const renderedText = (element: Element) =>
+      element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+        ? element.value.trim()
+        : (element.textContent?.trim() ?? '');
     const label = (element: Element) =>
       `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}.${element.classList.value} ${(element.textContent ?? '').trim().slice(0, 65)}`;
     const parseColor = (value: string): Color => {
@@ -188,7 +192,7 @@ export async function measureTheme(
     const contrasts = [...document.querySelectorAll(contrastSelectors.join(','))]
       .filter(
         (element) =>
-          visible(element) && !element.matches(':disabled') && element.textContent?.trim(),
+          visible(element) && !element.matches(':disabled') && renderedText(element) !== '',
       )
       .map((element) => {
         const foreground = parseColor(getComputedStyle(element).color);
