@@ -341,6 +341,44 @@ const schemaSql = `
     FOREIGN KEY (organization_id, student_id) REFERENCES organization_members(organization_id, user_id)
   );
 
+  CREATE TABLE IF NOT EXISTS lesson_inputs (
+    id UUID PRIMARY KEY,
+    organization_id UUID NOT NULL,
+    owner_teacher_id UUID NOT NULL,
+    title TEXT NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 120),
+    grade_band TEXT NOT NULL CHECK (grade_band IN (
+      'elementary1','elementary2','elementary3','elementary4','elementary5','elementary6',
+      'middle1','middle2','middle3','high1','high2','high3'
+    )),
+    learning_content TEXT NOT NULL CHECK (char_length(btrim(learning_content)) BETWEEN 1 AND 32768),
+    learning_objectives JSONB NOT NULL CHECK (
+      jsonb_typeof(learning_objectives) = 'array'
+      AND jsonb_array_length(learning_objectives) BETWEEN 1 AND 8
+    ),
+    revision INTEGER NOT NULL DEFAULT 1 CHECK (revision BETWEEN 1 AND 1000000),
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (organization_id, id),
+    FOREIGN KEY (organization_id, owner_teacher_id)
+      REFERENCES organization_members(organization_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS lesson_input_mutations (
+    organization_id UUID NOT NULL,
+    actor_user_id UUID NOT NULL,
+    mutation_id UUID NOT NULL,
+    operation TEXT NOT NULL CHECK (operation IN ('CREATE', 'UPDATE')),
+    request_hash TEXT NOT NULL CHECK (request_hash ~ '^sha256:[0-9a-f]{64}$'),
+    lesson_input_id UUID NOT NULL,
+    result_revision INTEGER NOT NULL CHECK (result_revision BETWEEN 1 AND 1000000),
+    created_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (organization_id, actor_user_id, mutation_id),
+    FOREIGN KEY (organization_id, actor_user_id)
+      REFERENCES organization_members(organization_id, user_id),
+    FOREIGN KEY (organization_id, lesson_input_id)
+      REFERENCES lesson_inputs(organization_id, id)
+  );
+
   CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY,
     trace_id UUID NOT NULL,
@@ -368,10 +406,12 @@ const schemaSql = `
         ,'BOSS_PROGRESS_READ','BOSS_DETAIL_READ'
         ,'CLASS_LISTED','CLASS_DASHBOARD_READ','CLASS_INVITATION_ISSUED'
         ,'CLASS_INVITATION_REVOKED','CLASS_INVITATION_REDEEMED'
+        ,'LESSON_INPUT_CREATE','LESSON_INPUT_CREATED','LESSON_INPUT_LIST','LESSON_INPUT_READ'
+        ,'LESSON_INPUT_UPDATE','LESSON_INPUT_UPDATED'
       )
     ),
     resource_type TEXT NOT NULL CHECK (
-      resource_type IN ('ORGANIZATION', 'CLASS', 'EXPERIENCE', 'VERSION', 'ASSIGNMENT', 'ATTEMPT', 'RASA_REQUEST', 'BOSS_CAMPAIGN', 'BOSS_JOB')
+      resource_type IN ('ORGANIZATION', 'CLASS', 'EXPERIENCE', 'VERSION', 'ASSIGNMENT', 'ATTEMPT', 'RASA_REQUEST', 'BOSS_CAMPAIGN', 'BOSS_JOB', 'LESSON_INPUT')
     ),
     resource_id UUID,
     outcome TEXT NOT NULL CHECK (outcome IN ('SUCCEEDED', 'DUPLICATE', 'DENIED', 'CONFLICT'))
@@ -389,6 +429,10 @@ const schemaSql = `
     ON attempts(organization_id, student_id, assignment_id);
   CREATE INDEX IF NOT EXISTS learning_events_attempt_sequence_idx
     ON learning_events(attempt_id, sequence);
+  CREATE INDEX IF NOT EXISTS lesson_inputs_owner_updated_idx
+    ON lesson_inputs(organization_id, owner_teacher_id, updated_at DESC, id);
+  CREATE INDEX IF NOT EXISTS lesson_inputs_updated_idx
+    ON lesson_inputs(organization_id, updated_at DESC, id);
 
   CREATE OR REPLACE FUNCTION enforce_experience_version_invariants()
   RETURNS TRIGGER AS $$
