@@ -267,7 +267,7 @@ describe('LessonInputRepository', () => {
       ["UPDATE users SET status = 'DISABLED' WHERE id = $1", [f.teacher.userId]],
       ["UPDATE users SET platform_role = 'STUDENT' WHERE id = $1", [f.teacher.userId]],
     ] as const) {
-      await f.database.query(sql, parameters);
+      await f.database.query(sql, [...parameters]);
       await expect(
         f.inputs.create(
           f.teacher,
