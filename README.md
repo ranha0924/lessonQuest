@@ -2,13 +2,13 @@
 
 LessonQuest는 선생님이 생성형 AI로 배움의 세계를 만들고, 학생들이 그 안에서 미션·실험·탐험·이야기·공동 보스를 함께 플레이하며 배우는 플랫폼입니다. Rasa는 정답 대신 스스로 답을 찾는 길을 안내하고, 교사는 학생의 과정과 성장을 확인합니다.
 
-현재 구현 범위는 Phase 1 M1–M6와 Phase 2의 반·초대·교사 현황, PWA shell·offline 학습 이벤트 queue, 합성 identity export mapping-readiness validator입니다. 합성 로컬 인증·기관·반 경계 위에 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
+현재 구현 범위는 Phase 1 M1–M6와 Phase 2의 반·초대·교사 현황, PWA shell·offline 학습 이벤트 queue, 합성 identity export mapping-readiness validator입니다. 합성 로컬 인증·기관·반 경계 위에 F01 교사 수업 자료 입력과 과학 BlockSpec 생성 파싱, 독립 검증, 격리 미리보기, 교사 승인·반려, 불변 버전, 반 과제, 학생 플레이·이어하기, idempotent 학습 이벤트, 고정형 Rasa 힌트와 반 공동 보스 projection이 연결됩니다.
 
 ## Vercel 개발용 서비스 미리보기
 
-루트 `vercel.json`은 `VITE_DEV_PREVIEW=true`로 실제 과학 제작소·학생 플레이·교사 결과 화면을 빌드합니다. HTTP client → Hono API → 기존 저장소 → PGlite 경계를 브라우저의 한 탭 안에서 실행합니다. 교사 화면에서 예제 JSON을 저장·검증·승인·반 배포한 뒤 학생 화면으로 전환하면 실제 학습 기록과 공동 보스 기여를 확인할 수 있습니다.
+루트 `vercel.json`은 `VITE_DEV_PREVIEW=true`로 실제 과학 제작소·학생 플레이·교사 결과 화면을 빌드합니다. HTTP client → Hono API → 기존 저장소 → PGlite 경계를 브라우저의 한 탭 안에서 실행합니다. 교사 화면의 F01 영역에서는 수업 제목, 대상 학년, 학습 내용과 줄 단위 학습목표를 저장하고, 저장 목록에서 같은 자료를 다시 열어 수정할 수 있습니다. 이어서 예제 JSON을 저장·검증·승인·반 배포한 뒤 학생 화면으로 전환하면 실제 학습 기록과 공동 보스 기여를 확인할 수 있습니다.
 
-이는 **합성 계정과 임시 데이터만 사용하는 개발 환경**입니다. DB와 인증 목록이 브라우저 안에 있으므로 운영 보안 경계가 아니며, 실제 학생 정보를 입력하면 안 됩니다. 다른 사용자·탭과 서버 데이터를 공유하지 않고 새로고침 또는 초기화하면 합성 PGlite 데이터가 지워집니다. Rasa는 고정된 로컬 힌트이며 외부 AI 생성·회원가입·영구 저장은 연결하지 않았습니다. 첫 실행에는 약 16MB의 DB 실행 파일을 같은 사이트에서 불러옵니다.
+이는 **합성 계정과 임시 데이터만 사용하는 개발 환경**입니다. F01 입력·저장·목록·다시 열기·수정은 이 합성 in-tab 미리보기에서만 제공됩니다. DB와 인증 목록이 브라우저 안에 있으므로 운영 보안 경계가 아니며, 실제 학생 정보를 입력하면 안 됩니다. 다른 사용자·탭과 서버 데이터를 공유하지 않고 새로고침 또는 초기화하면 F01 자료를 포함한 합성 PGlite 데이터가 지워집니다. F01 자료는 외부 AI를 호출하거나 생성 JSON을 자동 변경하지 않으며, Rasa도 고정된 로컬 힌트입니다. 외부 AI 생성·회원가입·전체 새로고침 이후의 영구 저장은 연결하지 않았습니다. 첫 실행에는 약 16MB의 DB 실행 파일을 같은 사이트에서 불러옵니다.
 
 한 번 온라인으로 연 뒤에는 설치 가능한 shell이 같은 사이트의 정적 자산만 캐시해 오프라인에서도 화면을 다시 열 수 있습니다. 학생의 시작·답안·재도전·완료 이벤트는 호스트가 불투명한 `lqs_…` 계정 저장 키를 제공한 경우 IndexedDB에 먼저 보관하고 같은 이벤트 ID와 본문으로 재전송합니다. 계정·기관 범위마다 최대 20건, 24시간만 유지하며 bearer token, 정답 여부, 제목, 힌트, 생성 콘텐츠와 학생 프로필은 저장하지 않습니다. 세션 종료와 **데이터 초기화**는 현재 범위만 지웁니다. Rasa 힌트, 과제 시작 요청과 모든 읽기는 온라인 전용입니다.
 
@@ -62,6 +62,10 @@ POST /organizations
 POST /organizations/:organizationId/classes
 POST /organizations/:organizationId/classes/:classId/members
 GET  /organizations/:organizationId/classes/:classId
+GET  /organizations/:organizationId/lesson-inputs
+POST /organizations/:organizationId/lesson-inputs
+GET  /organizations/:organizationId/lesson-inputs/:lessonInputId
+PUT  /organizations/:organizationId/lesson-inputs/:lessonInputId
 POST /organizations/:organizationId/experiences/science
 POST /organizations/:organizationId/experience-versions/:versionId/validate
 GET  /organizations/:organizationId/experience-versions/:versionId/preview
@@ -76,7 +80,7 @@ GET  /organizations/:organizationId/classes/:classId/assignments/:assignmentId/p
 
 - `/health` 외 경로는 `LocalAuthProvider`가 발급 목록에서 확인한 `dev_` 형식의 불투명 bearer token이 필요합니다.
 - `LocalAuthProvider`는 `production` 환경에서 생성 자체를 거부합니다. 운영 인증으로 사용하면 안 됩니다.
-- 쓰기 요청은 정확히 일치하는 trusted Origin과 `application/json`만 허용하며, 과학 JSON을 포함하도록 전체 body를 64 KiB로 제한합니다. 생성 specification 문자열은 별도로 32 KiB를 넘을 수 없습니다.
+- 쓰기 요청은 정확히 일치하는 trusted Origin과 `application/json`만 허용합니다. F01 수업 자료 경로는 최대 한국어·JSON escape 입력을 수용하도록 기본 256 KiB, 나머지 경로는 기본 64 KiB로 제한하며 명시적 서버 설정은 두 기본값보다 우선합니다. 생성 specification 문자열은 별도로 32 KiB를 넘을 수 없습니다.
 - 역할·소유자·기관은 body에서 받지 않고 활성 사용자와 데이터베이스 membership으로 판단합니다.
 - 현재 데이터베이스 platform role과 기관 role의 호환성을 매 요청에 확인하므로 `TEACHER → STUDENT` 강등은 남아 있는 관리자 membership보다 우선합니다.
 - 존재하는 타 기관 리소스와 없는 리소스는 같은 `404` 오류 형태를 사용합니다.

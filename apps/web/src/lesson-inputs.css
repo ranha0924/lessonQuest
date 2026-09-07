@@ -1,6 +1,9 @@
 .lesson-input-workspace {
   --lesson-input-badge-ink: #10233f;
   --lesson-input-error-ink: #a3312c;
+  --lesson-input-library-surface: rgba(223, 243, 255, 0.78);
+  --lesson-input-alert-surface: rgb(251.4, 217.8, 215.4);
+  --lesson-input-status-surface: rgb(226.53, 233.16, 249.67);
   margin: 26px 0;
   padding: 22px;
   min-width: 0;
@@ -13,6 +16,9 @@
 .cosmic-service .lesson-input-workspace {
   --lesson-input-badge-ink: #10233f;
   --lesson-input-error-ink: #ffbca2;
+  --lesson-input-library-surface: rgba(11, 18, 48, 0.78);
+  --lesson-input-alert-surface: rgb(74.12, 62.04, 77.84);
+  --lesson-input-status-surface: rgb(18.95, 49.36, 82.93);
 }
 
 .lesson-input-workspace .lesson-input-workspace__heading {
@@ -66,7 +72,7 @@
 
 .lesson-input-workspace .lesson-input-workspace__library {
   padding: 16px;
-  background: color-mix(in srgb, var(--sky) 78%, transparent);
+  background: var(--lesson-input-library-surface);
   border: 1px solid color-mix(in srgb, var(--navy) 28%, transparent);
   border-radius: 13px;
 }
@@ -140,13 +146,13 @@
 
 .lesson-input-workspace .lesson-input-workspace__alert {
   color: var(--navy);
-  background: color-mix(in srgb, var(--coral) 24%, var(--white));
+  background: var(--lesson-input-alert-surface);
   border: 1px solid var(--coral);
 }
 
 .lesson-input-workspace .lesson-input-workspace__status {
   color: var(--navy);
-  background: color-mix(in srgb, var(--cobalt) 13%, var(--white));
+  background: var(--lesson-input-status-surface);
   border: 1px solid color-mix(in srgb, var(--cobalt) 54%, transparent);
 }
 
