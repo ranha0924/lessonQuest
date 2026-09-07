@@ -70,6 +70,16 @@ describe('LessonInputRepository', () => {
       f.organization.id,
       withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270203', { title: 'Alpha' }),
     );
+    const sameTitleOne = await f.inputs.create(
+      f.teacher,
+      f.organization.id,
+      withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270210', { title: 'Same' }),
+    );
+    const sameTitleTwo = await f.inputs.create(
+      f.teacher,
+      f.organization.id,
+      withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270211', { title: 'Same' }),
+    );
     f.advance();
     await f.inputs.update(f.teacher, f.organization.id, beta.lessonInput.id, {
       ...withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270204', { title: 'Beta' }),
@@ -79,6 +89,7 @@ describe('LessonInputRepository', () => {
     expect((await f.inputs.list(f.teacher, f.organization.id)).map((item) => item.id)).toEqual([
       beta.lessonInput.id,
       alpha.lessonInput.id,
+      ...[sameTitleOne.lessonInput.id, sameTitleTwo.lessonInput.id].sort(),
     ]);
   });
 
@@ -176,9 +187,44 @@ describe('LessonInputRepository', () => {
     ).resolves.toMatchObject({ lessonInput: { revision: 2 } });
   });
 
+  it('allows a persisted teacher with ORG_ADMIN membership to create but denies SUPER_ADMIN administrators', async () => {
+    const f = await fixture();
+    const teacherCreated = await f.inputs.create(f.teacher, f.organization.id, validCreate);
+
+    await expect(
+      f.inputs.create(
+        f.admin,
+        f.organization.id,
+        withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270212', { title: '관리자 생성' }),
+      ),
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
+    await expect(f.inputs.list(f.teacher, f.organization.id)).resolves.toEqual([
+      expect.objectContaining({ id: teacherCreated.lessonInput.id }),
+    ]);
+    await expect(
+      f.database.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM lesson_input_mutations WHERE actor_user_id = $1',
+        [f.admin.userId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ count: 0 }] });
+  });
+
   it('fails closed for students, disabled users, incompatible roles, and tenant/nonexistent probes', async () => {
     const f = await fixture();
     const created = await f.inputs.create(f.teacher, f.organization.id, validCreate);
+    await expect(
+      f.inputs.create(
+        f.student,
+        f.organization.id,
+        withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270219'),
+      ),
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
+    await expect(
+      f.inputs.update(f.student, f.organization.id, created.lessonInput.id, {
+        ...withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270220'),
+        expectedRevision: 1,
+      }),
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
     for (const [actor, organizationId, lessonInputId] of [
       [f.student, f.organization.id, created.lessonInput.id],
       [f.otherTeacher, f.otherOrganization.id, created.lessonInput.id],
@@ -202,6 +248,174 @@ describe('LessonInputRepository', () => {
     await expect(f.inputs.list(f.teacher, f.organization.id)).rejects.toBeInstanceOf(
       ResourceNotFoundError,
     );
+  });
+
+  it('denies create and existing-resource access after organization, membership, user, or role revocation', async () => {
+    const f = await fixture();
+    const created = await f.inputs.create(f.teacher, f.organization.id, validCreate);
+    const update = {
+      ...withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270213', { title: '수정 권한 거부' }),
+      expectedRevision: 1,
+    };
+
+    for (const [sql, parameters] of [
+      ["UPDATE organizations SET status = 'DISABLED' WHERE id = $1", [f.organization.id]],
+      [
+        "UPDATE organization_members SET status = 'DISABLED' WHERE organization_id = $1 AND user_id = $2",
+        [f.organization.id, f.teacher.userId],
+      ],
+      ["UPDATE users SET status = 'DISABLED' WHERE id = $1", [f.teacher.userId]],
+      ["UPDATE users SET platform_role = 'STUDENT' WHERE id = $1", [f.teacher.userId]],
+    ] as const) {
+      await f.database.query(sql, parameters);
+      await expect(
+        f.inputs.create(
+          f.teacher,
+          f.organization.id,
+          withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270214'),
+        ),
+      ).rejects.toBeInstanceOf(ResourceNotFoundError);
+      await expect(
+        f.inputs.get(f.teacher, f.organization.id, created.lessonInput.id),
+      ).rejects.toBeInstanceOf(ResourceNotFoundError);
+      await expect(
+        f.inputs.update(f.teacher, f.organization.id, created.lessonInput.id, update),
+      ).rejects.toBeInstanceOf(ResourceNotFoundError);
+      await f.database.query("UPDATE organizations SET status = 'ACTIVE' WHERE id = $1", [
+        f.organization.id,
+      ]);
+      await f.database.query(
+        "UPDATE organization_members SET status = 'ACTIVE' WHERE organization_id = $1 AND user_id = $2",
+        [f.organization.id, f.teacher.userId],
+      );
+      await f.database.query(
+        "UPDATE users SET status = 'ACTIVE', platform_role = 'TEACHER' WHERE id = $1",
+        [f.teacher.userId],
+      );
+    }
+    await expect(
+      f.inputs.get(f.teacher, f.organization.id, created.lessonInput.id),
+    ).resolves.toEqual(created.lessonInput);
+    await expect(
+      f.database.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM lesson_input_mutations WHERE actor_user_id = $1',
+        [f.teacher.userId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ count: 1 }] });
+  });
+
+  it('rechecks active authority before exact create and update replays', async () => {
+    const f = await fixture();
+    const created = await f.inputs.create(f.teacher, f.organization.id, validCreate);
+    const update = {
+      ...withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270215', { title: '재시도 수정' }),
+      expectedRevision: 1,
+    };
+    const updated = await f.inputs.update(
+      f.teacher,
+      f.organization.id,
+      created.lessonInput.id,
+      update,
+    );
+
+    await f.database.query(
+      "UPDATE organization_members SET status = 'DISABLED' WHERE organization_id = $1 AND user_id = $2",
+      [f.organization.id, f.teacher.userId],
+    );
+    await expect(f.inputs.create(f.teacher, f.organization.id, validCreate)).rejects.toBeInstanceOf(
+      ResourceNotFoundError,
+    );
+    await expect(
+      f.inputs.update(f.teacher, f.organization.id, created.lessonInput.id, update),
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
+    await expect(
+      f.database.query<{ revision: number }>('SELECT revision FROM lesson_inputs WHERE id = $1', [
+        created.lessonInput.id,
+      ]),
+    ).resolves.toMatchObject({ rows: [{ revision: updated.lessonInput.revision }] });
+    await expect(
+      f.database.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM lesson_input_mutations WHERE actor_user_id = $1',
+        [f.teacher.userId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ count: 2 }] });
+  });
+
+  it('writes allowlisted diagnostic trace metadata for denied and conflict operations', async () => {
+    const f = await fixture();
+    const deniedTraceId = '018f72a4-cc52-7c5a-a6f9-8b21aa270216';
+    const conflictTraceId = '018f72a4-cc52-7c5a-a6f9-8b21aa270217';
+    const deniedInput = withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270218', {
+      title: '학생 거부 입력',
+      learningContent: '거부 감사에 내용이 남아서는 안 된다.',
+      learningObjectives: ['거부 감사 메타데이터만 남는다.'],
+    });
+    const conflictInput = withMutation(validCreate.mutationId, {
+      title: '충돌 감사 입력',
+      learningContent: '충돌 감사에 내용이 남아서는 안 된다.',
+      learningObjectives: ['충돌 감사 메타데이터만 남는다.'],
+    });
+    await f.inputs.create(f.teacher, f.organization.id, validCreate);
+
+    await expect(
+      f.inputs.create(f.student, f.organization.id, deniedInput, deniedTraceId),
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
+    await expect(
+      f.inputs.create(f.teacher, f.organization.id, conflictInput, conflictTraceId),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const audit = await f.database.query<Record<string, unknown>>(
+      `SELECT * FROM audit_logs
+       WHERE trace_id IN ($1, $2)
+       ORDER BY trace_id`,
+      [deniedTraceId, conflictTraceId],
+    );
+    expect(audit.rows).toEqual([
+      expect.objectContaining({
+        trace_id: deniedTraceId,
+        actor_user_id: f.student.userId,
+        organization_id: f.organization.id,
+        action: 'LESSON_INPUT_CREATE',
+        resource_type: 'LESSON_INPUT',
+        resource_id: null,
+        outcome: 'DENIED',
+      }),
+      expect.objectContaining({
+        trace_id: conflictTraceId,
+        actor_user_id: f.teacher.userId,
+        organization_id: f.organization.id,
+        action: 'LESSON_INPUT_CREATE',
+        resource_type: 'LESSON_INPUT',
+        resource_id: null,
+        outcome: 'CONFLICT',
+      }),
+    ]);
+    for (const row of audit.rows) {
+      expect(Object.keys(row).sort()).toEqual(
+        [
+          'action',
+          'actor_user_id',
+          'id',
+          'occurred_at',
+          'organization_id',
+          'outcome',
+          'resource_id',
+          'resource_type',
+          'trace_id',
+        ].sort(),
+      );
+      const serialized = JSON.stringify(row);
+      for (const submittedValue of [
+        deniedInput.title,
+        deniedInput.learningContent,
+        deniedInput.learningObjectives[0],
+        conflictInput.title,
+        conflictInput.learningContent,
+        conflictInput.learningObjectives[0],
+      ]) {
+        expect(serialized).not.toContain(submittedValue);
+      }
+    }
   });
 
   it('stores only allowlisted audit metadata for successful operations', async () => {

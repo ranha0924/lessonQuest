@@ -181,6 +181,30 @@ async function requireTeacherScope(
   return role;
 }
 
+async function requireTeacherCreatorScope(
+  queryable: Queryable,
+  actor: Actor,
+  organizationId: string,
+): Promise<void> {
+  const result = await queryable.query<{ user_id: string }>(
+    `SELECT m.user_id
+     FROM organization_members m
+     JOIN organizations o ON o.id = m.organization_id AND o.status = 'ACTIVE'
+     JOIN users u
+       ON u.id = m.user_id
+      AND u.status = 'ACTIVE'
+      AND u.platform_role = 'TEACHER'
+     WHERE m.organization_id = $1
+       AND m.user_id = $2
+       AND m.status = 'ACTIVE'
+       AND m.role IN ('TEACHER', 'ORG_ADMIN')`,
+    [organizationId, actor.userId],
+  );
+  if (result.rows[0] === undefined) {
+    throw new ResourceNotFoundError();
+  }
+}
+
 async function readAuthorizedLessonInput(
   queryable: Queryable,
   actor: Actor,
@@ -298,7 +322,7 @@ export class LessonInputRepository {
         fallbackResourceId: null,
       },
       async (transaction) => {
-        await requireTeacherScope(transaction, actor, organizationId);
+        await requireTeacherCreatorScope(transaction, actor, organizationId);
         const replay = await transaction.query<LessonInputMutationRow>(
           `SELECT operation, request_hash, lesson_input_id
            FROM lesson_input_mutations
