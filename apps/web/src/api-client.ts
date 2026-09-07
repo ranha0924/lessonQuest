@@ -16,11 +16,15 @@ import {
   createdClassSchema,
   classDashboardSchema,
   issuedClassInvitationSchema,
+  lessonInputListSchema,
+  lessonInputMutationResultSchema,
+  lessonInputSchema,
   revokedClassInvitationSchema,
   redeemedClassInvitationSchema,
   type ClassroomSummary,
   type ClassDashboard,
   type IssuedClassInvitation,
+  type CreateLessonInputInput,
   type RedeemedClassInvitation,
   type Assignment,
   type AttemptSession,
@@ -36,11 +40,15 @@ import {
   type StudentProgress,
   type RasaHintRequest,
   type RasaHintResult,
+  type LessonInput,
+  type LessonInputMutationResult,
+  type LessonInputSummary,
   type StudentBossProgress,
   type TeacherBossDetail,
   type CreateBossCampaignInput,
   type EndBossCampaignInput,
   type StudentScienceBlockSpec,
+  type UpdateLessonInputInput,
 } from '@lessonquest/contracts';
 
 export type ValidationReport = ScienceValidationReportContract;
@@ -70,6 +78,20 @@ export interface ClassroomApi {
     organizationId: string,
     input: { code: string },
   ): Promise<RedeemedClassInvitation>;
+}
+
+export interface LessonInputApi {
+  listLessonInputs(organizationId: string): Promise<LessonInputSummary[]>;
+  createLessonInput(
+    organizationId: string,
+    input: CreateLessonInputInput,
+  ): Promise<LessonInputMutationResult>;
+  getLessonInput(organizationId: string, lessonInputId: string): Promise<LessonInput>;
+  updateLessonInput(
+    organizationId: string,
+    lessonInputId: string,
+    input: UpdateLessonInputInput,
+  ): Promise<LessonInputMutationResult>;
 }
 
 export interface LessonQuestApi {
@@ -157,7 +179,7 @@ export function createHttpLessonQuestApi(options: {
   readonly baseUrl: string;
   readonly getAuthorization: () => string | null;
   readonly fetch?: typeof fetch;
-}): LessonQuestApi & ClassroomApi {
+}): LessonQuestApi & ClassroomApi & LessonInputApi {
   const request = async <T>(
     path: string,
     schema: RuntimeSchema<T>,
@@ -189,6 +211,24 @@ export function createHttpLessonQuestApi(options: {
   };
 
   return {
+    listLessonInputs: (organizationId) =>
+      request(`/organizations/${organizationId}/lesson-inputs`, lessonInputListSchema),
+    createLessonInput: (organizationId, input) =>
+      request(`/organizations/${organizationId}/lesson-inputs`, lessonInputMutationResultSchema, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    getLessonInput: (organizationId, lessonInputId) =>
+      request(`/organizations/${organizationId}/lesson-inputs/${lessonInputId}`, lessonInputSchema),
+    updateLessonInput: (organizationId, lessonInputId, input) =>
+      request(
+        `/organizations/${organizationId}/lesson-inputs/${lessonInputId}`,
+        lessonInputMutationResultSchema,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      ),
     listClasses: (organizationId) =>
       request(`/organizations/${organizationId}/classes`, classroomListSchema),
     createClass: (organizationId, input) =>
