@@ -333,6 +333,8 @@ git commit -m "feat: persist tenant-scoped lesson inputs"
 
 ### Task 3: Expose authenticated F01 HTTP routes
 
+**Execution clarification (2026-09-07):** With default configuration, use a 256 KiB body limit only for the four F01 collection/detail paths so all contract-valid text, including 32,768 Korean characters and JSON-escaped text, fits the transport. Retain the existing 64 KiB default on every other route. An explicitly supplied `maxBodyBytes` remains authoritative for all routes. Keep the existing 1 MiB configuration ceiling, Origin/auth/media-type/error boundaries, and rejection of oversized streamed or declared bodies. Add tests accepting maximum valid Korean and escaped-text payloads, rejecting F01 bodies beyond 256 KiB, preserving the 64 KiB cap elsewhere, and honoring an explicit smaller cap. The gate evidence is in `docs/reviews/2026-09-07-f01-lesson-inputs-plan-amendment-review.md`.
+
 **Files:**
 
 - Create: `services/api/src/lesson-input-routes.ts`
