@@ -56,6 +56,31 @@ async function ready(page: Page) {
   await expect(page.getByText(/새로고침하면 초기화/)).toBeVisible();
 }
 
+test('teacher saves, returns, reopens and revises one F01 lesson input', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByLabel('수업 제목').fill('합성 힘과 운동 수업');
+  await page.getByLabel('대상 학년').selectOption('middle1');
+  await page.getByLabel('학습 내용').fill('합성 자료로 힘과 질량의 관계를 비교한다.');
+  await page
+    .getByLabel('학습목표 (한 줄에 하나)')
+    .fill('힘과 질량의 관계를 설명한다.\n관찰 결과를 근거로 예측한다.');
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다.')).toBeVisible();
+  await page.getByRole('button', { name: '학생 화면' }).click();
+  await page.getByRole('button', { name: '교사 화면' }).click();
+  const savedOption = page.getByRole('option', { name: '합성 힘과 운동 수업 · 개정 1' });
+  const savedId = await savedOption.getAttribute('value');
+  expect(savedId).toBeTruthy();
+  if (savedId === null) throw new Error('Saved lesson option has no value');
+  await page.getByLabel('저장된 수업 자료').selectOption(savedId);
+  await page.getByRole('button', { name: '수업 자료 다시 열기' }).click();
+  await expect(page.getByLabel('학습 내용')).toHaveValue(/합성 자료/);
+  await page.getByLabel('학습 내용').fill('수정한 합성 자료로 운동 변화를 비교한다.');
+  await page.getByRole('button', { name: '수정 내용 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다. 개정 2')).toBeVisible();
+});
+
 async function queuedRecordCount(page: Page) {
   return (await queuedRecords(page)).length;
 }

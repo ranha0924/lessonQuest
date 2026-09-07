@@ -2,14 +2,16 @@ import { useState, type FormEvent } from 'react';
 
 import type { StudentProgress } from '@lessonquest/contracts';
 
-import type { LessonQuestApi, ValidationReport } from '../api-client.js';
+import type { LessonInputApi, LessonQuestApi, ValidationReport } from '../api-client.js';
 import { MissionWelcome } from './cosmic-art.js';
 import { SandboxPreview } from './sandbox-preview.js';
 import { TeacherProgress } from './teacher-progress.js';
 import { BossCampaignPanel } from './boss-campaign-panel.js';
+import { LessonInputWorkspace } from './lesson-input-workspace.js';
 
 interface StudioWorkbenchProps {
   readonly api: LessonQuestApi;
+  readonly lessonInputApi?: LessonInputApi;
   readonly organizationId: string;
   readonly classId: string;
   readonly initialDraft?: { readonly title: string; readonly generatedSpecText: string };
@@ -17,6 +19,7 @@ interface StudioWorkbenchProps {
 
 export function StudioWorkbench({
   api,
+  lessonInputApi,
   organizationId,
   classId,
   initialDraft,
@@ -109,6 +112,10 @@ export function StudioWorkbench({
         <h1 id="studio-title">과학 탐험 제작소</h1>
         <p>생성물을 검증하고, 교사가 직접 승인한 버전만 반으로 보냅니다.</p>
       </header>
+
+      {lessonInputApi === undefined ? null : (
+        <LessonInputWorkspace api={lessonInputApi} organizationId={organizationId} />
+      )}
 
       <MissionWelcome teacher />
       <nav className="discovery-trail" aria-label="제작 단계">

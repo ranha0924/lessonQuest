@@ -7,6 +7,7 @@ import {
   ClassroomRepository,
   initializeSchema,
   LearningRepository,
+  LessonInputRepository,
   RasaRepository,
   TenantRepository,
 } from '@lessonquest/db';
@@ -67,6 +68,7 @@ export async function createPreviewRuntime() {
     const tenants = new TenantRepository(database);
     const learning = new LearningRepository(database);
     const gamification = new GamificationRepository(database);
+    const lessonInputs = new LessonInputRepository(database);
     await tenants.upsertUser(teacher);
     await tenants.upsertUser(student);
     const organization = await tenants.createOrganization(teacher, '가상 개발 학교');
@@ -95,6 +97,7 @@ export async function createPreviewRuntime() {
       repository: tenants,
       classroomRepository: new ClassroomRepository(database),
       learningRepository: learning,
+      lessonInputRepository: lessonInputs,
       rasaRepository: new RasaRepository(database),
       gamificationRepository: gamification,
       rasaProvider: new LocalRasaProvider(),

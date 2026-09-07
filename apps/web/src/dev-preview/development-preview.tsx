@@ -123,6 +123,7 @@ export function DevelopmentPreview({
           <StudioWorkbench
             key={classId}
             api={teacherApi}
+            lessonInputApi={teacherApi}
             organizationId={runtime.organizationId}
             classId={classId}
             initialDraft={runtime.sampleDraft}
