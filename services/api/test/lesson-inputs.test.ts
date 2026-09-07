@@ -235,10 +235,12 @@ describe('lesson input API', () => {
     const detail = `${collection}/${created.lessonInput.id}`;
     const secretTitle = '절대 노출하면 안 되는 수업 제목';
     const secretContent = '절대 노출하면 안 되는 학습 본문';
+    const secretObjective = '절대 노출하면 안 되는 독특한 학습목표';
     const invalidBody = {
       ...validCreate,
       title: secretTitle,
       learningContent: secretContent,
+      learningObjectives: [secretObjective],
       role: 'ORG_ADMIN',
     };
     const cases = [
@@ -306,11 +308,20 @@ describe('lesson input API', () => {
       const serialized = JSON.stringify(value);
       expect(serialized).not.toContain(secretTitle);
       expect(serialized).not.toContain(secretContent);
+      expect(serialized).not.toContain(secretObjective);
       expect(serialized).not.toContain(validCreate.learningContent);
     }
-    expect(JSON.stringify(diagnosticEvents)).not.toContain(secretTitle);
-    expect(JSON.stringify(diagnosticEvents)).not.toContain(secretContent);
-    expect(JSON.stringify(diagnosticEvents)).not.toContain(validCreate.learningContent);
+    const serializedDiagnostics = JSON.stringify(diagnosticEvents);
+    expect(serializedDiagnostics).not.toContain(secretTitle);
+    expect(serializedDiagnostics).not.toContain(secretContent);
+    expect(serializedDiagnostics).not.toContain(secretObjective);
+    expect(serializedDiagnostics).not.toContain(validCreate.learningContent);
+    const serializedAudit = JSON.stringify(
+      (await f.database.query('SELECT * FROM audit_logs ORDER BY occurred_at, id')).rows,
+    );
+    expect(serializedAudit).not.toContain(secretTitle);
+    expect(serializedAudit).not.toContain(secretContent);
+    expect(serializedAudit).not.toContain(secretObjective);
     expect(diagnosticEvents).toContainEqual(
       expect.objectContaining({
         method: 'GET',
@@ -389,7 +400,10 @@ describe('lesson input API', () => {
     const oversized = JSON.stringify({ ...validCreate, learningContent: 'x'.repeat(270_000) });
     const declared = await app.request(`${origin}${collection}`, {
       method: 'POST',
-      headers: headers('t'),
+      headers: {
+        ...headers('t'),
+        'content-length': String(new TextEncoder().encode(oversized).byteLength),
+      },
       body: oversized,
     });
     const chunks = [new Uint8Array(140_000), new Uint8Array(140_000)];

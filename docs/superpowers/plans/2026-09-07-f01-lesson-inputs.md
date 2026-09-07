@@ -64,7 +64,7 @@
 - Consumes: `uuidSchema` from `primitives.ts` and `supportedGradeBandSchema` from `science.ts`.
 - Produces: `lessonInputFieldsSchema`, `createLessonInputInputSchema`, `updateLessonInputInputSchema`, `lessonInputSchema`, `lessonInputSummarySchema`, `lessonInputListSchema`, `lessonInputMutationResultSchema`, and inferred `CreateLessonInputInput`, `UpdateLessonInputInput`, `LessonInput`, `LessonInputSummary`, `LessonInputMutationResult`.
 
-- [ ] **Step 1: Write the contract RED tests**
+- [x] **Step 1: Write the contract RED tests**
 
 Create tests with fixed UUIDs and literal expected normalized output:
 
@@ -89,13 +89,13 @@ expect(createLessonInputInputSchema.parse(validCreate)).toEqual({
 
 Add explicit failures for an empty/oversized title, empty/32,769-character content, zero/nine objectives, empty/301-character/duplicate normalized objectives, invalid grade, invalid mutation ID, nonpositive `expectedRevision`, and every forged key in `organizationId`, `ownerTeacherId`, `revision`, `createdAt`, `updatedAt`, and `extra`. Parse one complete mutation-result fixture and require unknown response keys to fail.
 
-- [ ] **Step 2: Run the contract test and record RED**
+- [x] **Step 2: Run the contract test and record RED**
 
 Run: `corepack pnpm deps:build && corepack pnpm exec vitest run packages/contracts/test/lesson-inputs.test.ts`
 
 Expected: FAIL because `@lessonquest/contracts` does not export the lesson-input schemas.
 
-- [ ] **Step 3: Implement the exact schemas and types**
+- [x] **Step 3: Implement the exact schemas and types**
 
 Use these public shapes:
 
@@ -152,13 +152,13 @@ export const lessonInputMutationResultSchema = z.strictObject({
 
 Export the module from `packages/contracts/src/index.ts`. Infer all public types from their schemas; do not duplicate manual interfaces.
 
-- [ ] **Step 4: Run focused contracts and full contract package tests**
+- [x] **Step 4: Run focused contracts and full contract package tests**
 
 Run: `corepack pnpm exec vitest run packages/contracts/test/lesson-inputs.test.ts packages/contracts/test/science.test.ts packages/contracts/test/learning.test.ts`
 
 Expected: PASS with no skipped cases.
 
-- [ ] **Step 5: Commit the contract slice**
+- [x] **Step 5: Commit the contract slice**
 
 ```bash
 git add packages/contracts/src/index.ts packages/contracts/src/lesson-inputs.ts packages/contracts/test/lesson-inputs.test.ts
@@ -208,7 +208,7 @@ export class LessonInputRepository {
 }
 ```
 
-- [ ] **Step 1: Write repository RED tests using a fresh synthetic fixture**
+- [x] **Step 1: Write repository RED tests using a fresh synthetic fixture**
 
 Create `createLessonInputFixture()` with a fresh `PGlite`, `initializeSchema`, `TenantRepository`, one teacher owner, one second teacher, one `SUPER_ADMIN` with `ORG_ADMIN` membership, one student, two organizations, and fixed `now()`.
 
@@ -236,13 +236,13 @@ expect(
 
 Also prove newest-update-first then title/ID ordering, exact create replay returns `duplicate: true` and one row, update increments once, exact update replay does not increment, cross-operation or changed-payload mutation reuse conflicts, stale update changes nothing, second teacher gets generic not-found and cannot see owner rows, admin can list/read/update, students/disabled/incompatible roles fail closed, cross-tenant and nonexistent UUIDs are indistinguishable, audit rows contain only allowlisted metadata, and an audit trigger failure rolls back create/update and mutation rows.
 
-- [ ] **Step 2: Run the repository test and record RED**
+- [x] **Step 2: Run the repository test and record RED**
 
 Run: `corepack pnpm deps:build && corepack pnpm exec vitest run packages/db/test/lesson-input-repository.test.ts`
 
 Expected: FAIL because the schema tables and `LessonInputRepository` do not exist.
 
-- [ ] **Step 3: Add exact additive database objects**
+- [x] **Step 3: Add exact additive database objects**
 
 Insert before `audit_logs` so foreign keys resolve during fresh initialization:
 
@@ -288,7 +288,7 @@ CREATE TABLE IF NOT EXISTS lesson_input_mutations (
 
 Add `LESSON_INPUT_CREATE`, `LESSON_INPUT_CREATED`, `LESSON_INPUT_LIST`, `LESSON_INPUT_READ`, `LESSON_INPUT_UPDATE`, and `LESSON_INPUT_UPDATED` to the audit action constraint; add `LESSON_INPUT` to resource types. Add indexes on `(organization_id, owner_teacher_id, updated_at DESC, id)` and `(organization_id, updated_at DESC, id)`.
 
-- [ ] **Step 4: Implement mapping, authorization, hashing, audit, and transaction methods**
+- [x] **Step 4: Implement mapping, authorization, hashing, audit, and transaction methods**
 
 Use a constructed stable hash input rather than caller object enumeration order:
 
@@ -316,13 +316,13 @@ function requestHash(
 
 Every method must parse actor/UUID/input first, join active `organizations`, `organization_members`, and `users`, enforce platform-role compatibility, and apply `(owner_teacher_id = actor OR membership.role = 'ORG_ADMIN')` for existing resources. In create/update, check the actor-scoped mutation row after authorization, compare operation/hash/target, and return the currently authorized mapped row only on an exact match. Lock updates with `FOR UPDATE`; update with `WHERE revision = expectedRevision`, set `revision = revision + 1`, and use the injected server time. Write mutation and success audit rows before transaction commit. Use post-rollback metadata-only `DENIED`/`CONFLICT` audit writes and preserve original safe repository errors.
 
-- [ ] **Step 5: Run focused persistence tests and adjacent tenant regressions**
+- [x] **Step 5: Run focused persistence tests and adjacent tenant regressions**
 
 Run: `corepack pnpm exec vitest run packages/db/test/lesson-input-repository.test.ts packages/db/test/tenant-repository.test.ts packages/db/test/learning-repository.test.ts packages/db/test/classroom-repository.test.ts`
 
 Expected: PASS with all create/replay/update/tenant/audit assertions.
 
-- [ ] **Step 6: Commit the persistence slice**
+- [x] **Step 6: Commit the persistence slice**
 
 ```bash
 git add packages/db/src/index.ts packages/db/src/schema.ts packages/db/src/lesson-input-repository.ts packages/db/test/lesson-input-fixture.ts packages/db/test/lesson-input-repository.test.ts
@@ -347,7 +347,7 @@ git commit -m "feat: persist tenant-scoped lesson inputs"
 - Consumes: `LessonInputRepository`, Task 1 input/response schemas, existing `readJson`, `parseRouteUuid`, actor/trace context, and API error mapping.
 - Produces four routes from the design and optional `lessonInputRepository?: LessonInputRepository` in `CreateAppOptions`.
 
-- [ ] **Step 1: Write API RED tests through real Hono and PGlite**
+- [x] **Step 1: Write API RED tests through real Hono and PGlite**
 
 Build `createApp` with the lesson-input fixture's `TenantRepository`, `LearningRepository`, `LessonInputRepository`, `LocalAuthProvider`, exact trusted origin, and diagnostics collector. Assert:
 
@@ -378,13 +378,13 @@ expect(lessonInputMutationResultSchema.parse(await replay.json())).toMatchObject
 
 Add list/detail `Cache-Control: no-store`, successful PUT update/replay, malformed route/input `400/404`, stale/mutation conflict `409`, missing/wrong media type `415`, oversized body `413`, missing/malformed/unknown auth `401`, student/cross-tenant/other-teacher generic `404`, wrong Origin `403`, and OPTIONS allowing PUT only for the trusted origin. Require safe error envelopes and diagnostics to contain no submitted title/content/objectives.
 
-- [ ] **Step 2: Run the API test and record RED**
+- [x] **Step 2: Run the API test and record RED**
 
 Run: `corepack pnpm deps:build && corepack pnpm exec vitest run services/api/test/lesson-inputs.test.ts`
 
 Expected: FAIL because lesson-input routes and repository injection are absent.
 
-- [ ] **Step 3: Implement the focused route module**
+- [x] **Step 3: Implement the focused route module**
 
 Register exact handlers:
 
@@ -397,11 +397,11 @@ app.put('/organizations/:organizationId/lesson-inputs/:lessonInputId', updateHan
 
 Each handler parses the route UUID, uses `context.get('actor')` and `context.get('traceId')`, parses request/response contracts, and never accepts identity or tenant scope from JSON. Set `Cache-Control: no-store` on every lesson-input response. Return create status `201` when `duplicate === false` and `200` when true; update always returns `200`.
 
-- [ ] **Step 4: Wire shared HTTP security and diagnostics**
+- [x] **Step 4: Wire shared HTTP security and diagnostics**
 
 Add `lessonInputRepository` to `CreateAppOptions`, register routes only when supplied, and change the CORS allowlist to `['GET', 'POST', 'PUT', 'OPTIONS']`. Extend `diagnosticResourceIds` so `/organizations/:organizationId/lesson-inputs/:lessonInputId` reports the validated lesson-input UUID as `resourceId` while existing class diagnostics remain unchanged. Do not parse or record content.
 
-- [ ] **Step 5: Add focused tests to root verification scripts and run API regressions**
+- [x] **Step 5: Add focused tests to root verification scripts and run API regressions**
 
 Add `packages/db/test/lesson-input-repository.test.ts` and `services/api/test/lesson-inputs.test.ts` to `test:integration`; later Task 5 adds the React test to `test:e2e`.
 
@@ -409,7 +409,7 @@ Run: `corepack pnpm exec vitest run services/api/test/lesson-inputs.test.ts serv
 
 Expected: PASS, including existing auth/Origin/body/diagnostic behavior.
 
-- [ ] **Step 6: Commit the API slice**
+- [x] **Step 6: Commit the API slice**
 
 ```bash
 git add package.json services/api/src/app.ts services/api/src/lesson-input-routes.ts services/api/test/lesson-inputs.test.ts
@@ -453,19 +453,19 @@ export function LessonInputWorkspace(props: {
 }): JSX.Element;
 ```
 
-- [ ] **Step 1: Write component and client RED tests**
+- [x] **Step 1: Write component and client RED tests**
 
 Use one controllable fake API to prove the initial list load, labeled empty fields, required validation, create, list selection, authoritative reopen, update, and `revision` display. Capture create/update inputs and assert objectives become trimmed nonempty lines in order.
 
 Add lost-response cases where the fake commits then throws a retryable `LessonQuestApiError(503, 'INTERNAL_ERROR', message, true)`. Pressing save again must send the identical mutation ID and fields. Add a `409 RESOURCE_CONFLICT` case that preserves every local field, displays an explicit conflict message, and enables **서버 저장본 다시 불러오기**; only that button replaces local text. A list/detail failure must not clear editor text. A confirmed `400` must release the mutation ID so corrected input uses a new UUID.
 
-- [ ] **Step 2: Run the component test and record RED**
+- [x] **Step 2: Run the component test and record RED**
 
 Run: `corepack pnpm deps:build && corepack pnpm exec vitest run apps/web/test/lesson-input-workspace.test.tsx apps/web/test/api-client.test.ts`
 
 Expected: FAIL because `LessonInputApi` and `LessonInputWorkspace` do not exist.
 
-- [ ] **Step 3: Add parsed HTTP client methods**
+- [x] **Step 3: Add parsed HTTP client methods**
 
 Extend the returned API object with:
 
@@ -488,13 +488,13 @@ updateLessonInput: (organizationId, lessonInputId, input) =>
 
 Parse all successful server values; preserve existing safe error parsing.
 
-- [ ] **Step 4: Implement the focused controlled component**
+- [x] **Step 4: Implement the focused controlled component**
 
 Keep separate state for list, selected ID, loaded resource/revision, each input field, pending mutation ID, busy state, error/status text, and conflict reload availability. Generate `crypto.randomUUID()` once per logical create/update and retain it through unknown/retryable outcomes. Clear it only after success, a confirmed non-retryable non-conflict failure, or a successful explicit authoritative reload after conflict; that reload starts the next edit as a new logical mutation. Use `createLessonInputInputSchema.safeParse` or equivalent exact field checks before calling the API, while leaving server validation authoritative.
 
 Render these exact accessible controls: **저장된 수업 자료**, **새 수업 자료**, **수업 자료 다시 열기**, **수업 제목**, **대상 학년**, **학습 내용**, **학습목표 (한 줄에 하나)**, **수업 자료 저장**/**수정 내용 저장**, and **서버 저장본 다시 불러오기**. Disable only operations that would race, never clear text on failure, and use `role="status"`/`role="alert"` for messages.
 
-- [ ] **Step 5: Add scoped responsive styles and run focused web tests**
+- [x] **Step 5: Add scoped responsive styles and run focused web tests**
 
 Use `.lesson-input-workspace` descendants only. Provide a two-column library/editor layout above 900px, one column below 900px, `min-width: 0`, wrapping text, and minimum 44px controls. Preserve existing global theme tokens and reduced-motion behavior.
 
@@ -502,7 +502,7 @@ Run: `corepack pnpm exec vitest run apps/web/test/lesson-input-workspace.test.ts
 
 Expected: PASS with no React act warnings or skipped cases.
 
-- [ ] **Step 6: Commit the teacher workspace slice**
+- [x] **Step 6: Commit the teacher workspace slice**
 
 ```bash
 git add apps/web/src/api-client.ts apps/web/src/components/lesson-input-workspace.tsx apps/web/src/lesson-inputs.css apps/web/test/lesson-input-workspace.test.tsx
@@ -526,25 +526,25 @@ git commit -m "feat(web): add F01 lesson input workspace"
 - Consumes: `LessonInputWorkspace`, `LessonInputRepository`, and the Task 3/4 API capability.
 - Produces: real teacher React -> HTTP client -> Hono -> repository -> PGlite create/reopen/update behavior in the same synthetic runtime.
 
-- [ ] **Step 1: Write the end-to-end RED test**
+- [x] **Step 1: Write the end-to-end RED test**
 
 Create a fresh fixture with real auth/app/repositories and render `StudioWorkbench`. Fill all F01 controls, save, unmount, render again, select the saved summary, reopen it, modify content/objectives, save revision 2, and verify the database plus a third render returns revision 2. Assert existing **생성된 과학 JSON**, validation, approval, and assignment controls remain unchanged.
 
 Add one student-token render/request probe proving all four F01 routes fail and no lesson title/content appears. Add a transport that commits create/update then throws once; the React retry must yield exactly one row and one revision increment.
 
-- [ ] **Step 2: Run the E2E test and record RED**
+- [x] **Step 2: Run the E2E test and record RED**
 
 Run: `corepack pnpm deps:build && corepack pnpm exec vitest run apps/web/test/lesson-inputs-e2e.test.tsx`
 
 Expected: FAIL because Studio and preview runtime do not compose the new capability.
 
-- [ ] **Step 3: Compose the teacher UI and preview repository**
+- [x] **Step 3: Compose the teacher UI and preview repository**
 
 Render `<LessonInputWorkspace api={api} organizationId={organizationId} />` after the Studio header and before the existing generated-content trail. Instantiate one `LessonInputRepository(database)` in `createPreviewRuntime()` and pass it to `createApp` as `lessonInputRepository`. Do not seed lesson inputs or change sample generated JSON, role tokens, offline queue, close/reset ownership, or database persistence mode.
 
 Update existing Studio test fixtures only where the expanded `LessonQuestApi` type requires explicit lesson-input methods; prefer narrowing `StudioWorkbenchProps.api` to the exact intersection it consumes so unrelated test doubles do not acquire unused stubs.
 
-- [ ] **Step 4: Add the real React test to scripted E2E and run adjacent flows**
+- [x] **Step 4: Add the real React test to scripted E2E and run adjacent flows**
 
 Add `apps/web/test/lesson-inputs-e2e.test.tsx` to `test:e2e`.
 
@@ -552,7 +552,7 @@ Run: `corepack pnpm exec vitest run apps/web/test/lesson-inputs-e2e.test.tsx app
 
 Expected: PASS; the existing generated science flow remains green.
 
-- [ ] **Step 5: Commit the connected vertical slice**
+- [x] **Step 5: Commit the connected vertical slice**
 
 ```bash
 git add package.json apps/web/src/components/studio-workbench.tsx apps/web/src/dev-preview/runtime.ts apps/web/test/lesson-inputs-e2e.test.tsx apps/web/test/phase1-flow.test.tsx
@@ -575,7 +575,7 @@ git commit -m "feat: connect F01 lesson inputs end to end"
 - Consumes: complete Tasks 1-5 behavior and existing three-project preview Playwright configuration.
 - Produces: durable desktop/tablet/mobile proof and implementation evidence for independent review.
 
-- [ ] **Step 1: Write the browser RED test before preview production wiring is considered complete**
+- [x] **Step 1: Write the browser RED test before preview production wiring is considered complete**
 
 Add one Playwright test, automatically executed by desktop/tablet/mobile projects:
 
@@ -607,7 +607,7 @@ test('teacher saves, returns, reopens and revises one F01 lesson input', async (
 
 Continue by clicking **데이터 초기화**, wait for `ready(page)`, and require the saved selector to be empty. Require no horizontal overflow. The existing full-page accessibility-state test must include the new controls and continue enforcing minimum 44px target size, contrast at least 4.5, keyboard focus, and reduced motion.
 
-- [ ] **Step 2: Run the new browser case against the pre-final build and record RED if any wiring/style is missing**
+- [x] **Step 2: Run the new browser case against the pre-final build and record RED if any wiring/style is missing**
 
 Run:
 
@@ -620,15 +620,15 @@ corepack pnpm exec playwright test --config playwright.preview.config.ts --grep 
 
 Expected before final corrections: FAIL at the first missing route, control, runtime injection, reset assertion, or geometry condition; record the exact product failure rather than weakening selectors.
 
-- [ ] **Step 3: Make only browser-discovered accessibility/layout corrections**
+- [x] **Step 3: Make only browser-discovered accessibility/layout corrections**
 
 Edit `lesson-inputs.css` or labeled component markup only for reproduced failures. Do not change global theme, existing learning behavior, test thresholds, viewport sizes, or reset semantics.
 
-- [ ] **Step 4: Update scope and provenance documentation**
+- [x] **Step 4: Update scope and provenance documentation**
 
 README must state F01 fields/save/list/reopen/revise are available only in the synthetic in-tab preview; external AI and full-refresh persistence remain absent. Add an original LessonQuest-code provenance row for the F01 contract/repository/API/UI/tests with no copied source. Create the verification record with baseline, every genuine RED, focused GREEN commands/counts, changed-file manifest hash, audit/diff results, known limitations, and no claim of independent acceptance or deployment.
 
-- [ ] **Step 5: Run focused browser and formatting checks**
+- [x] **Step 5: Run focused browser and formatting checks**
 
 Run:
 
@@ -643,7 +643,7 @@ git diff --check main...HEAD
 
 Expected: three Playwright project cases pass and formatting/diff checks exit 0.
 
-- [ ] **Step 6: Commit browser evidence and documentation**
+- [x] **Step 6: Commit browser evidence and documentation**
 
 ```bash
 git add tests/browser/service-preview.spec.ts README.md docs/SOURCE_PROVENANCE.md docs/reviews/2026-09-07-f01-lesson-inputs-verification.md
@@ -666,7 +666,7 @@ git commit -m "test: verify F01 lesson input workflow"
 - Consumes: the complete F01 candidate.
 - Produces: reproducible verification evidence and an immutable implementation/test manifest for a different reviewer.
 
-- [ ] **Step 1: Run the complete sequential verification matrix**
+- [x] **Step 1: Run the complete sequential verification matrix**
 
 Run sequentially to avoid PGlite resource contention:
 
@@ -682,15 +682,15 @@ git diff --check main...HEAD
 
 Every command must exit 0. Do not count a concurrent timeout as product evidence; rerun sequentially and preserve both facts if that occurs.
 
-- [ ] **Step 2: Check boundary containment and credentials**
+- [x] **Step 2: Check boundary containment and credentials**
 
 Build normal/demo/preview outputs through the commands above. Confirm the normal build contains no `dev_` bearer values, synthetic actor UUIDs, PGlite runtime module, or preview sample data. Scan changed files for private-key blocks, cloud tokens, Authorization literals, Firebase configuration, and real-looking student data. Confirm `package.json`/`pnpm-lock.yaml` contain no dependency version change.
 
-- [ ] **Step 3: Freeze and record the reviewed candidate**
+- [x] **Step 3: Freeze and record the reviewed candidate**
 
 Create a sorted manifest of all implementation, test, script, and configuration files changed from `main`, with each file's SHA-256 and a manifest SHA-256. Exclude review/verification prose from the runtime manifest but list it separately. Record exact command counts, output paths, commit SHAs, and manifest hash in the verification document.
 
-- [ ] **Step 4: Commit final implementer evidence**
+- [x] **Step 4: Commit final implementer evidence**
 
 ```bash
 git add docs/superpowers/plans/2026-09-07-f01-lesson-inputs.md docs/reviews/2026-09-07-f01-lesson-inputs-verification.md
