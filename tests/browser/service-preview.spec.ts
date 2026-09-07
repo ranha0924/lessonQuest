@@ -81,6 +81,50 @@ test('teacher saves, returns, reopens and revises one F01 lesson input', async (
   await expect(page.getByText('수업 자료를 저장했습니다. 개정 2')).toBeVisible();
 });
 
+test('lesson-input semantic text keeps AA contrast in base and cosmic token contexts', async ({
+  page,
+}, info) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByLabel('수업 제목').fill('대비 확인용 합성 수업');
+  await page.getByLabel('대상 학년').selectOption('middle1');
+  await page.getByLabel('학습 내용').fill('합성 내용으로 색상 대비를 확인한다.');
+  await page.getByLabel('학습목표 (한 줄에 하나)').fill('필수 안내를 읽고 수정한다.');
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다.')).toBeVisible();
+  await page.getByLabel('수업 제목').fill('');
+  await page.getByRole('button', { name: '수정 내용 저장' }).click();
+  await expect(page.getByText('수업 제목을 입력해 주세요.')).toBeVisible();
+
+  const measureLessonInputText = () =>
+    measureTheme(page, {
+      scope: '.lesson-input-workspace',
+      surfaceSelectors: ['.lesson-input-workspace-does-not-exist'],
+      contrastSelectors: [
+        '.lesson-input-workspace__revision',
+        '.lesson-input-workspace__field-error',
+      ],
+    });
+  const cosmic = await measureLessonInputText();
+  await page.locator('.cosmic-service').evaluate((element) => {
+    element.classList.remove('cosmic-service');
+  });
+  const base = await measureLessonInputText();
+  const measurements = { cosmic: cosmic.contrasts, base: base.contrasts };
+  console.info(JSON.stringify({ lessonInputContrast: measurements }));
+  await info.attach('lesson-input-semantic-contrast', {
+    body: JSON.stringify(measurements, null, 2),
+    contentType: 'application/json',
+  });
+
+  for (const [context, contrasts] of Object.entries(measurements)) {
+    expect(contrasts, `${context} should measure both required text elements`).toHaveLength(2);
+    for (const contrast of contrasts) {
+      expect.soft(contrast.ratio, `${context}: ${contrast.element}`).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+});
+
 async function queuedRecordCount(page: Page) {
   return (await queuedRecords(page)).length;
 }

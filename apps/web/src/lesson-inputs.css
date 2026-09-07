@@ -1,4 +1,6 @@
 .lesson-input-workspace {
+  --lesson-input-badge-ink: #10233f;
+  --lesson-input-error-ink: #a3312c;
   margin: 26px 0;
   padding: 22px;
   min-width: 0;
@@ -6,6 +8,11 @@
   background: var(--white);
   border: 2px solid var(--navy);
   border-radius: 18px;
+}
+
+.cosmic-service .lesson-input-workspace {
+  --lesson-input-badge-ink: #10233f;
+  --lesson-input-error-ink: #ffbca2;
 }
 
 .lesson-input-workspace .lesson-input-workspace__heading {
@@ -35,7 +42,7 @@
 .lesson-input-workspace .lesson-input-workspace__revision {
   flex: none;
   padding: 6px 11px;
-  color: var(--navy);
+  color: var(--lesson-input-badge-ink);
   background: var(--amber);
   border-radius: 999px;
   font-size: 0.82rem;
@@ -116,7 +123,7 @@
 
 .lesson-input-workspace .lesson-input-workspace__field-error {
   margin: -3px 0 4px;
-  color: var(--coral);
+  color: var(--lesson-input-error-ink);
   overflow-wrap: anywhere;
   font-size: 0.8rem;
   font-weight: 750;
