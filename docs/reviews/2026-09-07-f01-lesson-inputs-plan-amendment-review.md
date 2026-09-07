@@ -22,3 +22,9 @@ Tests will exercise maximum Korean content/objectives, maximum JSON-escaped text
 | **Total**                              | **PASS; no critical blockers**                                                                                         | **99/100** |
 
 The clarification passes the required score greater than 85. The complete implementation still requires independent final validation before acceptance or delivery.
+
+## Verification housekeeping addendum
+
+The SDD helper creates git-ignored transient agent briefs/reports. `prettier --check .` still discovers that directory because its ignore rule is local Git metadata, so scratch formatting changes the result compared with a clean CI checkout. Task 1 also accidentally force-added its report there. Task 7 will preserve that report's evidence in `docs/reviews/2026-09-07-f01-lesson-inputs-verification.md`, remove only the scratch report from the index while keeping its working copy, and exclude `.superpowers/` through `.prettierignore`. No production, test, or durable review path is excluded. The final full formatter and file manifest will verify containment. Two Task 3 minor evidence gaps will also be closed through direct assertions in its existing tests.
+
+This housekeeping is approved before implementation: requirements 25/25, architecture 19/20, security 20/20, verification 20/20, recoverability 15/15 = **99/100 PASS**, no critical blocker. The affected files and exact containment are specified above; removing the scratch-only ignore line reverses the tooling change, and the untracked working report remains recoverable.

@@ -593,7 +593,10 @@ test('teacher saves, returns, reopens and revises one F01 lesson input', async (
   await expect(page.getByText('수업 자료를 저장했습니다.')).toBeVisible();
   await page.getByRole('button', { name: '학생 화면' }).click();
   await page.getByRole('button', { name: '교사 화면' }).click();
-  await page.getByLabel('저장된 수업 자료').selectOption({ label: /합성 힘과 운동 수업/ });
+  const savedOption = page.getByRole('option', { name: /합성 힘과 운동 수업/ });
+  const savedId = await savedOption.getAttribute('value');
+  expect(savedId).toBeTruthy();
+  await page.getByLabel('저장된 수업 자료').selectOption(savedId!);
   await page.getByRole('button', { name: '수업 자료 다시 열기' }).click();
   await expect(page.getByLabel('학습 내용')).toHaveValue(/합성 자료/);
   await page.getByLabel('학습 내용').fill('수정한 합성 자료로 운동 변화를 비교한다.');
@@ -650,6 +653,8 @@ git commit -m "test: verify F01 lesson input workflow"
 ---
 
 ### Task 7: Complete implementer verification and freeze the candidate
+
+**Verification housekeeping:** Preserve all Task 1 report evidence in the durable verification document, then untrack the accidentally committed `.superpowers/sdd/2026-09-07-f01-lesson-inputs/task-1-report.md` without deleting its working copy. Add `.superpowers/` to `.prettierignore`: this directory is git-ignored generated agent scratch, and formatting it must not make a fresh checkout differ from a working session. All application, test, configuration, and durable documentation files remain covered by the existing formatter. Also close the two Task 3 minor evidence gaps recorded in the SDD ledger: explicit declared Content-Length and distinctive objective-text absence. Re-run the covering API tests before the full matrix.
 
 **Files:**
 
