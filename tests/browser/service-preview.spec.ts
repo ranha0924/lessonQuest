@@ -56,6 +56,133 @@ async function ready(page: Page) {
   await expect(page.getByText(/새로고침하면 초기화/)).toBeVisible();
 }
 
+async function expectNoHorizontalOverflow(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) <=
+          document.documentElement.clientWidth + 1,
+      ),
+    )
+    .toBe(true);
+}
+
+test('teacher saves, returns, reopens and revises one F01 lesson input', async ({ page }, info) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByLabel('수업 제목').fill('합성 힘과 운동 수업');
+  await page.getByLabel('대상 학년').selectOption('middle1');
+  await page.getByLabel('학습 내용').fill('합성 자료로 힘과 질량의 관계를 비교한다.');
+  await page
+    .getByLabel('학습목표 (한 줄에 하나)')
+    .fill('힘과 질량의 관계를 설명한다.\n관찰 결과를 근거로 예측한다.');
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다.')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  if (info.project.name === 'desktop' || info.project.name === 'mobile') {
+    await page.screenshot({ path: info.outputPath('f01-saved.png'), fullPage: true });
+  }
+  await page.getByRole('button', { name: '학생 화면' }).click();
+  await page.getByRole('button', { name: '교사 화면' }).click();
+  const savedOption = page.getByRole('option', { name: '합성 힘과 운동 수업 · 개정 1' });
+  const savedId = await savedOption.getAttribute('value');
+  expect(savedId).toBeTruthy();
+  if (savedId === null) throw new Error('Saved lesson option has no value');
+  await page.getByLabel('저장된 수업 자료').selectOption(savedId);
+  await page.getByRole('button', { name: '수업 자료 다시 열기' }).click();
+  await expect(page.getByLabel('학습 내용')).toHaveValue(/합성 자료/);
+  await page.getByLabel('학습 내용').fill('수정한 합성 자료로 운동 변화를 비교한다.');
+  await page.getByRole('button', { name: '수정 내용 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다. 개정 2')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  if (info.project.name === 'desktop' || info.project.name === 'mobile') {
+    await page.screenshot({ path: info.outputPath('f01-revised.png'), fullPage: true });
+  }
+
+  await page.getByRole('button', { name: '데이터 초기화' }).click();
+  await ready(page);
+  const resetSelector = page.getByLabel('저장된 수업 자료');
+  await expect(resetSelector).toHaveValue('');
+  await expect(resetSelector.locator('option')).toHaveCount(1);
+  await expect(resetSelector.locator('option')).toHaveText('자료를 선택하세요');
+  await expect(page.getByText('아직 저장된 수업 자료가 없습니다.')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('unsupported lesson text stays editable and saves only after correction', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByLabel('수업 제목').fill('지원 문자 검증 수업');
+  await page.getByLabel('대상 학년').selectOption('middle1');
+  const content = page.getByLabel('학습 내용');
+  await content.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    descriptor?.set?.call(textarea, 'before\u0000after');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.getByLabel('학습목표 (한 줄에 하나)').fill('지원되는 학습목표');
+  await expect(content).toHaveValue('before\u0000after');
+
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('지원되지 않는 문자를 지우고 다시 저장해 주세요.')).toBeVisible();
+  await expect(content).toHaveValue('before\u0000after');
+  await expect(content).toBeEnabled();
+  await expect(page.getByRole('button', { name: '새 수업 자료' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '수업 자료 저장' })).toBeEnabled();
+  await expect(page.getByLabel('저장된 수업 자료').locator('option')).toHaveCount(1);
+
+  await content.fill('교정한 합성 학습 내용');
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다. 개정 1')).toBeVisible();
+  await expect(page.getByRole('option', { name: '지원 문자 검증 수업 · 개정 1' })).toHaveCount(1);
+});
+
+test('lesson-input semantic text keeps AA contrast in base and cosmic token contexts', async ({
+  page,
+}, info) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByLabel('수업 제목').fill('대비 확인용 합성 수업');
+  await page.getByLabel('대상 학년').selectOption('middle1');
+  await page.getByLabel('학습 내용').fill('합성 내용으로 색상 대비를 확인한다.');
+  await page.getByLabel('학습목표 (한 줄에 하나)').fill('필수 안내를 읽고 수정한다.');
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다.')).toBeVisible();
+  await page.getByLabel('수업 제목').fill('');
+  await page.getByRole('button', { name: '수정 내용 저장' }).click();
+  await expect(page.getByText('수업 제목을 입력해 주세요.')).toBeVisible();
+
+  const measureLessonInputText = () =>
+    measureTheme(page, {
+      scope: '.lesson-input-workspace',
+      surfaceSelectors: ['.lesson-input-workspace-does-not-exist'],
+      contrastSelectors: [
+        '.lesson-input-workspace__revision',
+        '.lesson-input-workspace__field-error',
+      ],
+    });
+  const cosmic = await measureLessonInputText();
+  await page.locator('.cosmic-service').evaluate((element) => {
+    element.classList.remove('cosmic-service');
+  });
+  const base = await measureLessonInputText();
+  const measurements = { cosmic: cosmic.contrasts, base: base.contrasts };
+  console.info(JSON.stringify({ lessonInputContrast: measurements }));
+  await info.attach('lesson-input-semantic-contrast', {
+    body: JSON.stringify(measurements, null, 2),
+    contentType: 'application/json',
+  });
+
+  for (const [context, contrasts] of Object.entries(measurements)) {
+    expect(contrasts, `${context} should measure both required text elements`).toHaveLength(2);
+    for (const contrast of contrasts) {
+      expect.soft(contrast.ratio, `${context}: ${contrast.element}`).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+});
+
 async function queuedRecordCount(page: Page) {
   return (await queuedRecords(page)).length;
 }
@@ -681,6 +808,8 @@ async function cosmicState(page: Page, info: TestInfo, state: string) {
       '.cosmic-service .trail-step',
       '.cosmic-service .progress-row span',
       '.cosmic-service .progress-row strong',
+      '.lesson-input-workspace__revision',
+      '.lesson-input-workspace__field-error',
     ],
   });
   expect(result.surfaces.length).toBeGreaterThanOrEqual(4);
@@ -701,6 +830,7 @@ async function cosmicState(page: Page, info: TestInfo, state: string) {
     contentType: 'application/json',
   });
   await page.screenshot({ path: info.outputPath(`${state}.png`), fullPage: true });
+  return result;
 }
 
 test('cosmic real service preserves readable mission controls through every learning state', async ({
@@ -708,7 +838,38 @@ test('cosmic real service preserves readable mission controls through every lear
 }, info) => {
   await page.goto('/');
   await ready(page);
-  await cosmicState(page, info, 'teacher-initial');
+  await page.getByLabel('수업 제목').fill('합성 수업 대비 확인');
+  await page.getByLabel('학습 내용').fill('합성 학습 내용의 입력값 대비를 확인한다.');
+  await page.getByLabel('학습목표 (한 줄에 하나)').fill('입력된 학습목표가 읽기 쉬운지 확인한다.');
+  const teacherInitial = await cosmicState(page, info, 'teacher-initial');
+  expect(teacherInitial.targets.map((target) => target.element)).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('select#lesson-input-library'),
+      expect.stringContaining('input#lesson-input-title-field'),
+      expect.stringContaining('select#lesson-input-grade'),
+      expect.stringContaining('textarea#lesson-input-content'),
+      expect.stringContaining('textarea#lesson-input-objectives'),
+      expect.stringContaining('새 수업 자료'),
+      expect.stringContaining('수업 자료 다시 열기'),
+      expect.stringContaining('수업 자료 저장'),
+    ]),
+  );
+  expect(teacherInitial.contrasts.map((contrast) => contrast.element)).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('label. 저장된 수업 자료'),
+      expect.stringContaining('select#lesson-input-library'),
+      expect.stringContaining('label. 수업 제목'),
+      expect.stringContaining('input#lesson-input-title-field'),
+      expect.stringContaining('label. 대상 학년'),
+      expect.stringContaining('select#lesson-input-grade'),
+      expect.stringContaining('label. 학습 내용'),
+      expect.stringContaining('textarea#lesson-input-content'),
+      expect.stringContaining('label. 학습목표 (한 줄에 하나)'),
+      expect.stringContaining('textarea#lesson-input-objectives'),
+      expect.stringContaining('새 수업 자료'),
+      expect.stringContaining('수업 자료 저장'),
+    ]),
+  );
   const art = page.locator('.cosmic-astronaut:visible');
   await expect(art).toHaveCount(1);
   await expect
@@ -742,6 +903,8 @@ test('cosmic real service preserves readable mission controls through every lear
   await page.getByRole('button', { name: '교사 결과 보기' }).click();
   await expect(page.getByText('힌트 1회')).toBeVisible();
   await cosmicState(page, info, 'teacher-results');
+  await expect(page.getByLabel('수업 제목')).toBeVisible();
+  await expect(page.getByRole('button', { name: '수업 자료 저장' })).toBeVisible();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const controls = page.locator(
     '.cosmic-service button:visible:enabled, .cosmic-service a:visible, .cosmic-service summary:visible, .cosmic-service input:visible, .cosmic-service select:visible, .cosmic-service textarea:visible',
