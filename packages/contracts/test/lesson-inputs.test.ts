@@ -55,6 +55,41 @@ describe('F01 lesson input contracts', () => {
       ).toBe(false);
   });
 
+  it.each([
+    ['NUL', '\u0000'],
+    ['a lone high surrogate', '\ud800'],
+    ['a lone low surrogate', '\udc00'],
+  ])('rejects %s in every persistable field for create and update', (_name, unsupported) => {
+    const invalidFields = [
+      { title: `before${unsupported}after` },
+      { learningContent: `before${unsupported}after` },
+      { learningObjectives: [`before${unsupported}after`] },
+    ];
+
+    for (const invalid of invalidFields) {
+      const create = { ...validCreate, ...invalid };
+      expect(createLessonInputInputSchema.safeParse(create).success).toBe(false);
+      expect(
+        updateLessonInputInputSchema.safeParse({ ...create, expectedRevision: 1 }).success,
+      ).toBe(false);
+    }
+  });
+
+  it('preserves valid Unicode scalar text and permitted internal whitespace exactly', () => {
+    const unicode = {
+      ...validCreate,
+      title: '한글\t제목 😀',
+      learningContent: '첫 줄\n둘째 줄: e\u0301와 🚀',
+      learningObjectives: ['결합 문자 e\u0301를 설명한다.', '보충 평면 문자 𠮷을 보존한다.'],
+    };
+
+    expect(createLessonInputInputSchema.parse(unicode)).toEqual(unicode);
+    expect(updateLessonInputInputSchema.parse({ ...unicode, expectedRevision: 1 })).toEqual({
+      ...unicode,
+      expectedRevision: 1,
+    });
+  });
+
   it('rejects forged identity, tenant, revision, timestamp, and extra keys', () => {
     for (const key of [
       'organizationId',

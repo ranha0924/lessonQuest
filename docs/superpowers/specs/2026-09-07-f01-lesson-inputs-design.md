@@ -48,6 +48,12 @@ An editable lesson input contains:
 
 Create and update requests include a UUID `mutationId`. An update also includes `expectedRevision`. Requests are strict objects and reject organization IDs, owner IDs, revision results, timestamps, unknown fields, file/object payloads, and any other mass-assignment input. Accepted strings are always treated and rendered as plain text, never as executable markup.
 
+### 2026-09-08 text and UUID clarification
+
+F01 persistable title, learning-content, and individual objective strings must be well-formed Unicode scalar text and must exclude U+0000. The contract rejects NUL and lone high or low UTF-16 surrogates before a write or pending UI mutation; it never strips or replaces them. Valid surrogate pairs and supplementary characters, combining marks, Hangul, tabs, newlines, existing trim behavior, field bounds, objective uniqueness, and objective order remain unchanged. The editor retains rejected text exactly, identifies the affected field with actionable guidance, and stays editable so the teacher can correct it before any API call.
+
+At the F01 repository parsing boundary, already validated organization and lesson-input UUIDs are canonicalized to lowercase before lookup, request hashing, audit target selection, and replay comparison. This spelling normalization is local to F01 route/resource identity. It does not change the global UUID primitive, mutation IDs, actors, authentication, authorization checks, target/body binding, conflict handling, or current-authority recheck on replay.
+
 Lists return bounded summaries containing only ID, title, grade band, revision, and update time. The detail route returns the full lesson input. Create and update return `{ lessonInput, duplicate }`, parsed by one shared mutation-result schema. A future F02 request will refer to a lesson input and snapshot the selected revision; that behavior is explicitly outside this milestone.
 
 ## Persistence and mutation semantics

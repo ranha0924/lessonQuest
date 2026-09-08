@@ -165,6 +165,148 @@ describe('lesson input API', () => {
     });
   });
 
+  it('replays an identical update through uppercase organization and target UUID paths exactly', async () => {
+    const app = buildApp();
+    const collection = `/organizations/${f.organization.id}/lesson-inputs`;
+    const created = lessonInputMutationResultSchema.parse(
+      await (await request(app, 'POST', collection, validCreate)).json(),
+    );
+    const uppercaseDetail = `/organizations/${f.organization.id.toUpperCase()}/lesson-inputs/${created.lessonInput.id.toUpperCase()}`;
+    const update = {
+      ...validCreate,
+      mutationId: '018f72a4-cc52-7c5a-a6f9-8b21aa270209',
+      expectedRevision: 1,
+      title: '대문자 경로 수정',
+    };
+
+    const firstResponse = await request(app, 'PUT', uppercaseDetail, update);
+    const first = lessonInputMutationResultSchema.parse(await firstResponse.json());
+    const replayResponse = await request(app, 'PUT', uppercaseDetail, update);
+    const replay = lessonInputMutationResultSchema.parse(await replayResponse.json());
+
+    expect(firstResponse.status).toBe(200);
+    expect(first).toMatchObject({
+      duplicate: false,
+      lessonInput: { id: created.lessonInput.id, revision: 2, title: '대문자 경로 수정' },
+    });
+    expect(replayResponse.status).toBe(200);
+    expect(replayResponse.headers.get('cache-control')).toContain('no-store');
+    expect(replay).toEqual({ lessonInput: first.lessonInput, duplicate: true });
+    expect(
+      await f.database.query<{ revision: number }>(
+        'SELECT revision FROM lesson_inputs WHERE organization_id = $1 AND id = $2',
+        [f.organization.id, created.lessonInput.id],
+      ),
+    ).toMatchObject({ rows: [{ revision: 2 }] });
+    expect(
+      await f.database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM lesson_input_mutations WHERE mutation_id = $1',
+        [update.mutationId],
+      ),
+    ).toMatchObject({ rows: [{ count: '1' }] });
+  });
+
+  it('rejects unsupported text on POST and PUT without any write or retryable response', async () => {
+    const app = buildApp();
+    const collection = `/organizations/${f.organization.id}/lesson-inputs`;
+    const created = lessonInputMutationResultSchema.parse(
+      await (await request(app, 'POST', collection, validCreate)).json(),
+    );
+    const detail = `${collection}/${created.lessonInput.id}`;
+    const unsupportedValues = ['before\u0000after', 'before\ud800after', 'before\udc00after'];
+    const invalidFields = unsupportedValues.flatMap((value) => [
+      { title: value },
+      { learningContent: value },
+      { learningObjectives: [value] },
+    ]);
+
+    for (const [index, invalid] of invalidFields.entries()) {
+      const mutationId = `018f72a4-cc52-7c5a-a6f9-8b21aa271${String(index).padStart(3, '0')}`;
+      for (const [method, path, body] of [
+        ['POST', collection, { ...validCreate, mutationId, ...invalid }],
+        [
+          'PUT',
+          detail,
+          {
+            ...validCreate,
+            mutationId: mutationId.replace('100', '200'),
+            expectedRevision: 1,
+            ...invalid,
+          },
+        ],
+      ] as const) {
+        const response = await request(app, method, path, body);
+        const value = (await response.json()) as unknown;
+        expect(response.status).toBe(400);
+        expect(response.headers.get('cache-control')).toContain('no-store');
+        expectSafeError(value, 'INVALID_REQUEST');
+        expect(asRecord(asRecord(value)['error'])['retryable']).toBe(false);
+        expect(JSON.stringify(value)).not.toContain('before');
+      }
+    }
+
+    await expect(request(app, 'GET', detail).then((response) => response.json())).resolves.toEqual(
+      created.lessonInput,
+    );
+    expect(
+      await f.database.query<{ revision: number }>(
+        'SELECT revision FROM lesson_inputs WHERE organization_id = $1 AND id = $2',
+        [f.organization.id, created.lessonInput.id],
+      ),
+    ).toMatchObject({ rows: [{ revision: 1 }] });
+    expect(
+      await f.database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM lesson_input_mutations',
+      ),
+    ).toMatchObject({ rows: [{ count: '1' }] });
+    expect(JSON.stringify(diagnosticEvents)).not.toContain('before');
+    expect(
+      JSON.stringify((await f.database.query('SELECT * FROM audit_logs ORDER BY id')).rows),
+    ).not.toContain('before');
+  });
+
+  it('round-trips valid Unicode scalar text exactly through POST, PUT, and GET', async () => {
+    const app = buildApp();
+    const collection = `/organizations/${f.organization.id}/lesson-inputs`;
+    const create = {
+      ...validCreate,
+      mutationId: '018f72a4-cc52-7c5a-a6f9-8b21aa270210',
+      title: '한글\t제목 😀',
+      learningContent: '첫 줄\n둘째 줄: e\u0301와 🚀',
+      learningObjectives: ['결합 문자 e\u0301', '보충 평면 문자 𠮷'],
+    };
+    const createdResponse = await request(app, 'POST', collection, create);
+    const created = lessonInputMutationResultSchema.parse(await createdResponse.json());
+    const detail = `${collection}/${created.lessonInput.id}`;
+    const update = {
+      ...create,
+      mutationId: '018f72a4-cc52-7c5a-a6f9-8b21aa270211',
+      expectedRevision: 1,
+      learningContent: '탭\t유지\n새 줄과 🧪',
+    };
+    const updatedResponse = await request(app, 'PUT', detail, update);
+    const updated = lessonInputMutationResultSchema.parse(await updatedResponse.json());
+    const readResponse = await request(app, 'GET', detail);
+
+    expect(createdResponse.status).toBe(201);
+    expect(created.lessonInput).toMatchObject({
+      title: create.title,
+      gradeBand: create.gradeBand,
+      learningContent: create.learningContent,
+      learningObjectives: create.learningObjectives,
+      revision: 1,
+    });
+    expect(updatedResponse.status).toBe(200);
+    expect(updated.lessonInput).toMatchObject({
+      title: update.title,
+      gradeBand: update.gradeBand,
+      learningContent: update.learningContent,
+      learningObjectives: update.learningObjectives,
+      revision: 2,
+    });
+    expect(lessonInputSchema.parse(await readResponse.json())).toEqual(updated.lessonInput);
+  });
+
   it('preserves repository role boundaries for teacher administrators and platform administrators', async () => {
     const app = buildApp();
     const collection = `/organizations/${f.organization.id}/lesson-inputs`;

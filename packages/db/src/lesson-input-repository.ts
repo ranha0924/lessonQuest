@@ -65,7 +65,7 @@ function parseUuidOrNotFound(value: string): string {
   if (!parsed.success) {
     throw new ResourceNotFoundError();
   }
-  return parsed.data;
+  return parsed.data.toLowerCase();
 }
 
 function resolveTraceId(traceId: string | undefined): string {

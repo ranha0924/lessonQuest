@@ -110,6 +110,35 @@ test('teacher saves, returns, reopens and revises one F01 lesson input', async (
   await expectNoHorizontalOverflow(page);
 });
 
+test('unsupported lesson text stays editable and saves only after correction', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await page.getByLabel('수업 제목').fill('지원 문자 검증 수업');
+  await page.getByLabel('대상 학년').selectOption('middle1');
+  const content = page.getByLabel('학습 내용');
+  await content.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    descriptor?.set?.call(textarea, 'before\u0000after');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.getByLabel('학습목표 (한 줄에 하나)').fill('지원되는 학습목표');
+  await expect(content).toHaveValue('before\u0000after');
+
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('지원되지 않는 문자를 지우고 다시 저장해 주세요.')).toBeVisible();
+  await expect(content).toHaveValue('before\u0000after');
+  await expect(content).toBeEnabled();
+  await expect(page.getByRole('button', { name: '새 수업 자료' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '수업 자료 저장' })).toBeEnabled();
+  await expect(page.getByLabel('저장된 수업 자료').locator('option')).toHaveCount(1);
+
+  await content.fill('교정한 합성 학습 내용');
+  await page.getByRole('button', { name: '수업 자료 저장' }).click();
+  await expect(page.getByText('수업 자료를 저장했습니다. 개정 1')).toBeVisible();
+  await expect(page.getByRole('option', { name: '지원 문자 검증 수업 · 개정 1' })).toHaveCount(1);
+});
+
 test('lesson-input semantic text keeps AA contrast in base and cosmic token contexts', async ({
   page,
 }, info) => {

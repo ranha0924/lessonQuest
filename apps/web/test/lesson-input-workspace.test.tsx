@@ -161,6 +161,61 @@ describe('LessonInputWorkspace', () => {
     expect(screen.getByRole('button', { name: '수정 내용 저장' })).toBeTruthy();
   });
 
+  it('keeps unsupported text editable with actionable field guidance and saves after correction', async () => {
+    const cases = [
+      {
+        label: '수업 제목',
+        values: { title: 'before\u0000after' },
+        retained: 'before\u0000after',
+        corrected: '교정한 제목',
+      },
+      {
+        label: '학습 내용',
+        values: { learningContent: 'before\ud800after' },
+        retained: 'before\ud800after',
+        corrected: '교정한 학습 내용',
+      },
+      {
+        label: '학습목표 (한 줄에 하나)',
+        values: { objectives: 'before\udc00after' },
+        retained: 'before\udc00after',
+        corrected: '교정한 학습목표',
+      },
+    ] as const;
+
+    for (const invalid of cases) {
+      const api = new ControllableLessonInputApi();
+      api.createOutcomes.push(() =>
+        Promise.resolve({ lessonInput: firstLesson, duplicate: false }),
+      );
+      render(<LessonInputWorkspace api={api} organizationId={organizationId} />);
+      fillEditor(invalid.values);
+
+      fireEvent.click(screen.getByRole('button', { name: '수업 자료 저장' }));
+      expect(
+        await screen.findByText('지원되지 않는 문자를 지우고 다시 저장해 주세요.'),
+      ).toBeTruthy();
+      expect(screen.getByLabelText(invalid.label)).toHaveProperty('value', invalid.retained);
+      expect(screen.getByLabelText(invalid.label)).toHaveProperty('disabled', false);
+      expect(screen.getByRole('button', { name: '새 수업 자료' })).toHaveProperty(
+        'disabled',
+        false,
+      );
+      expect(screen.getByRole('button', { name: '수업 자료 저장' })).toHaveProperty(
+        'disabled',
+        false,
+      );
+      expect(api.createCalls).toHaveLength(0);
+
+      fireEvent.change(screen.getByLabelText(invalid.label), {
+        target: { value: invalid.corrected },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '수업 자료 저장' }));
+      await waitFor(() => expect(api.createCalls).toHaveLength(1));
+      cleanup();
+    }
+  });
+
   it('selects and authoritatively reopens a saved input, then updates its displayed revision', async () => {
     const api = new ControllableLessonInputApi();
     api.listResult = Promise.resolve([summary(firstLesson)]);

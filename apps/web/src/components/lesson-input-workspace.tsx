@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import {
+  LESSON_INPUT_UNSUPPORTED_TEXT_MESSAGE,
   createLessonInputInputSchema,
   updateLessonInputInputSchema,
   type CreateLessonInputInput,
@@ -53,7 +54,10 @@ function toSummary(resource: LessonInput): LessonInputSummary {
   };
 }
 
-function validationMessage(field: FieldName): string {
+function validationMessage(field: FieldName, issueMessage: string): string {
+  if (issueMessage === LESSON_INPUT_UNSUPPORTED_TEXT_MESSAGE) {
+    return '지원되지 않는 문자를 지우고 다시 저장해 주세요.';
+  }
   switch (field) {
     case 'title':
       return '수업 제목은 120자 이내로 입력해 주세요.';
@@ -238,7 +242,7 @@ export function LessonInputWorkspace({
           field === 'learningContent' ||
           field === 'learningObjectives'
         ) {
-          nextErrors[field] = validationMessage(field);
+          nextErrors[field] = validationMessage(field, issue.message);
         }
       }
       setFieldErrors(nextErrors);

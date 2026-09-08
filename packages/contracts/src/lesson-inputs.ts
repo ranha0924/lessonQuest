@@ -3,9 +3,25 @@ import { z } from 'zod';
 import { uuidSchema } from './primitives.js';
 import { supportedGradeBandSchema } from './science.js';
 
-const lessonTitleSchema = z.string().trim().min(1).max(120);
-const lessonContentSchema = z.string().trim().min(1).max(32_768);
-const learningObjectiveSchema = z.string().trim().min(1).max(300);
+export const LESSON_INPUT_UNSUPPORTED_TEXT_MESSAGE =
+  'Lesson input text must exclude NUL and unpaired surrogates';
+
+const unpairedSurrogatePattern = /[\uD800-\uDFFF]/u;
+
+function persistableTextSchema(maxLength: number) {
+  return z
+    .string()
+    .trim()
+    .min(1)
+    .max(maxLength)
+    .refine((value) => !value.includes('\u0000') && !unpairedSurrogatePattern.test(value), {
+      message: LESSON_INPUT_UNSUPPORTED_TEXT_MESSAGE,
+    });
+}
+
+const lessonTitleSchema = persistableTextSchema(120);
+const lessonContentSchema = persistableTextSchema(32_768);
+const learningObjectiveSchema = persistableTextSchema(300);
 
 export const lessonInputFieldsSchema = z.strictObject({
   title: lessonTitleSchema,

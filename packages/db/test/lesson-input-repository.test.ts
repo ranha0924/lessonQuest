@@ -133,6 +133,139 @@ describe('LessonInputRepository', () => {
     ).resolves.toMatchObject({ revision: 2 });
   });
 
+  it('canonicalizes accepted organization and target UUID spelling for exact update replay', async () => {
+    const f = await fixture();
+    const uppercaseOrganizationId = f.organization.id.toUpperCase();
+    const created = await f.inputs.create(f.teacher, uppercaseOrganizationId, validCreate);
+    const uppercaseLessonInputId = created.lessonInput.id.toUpperCase();
+    const update = {
+      ...withMutation('018f72a4-cc52-7c5a-a6f9-8b21aa270212', { title: '대문자 경로 수정' }),
+      expectedRevision: 1,
+    };
+
+    const changed = await f.inputs.update(
+      f.teacher,
+      uppercaseOrganizationId,
+      uppercaseLessonInputId,
+      update,
+    );
+    const replay = await f.inputs.update(
+      f.teacher,
+      uppercaseOrganizationId,
+      uppercaseLessonInputId,
+      update,
+    );
+    const canonicalReplay = await f.inputs.update(
+      f.teacher,
+      f.organization.id,
+      created.lessonInput.id,
+      update,
+    );
+
+    expect(changed).toMatchObject({
+      duplicate: false,
+      lessonInput: { id: created.lessonInput.id, revision: 2, title: '대문자 경로 수정' },
+    });
+    expect(replay).toEqual({ lessonInput: changed.lessonInput, duplicate: true });
+    expect(canonicalReplay).toEqual({ lessonInput: changed.lessonInput, duplicate: true });
+    expect(
+      await f.database.query<{ revision: number }>(
+        'SELECT revision FROM lesson_inputs WHERE organization_id = $1 AND id = $2',
+        [f.organization.id, created.lessonInput.id],
+      ),
+    ).toMatchObject({ rows: [{ revision: 2 }] });
+    expect(
+      await f.database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM lesson_input_mutations WHERE mutation_id = $1',
+        [update.mutationId],
+      ),
+    ).toMatchObject({ rows: [{ count: '1' }] });
+  });
+
+  it('rejects unsupported persistable text before create or update writes', async () => {
+    const f = await fixture();
+    const invalidFields = [
+      { title: 'before\u0000after' },
+      { learningContent: 'before\ud800after' },
+      { learningObjectives: ['before\udc00after'] },
+    ];
+
+    for (const [index, invalid] of invalidFields.entries()) {
+      await expect(
+        f.inputs.create(f.teacher, f.organization.id, {
+          ...withMutation(`018f72a4-cc52-7c5a-a6f9-8b21aa27022${index}`),
+          ...invalid,
+        }),
+      ).rejects.toThrow();
+    }
+    expect(
+      await f.database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM lesson_inputs',
+      ),
+    ).toMatchObject({ rows: [{ count: '0' }] });
+    expect(
+      await f.database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM lesson_input_mutations',
+      ),
+    ).toMatchObject({ rows: [{ count: '0' }] });
+
+    const created = await f.inputs.create(f.teacher, f.organization.id, validCreate);
+    for (const [index, invalid] of invalidFields.entries()) {
+      await expect(
+        f.inputs.update(f.teacher, f.organization.id, created.lessonInput.id, {
+          ...withMutation(`018f72a4-cc52-7c5a-a6f9-8b21aa27023${index}`),
+          expectedRevision: 1,
+          ...invalid,
+        }),
+      ).rejects.toThrow();
+    }
+    await expect(
+      f.inputs.get(f.teacher, f.organization.id, created.lessonInput.id),
+    ).resolves.toEqual(created.lessonInput);
+    expect(
+      await f.database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM lesson_input_mutations',
+      ),
+    ).toMatchObject({ rows: [{ count: '1' }] });
+  });
+
+  it('round-trips valid Unicode scalar text exactly through create and update', async () => {
+    const f = await fixture();
+    const unicodeCreate = {
+      ...validCreate,
+      title: '한글\t제목 😀',
+      learningContent: '첫 줄\n둘째 줄: e\u0301와 🚀',
+      learningObjectives: ['결합 문자 e\u0301', '보충 평면 문자 𠮷'],
+    };
+    const created = await f.inputs.create(f.teacher, f.organization.id, unicodeCreate);
+    const unicodeUpdate = {
+      ...unicodeCreate,
+      mutationId: '018f72a4-cc52-7c5a-a6f9-8b21aa270240',
+      expectedRevision: 1,
+      learningContent: '탭\t유지\n새 줄과 🧪',
+    };
+
+    const updated = await f.inputs.update(
+      f.teacher,
+      f.organization.id,
+      created.lessonInput.id,
+      unicodeUpdate,
+    );
+    expect(created.lessonInput).toMatchObject({
+      title: unicodeCreate.title,
+      gradeBand: unicodeCreate.gradeBand,
+      learningContent: unicodeCreate.learningContent,
+      learningObjectives: unicodeCreate.learningObjectives,
+    });
+    expect(updated.lessonInput).toMatchObject({
+      title: unicodeUpdate.title,
+      gradeBand: unicodeUpdate.gradeBand,
+      learningContent: unicodeUpdate.learningContent,
+      learningObjectives: unicodeUpdate.learningObjectives,
+      revision: 2,
+    });
+  });
+
   it('rejects cross-operation and changed-payload mutation key reuse', async () => {
     const f = await fixture();
     const created = await f.inputs.create(f.teacher, f.organization.id, validCreate);

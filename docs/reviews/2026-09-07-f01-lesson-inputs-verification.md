@@ -152,3 +152,64 @@ Review/verification prose is deliberately outside that hash and consists of `REA
 - No F02 external generation, AI provider, source-revision history browser, delete/archive, publication, Firebase, real data, production database migration, or live deployment is included.
 - Existing PGlite/Vite direct-`eval` and large-chunk build warnings remain dependency/bundle warnings; all builds completed successfully and this implementation does not alter those dependencies or bundle boundaries.
 - Independent final validation and a score above 85 with no critical blocker remain mandatory before any completion, merge, push, or deployment claim.
+
+## 2026-09-08 final-gate remediation implementer evidence
+
+This section appends evidence for the bounded correction of the two findings in the preserved `2026-09-07-f01-lesson-inputs-final-review.md`; it does not rewrite the Attempt 1 failure or claim independent acceptance. Remediation base was `0cdcd68c1efed3ae7cf984a7ecd90756f85e3067`, and the 99/100 remediation plan review authorized only this correction wave.
+
+The F01 repository now lowercases only already validated organization and lesson-input UUIDs before lookup, hashing, audit target selection, and replay comparison. The global UUID primitive, actor/auth parsing, mutation IDs, target/body binding, authorization, and revoked-replay checks are unchanged. The shared F01 persistable-text schema now rejects U+0000 and unpaired high/low UTF-16 surrogates in title, content, and each objective without replacement. Valid pairs/supplementary characters, combining marks, Hangul, tabs/newlines, trim, limits, uniqueness, and ordering remain intact. The UI uses the stable safe validation discriminator to retain exact local text, identify the field in Korean, stay editable, and avoid a request until correction; unknown-transport retry and 409 recovery code did not change.
+
+### Remediation RED/GREEN
+
+- Before production edits, the focused contract/repository/actual-HTTP/component command exited 1 with 4 failing files, 10 failures and 35 passes. It directly reproduced unsupported-text acceptance/storage behavior, uppercase exact-replay conflict, and missing local guidance. Two positive-response assertions also incorrectly included request-only mutation/revision fields; they were corrected before implementation and are not counted as product RED.
+- The unchanged preview browser regression exited 1 with 3/3 expected assertion failures at desktop/tablet/mobile because unsupported-text guidance was absent after an exact NUL textarea value was installed and observed.
+- After only the UUID boundary fix, the selected repository/API uppercase replay tests passed 2/2. After the text/UI fix, isolated final focused runs passed contracts+component 17/17, repository 18/18, API 10/10, and the rebuilt preview NUL case 3/3. One earlier combined rerun's existing audit-metadata test timed out at 15 seconds; it passed in 13.11 seconds when rerun alone, so no timeout was raised.
+
+### Fresh sequential matrix
+
+| Command                                                    | Actual result                                                                                       |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `corepack pnpm check`                                      | PASS, exit 0: lint/format/types/builds; Vitest **44 files / 473 tests**; normal web **149 modules** |
+| `corepack pnpm test:integration`                           | PASS, exit 0: **9 files / 80 tests**                                                                |
+| `corepack pnpm test:e2e`                                   | PASS, exit 0: **12 files / 80 tests**                                                               |
+| `corepack pnpm test:browser`                               | PASS, exit 0: normal/demo **149 modules**, Chromium **12/12**                                       |
+| `corepack pnpm test:preview`                               | PASS, exit 0: normal **149**, preview **230 modules**, Chromium **42/42**                           |
+| `corepack pnpm audit --prod --audit-level high`            | PASS, exit 0: no known vulnerabilities                                                              |
+| Pre-commit committed-range plus working `git diff --check` | PASS, exit 0, no output                                                                             |
+
+Three ignored historical review `.mjs` probes created after the first candidate are not covered by Git ignore in ESLint's flat config. The first check therefore stopped before tests. For the exact successful retry, only those three ignored scripts were temporarily relocated to `mktemp` under an EXIT trap and restored byte-for-byte; their before/after SHA-256 values matched. The retry then exposed two new-code lint errors, which were corrected without config changes, after which the same scratch-excluded command produced the PASS above. The ignored recovery report preserves these non-product attempts and exact hashes.
+
+Dependency files are unchanged from remediation base: all 11 `package.json` files and `pnpm-lock.yaml`. A corrected added-line scan found zero private-key/AWS/GitHub/Google/OpenAI/Slack/JWT/Firebase credential shapes. All 8 fresh files under `apps/web/dist-normal-check` had zero `dev_`, preview actor, PGlite/runtime/WASM, fixture-title/objective/body markers and zero PGlite/initdb/mount/nodefs/opfs artifact-name matches. The first credential wrapper used a leading-hyphen pattern without `rg --`; its result was discarded and the corrected scan exited 0.
+
+### Remediated frozen implementation/test/config manifest
+
+The same sorted base-relative rule as the first candidate (`git diff --name-only 79e9dde...`, excluding `.superpowers/**`, `docs/**`, and `README.md`) yields **24 files**. Review prose is outside this hash. Aggregate manifest SHA-256: **`542a8696dea998684b7e41e3638db2a302ce661a46623d4bf90aef0267591de3`**.
+
+```text
+bff27120f96b2b9d8ba367703e53c867cfcf5718ecbf8dfba6e441f1f5ce6550  .prettierignore
+ca2e87ee33a1a376ed7f4668fcec569bd12694e165b497147d6b0e9d91f4b658  apps/web/src/api-client.ts
+d9b4d7a671756e4b173ad28e4a9d59f8c8c063889b6ae17039538a423110305a  apps/web/src/components/lesson-input-workspace.tsx
+e827c3f64d126d4f102b5e8d8b00c530ecdd609255f69e4aa7b139828f12b4ef  apps/web/src/components/studio-workbench.tsx
+e3e8108f1d9533d991b2b8852f44b859920c6af6fdfa7f1e5eb48b1874a1ba53  apps/web/src/dev-preview/development-preview.tsx
+ca29896850f23bcfaf2657f971eb3a070de105b18fa58538dd42030bb23f76a1  apps/web/src/dev-preview/runtime.ts
+35f8b162d580be4c01d499be22b1f85543545f2d6b985106d3c177c9cbc2cd14  apps/web/src/lesson-inputs.css
+0ba62aa42f86153928d921d6e99995f901cb345d2d1c9ab2104a1993e10741aa  apps/web/test/api-client.test.ts
+880a6190ea4840aab445ed1410718faedd7a61b21fd32db02e72f69b69f8c69e  apps/web/test/lesson-input-workspace.test.tsx
+d46f018273c2b75beb45423b446f6bce246bc431d68dcd59e4e4ad4b26cecc9a  apps/web/test/lesson-inputs-e2e.test.tsx
+183a920fa6845c876dd45b34b4f9533e97505c6d58eba21f20a0b362b0cac8d3  package.json
+3f9e321626052929dd29bbb4384a188dd414c3a507ac54b690e225ca07f64b5e  packages/contracts/src/index.ts
+4b575564a782cfa0f42b5f4681700d2b7726e5c3d92b7c61a5a97ffd7e00aa37  packages/contracts/src/lesson-inputs.ts
+f83b5624003b8a7df9c892ceef4efd9fcb3bc51e19eb0c554757294e4fee86fa  packages/contracts/test/lesson-inputs.test.ts
+6d7fff31355072479ae5bfb34a86ed40f1702e8c254d899d8672d2e1e35a2232  packages/db/src/index.ts
+dc9d709a8b3000b5ccfe9881309ed652fa365f5849b1ecd34f373d5a6b4c64a6  packages/db/src/lesson-input-repository.ts
+e6bd7c0d88e34c34bae93958fc1a5727491393b5c00d10eeafa82a1df18a1e58  packages/db/src/schema.ts
+3889c1096fad3616e57fe8aedcdcb52516576b1af7930d37691ac88e7b117662  packages/db/test/lesson-input-fixture.ts
+e54e66965331b97811a49f17c92ddd010083530fe7cbb0e7fc242e121e0864d2  packages/db/test/lesson-input-repository.test.ts
+e6b6dcc9b8e4753d7e4dc851f857f84de93cecef712c92f855188cdf72197cf0  services/api/src/app.ts
+0fbc10e93bffdd8d5933830989bba66e4af9adc6926a599ba462696b401c4f15  services/api/src/lesson-input-routes.ts
+cbf942f29dde8b291f609bdf1bbe823c9c541f2cb9fedc20e1c2e1d8699240d5  services/api/test/lesson-inputs.test.ts
+608eebd15c66b71bd4fed29ab6267ffc6974136012b248f3f895292b0625ab24  tests/browser/measurements.ts
+95c22b8512c15b9a5fc24d71acaca2795b3b210a0302137288342648dc0fc71f  tests/browser/service-preview.spec.ts
+```
+
+The corrected candidate remains pending a fresh non-implementing final score strictly above 85 with no critical blocker. No merge, push, deployment, or external mutation is authorized by this implementer record.
