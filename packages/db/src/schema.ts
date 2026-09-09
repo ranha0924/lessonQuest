@@ -7,6 +7,15 @@ const schemaSql = `
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED'))
   );
 
+  CREATE TABLE IF NOT EXISTS firebase_identities (
+    project_id TEXT NOT NULL CHECK (project_id ~ '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'),
+    uid TEXT NOT NULL CHECK (uid ~ '^[A-Za-z0-9:_-]{1,128}$'),
+    user_id UUID NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
+    PRIMARY KEY (project_id, uid),
+    UNIQUE (project_id, user_id)
+  );
+
   CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY,
     name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 80),

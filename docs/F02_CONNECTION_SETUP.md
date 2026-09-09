@@ -1,18 +1,21 @@
 # F02 외부 연결 준비
 
-2026-09-08. 사용자가 Firebase 프로젝트 `lessonquest-df4b0` 생성과 Neon/Vercel 연결 완료를 보고했다. 아래 절차 중 완료된 항목을 다시 만들지 않는다. 에이전트는 외부 자원을 생성하거나 자격증명을 취득/설정하지 않았으며 실제 설정 검증은 로그인 대기 중이다. 이 기록은 구현/배포 완료 증거가 아니다.
+2026-09-09 확인. 사용자가 만든 전용 자원을 읽기 전용으로 확인했다. 이 기록은 F02 구현·운영 배포 완료 증거가 아니다.
 
 ## 현재 확인 상태
 
-| 항목                                                   | 상태                                                                                                                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Firebase project                                       | `lessonquest-df4b0`, 사용자 생성 완료 보고                                                                                                  |
-| Firebase Google 제공자·승인 도메인                     | Codex 브라우저 로그인 후 확인 필요                                                                                                          |
-| Vercel                                                 | 기존 유료 계정, 기존 기록의 team `ranha0924s-projects`, project `web`, ID `prj_LzEIlAOSVRxc4upq58WKd12OdoTf`; 현재 대시보드에서 재확인 필요 |
-| Neon                                                   | 사용자 연결 완료 보고; DB 식별자·환경 분리·접두사 실제 값은 미확인                                                                          |
-| 서버 Firebase credential / OpenAI key / PostgreSQL URL | 에이전트 미취득·미설정                                                                                                                      |
-| Codex 내장 브라우저                                    | Firebase와 Vercel 둘 다 로그인 화면으로 이동함                                                                                              |
-| 코드 작업 위치                                         | `.worktrees/f02-live-authoring`, `codex/f02-live-authoring`, F01 `fe20d4b` 기반                                                             |
+| 항목                   | 확인 결과                                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Firebase               | 프로젝트 `lessonquest-df4b0`, Google 로그인 활성화, 웹 앱 `webapp` 등록 확인                                                                    |
+| Firebase 승인 도메인   | localhost 및 Firebase 기본 도메인만 있음. `web-phi-lyart-72.vercel.app`은 아직 미등록                                                           |
+| Vercel                 | 로그인 완료. team `ranha0924s-projects`, project `web`, ID `prj_LzEIlAOSVRxc4upq58WKd12OdoTf`, Git 저장소 `ranha0924/lessonQuest` 연결 확인     |
+| 기존 운영 배포         | 도메인 `web-phi-lyart-72.vercel.app`, Git main `79e9dde6a8ff2b1f6bb850b2f94135d355f38a2f` 표시                                                  |
+| Neon                   | `neon-aero-jacket`, ID `bitter-math-50383085`, Free/Available, `web` 연결 확인. 다른 앱은 별도 리소스 사용                                      |
+| DB 환경변수            | DATABASE_URL, DATABASE_URL_UNPOOLED 및 PostgreSQL 변수들이 Secret으로 Production·Preview에 존재. 값은 열지 않음. 실제 branch 분리는 아직 미확인 |
+| Neon 콘솔              | 이메일 활성화 단계. 사용자에게 인증메일 링크 확인 요청함                                                                                        |
+| OpenAI                 | Vercel에 OPENAI_API_KEY가 없음. Secret·Production 입력 창에 이름만 준비하고 사용자에게 직접 키 입력/Save 요청함. 값 미취득                      |
+| Firebase 서버 인증정보 | Vercel 등록 미확인/미설정. 웹 공개 설정과 서버 Credential은 별도이며 키 생성·취득하지 않음                                                      |
+| 코드 작업 위치         | `.worktrees/f02-live-authoring`, `codex/f02-live-authoring`. 비동기 인증 선행 작업은 `bdfdc15`, 독립심사99/100                                  |
 
 계정 로그인은 사용자가 직접 수행한다. 비밀값은 채팅에 붙여 넣지 않는다. 연결이 완료된 것으로 보고된 자원은 중복 생성하지 않고 해당 설정을 조회하여 확인한다.
 
@@ -38,6 +41,8 @@ Firebase 웹 앱 설정(apiKey, authDomain, projectId, appId)은 클라이언트
 
 ## 3. OpenAI
 
+2026-09-09 사용자 확정: **결제 서비스 없음 — AI 기본 차단**. 키가 존재해도 인증·교사 권한만으로 호출을 열지 않는다. 실제 결제 연동과 서버 이용권 검증 전에는 외부 생성 호출을 차단하고 로그인·서버 저장을 계속 구현한다. API 키는 사용자에게 공개되는 기능이 아니라 서버 비밀이다. 결제 도입 시에도 계정별 한도와 서버 검증을 통과한 요청만 호출한다.
+
 - 기존 키를 사용할 수 있으나 프로젝트별 사용량을 구분할 수 있는 LessonQuest 전용 키가 적합하다.
 - `OPENAI_API_KEY`는 Vercel 서버 환경변수로 설정한다. `VITE_` 접두사를 붙이지 않는다.
 - 모델 후보는 `gpt-5.6-luna`. 계정 접근 가능 여부를 실제 호출 전에 확인한다.
@@ -54,8 +59,8 @@ Google 로그인과 교사 승인은 별개다. 첫 운영자의 Firebase uid를
 
 ## 다음 확인 정보
 
-- Firebase 전용 project ID.
-- Neon/Vercel 연결 완료 여부와 전용 DB 이름.
-- 비밀 환경변수를 설정할 수 있는지 여부.
+- Neon 이메일 활성화 완료 여부와 실제 Preview branch 분리.
+- OPENAI_API_KEY 저장 완료 여부(비밀값 불필요).
+- 서버용 Firebase Credential과 명시적 최초 교사 uid 등록 절차.
 
-위 정보가 확인되면 실제 프로젝트별 도메인·환경변수·접근 권한을 확정한다. 자원 생성은 사용자 보고로 확인했으나 실제 설정·자격증명은 아직 확인하지 못했으므로 실제 로그인·서버 저장·AI 생성의 라이브 검증은 대기 중이다.
+Vercel·Firebase·Neon의 자원 식별과 일부 설정은 직접 확인했다. 실제 서버 자격증명, 운영 도메인 등록, Preview DB 분리, 서버 구현·마이그레이션·최초 교사 등록·생성과 라이브 검증은 남아 있다. 키나 실제 학생 데이터 없이 수행 가능한 로컬 구현은 별도 사전·최종 게이트로 계속 진행한다.

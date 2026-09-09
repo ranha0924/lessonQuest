@@ -4,4 +4,5 @@ export * from './classroom-repository.js';
 export * from './gamification-repository.js';
 export * from './rasa-repository.js';
 export * from './schema.js';
+export * from './firebase-identity-repository.js';
 export * from './tenant-repository.js';
