@@ -1,5 +1,7 @@
 import { actorSchema, type Actor } from '@lessonquest/contracts';
 
+import type { AuthProvider } from './provider.js';
+
 const developmentTokenPattern = /^dev_[A-Za-z0-9_-]{32,128}$/;
 
 export class AuthenticationError extends Error {
@@ -21,7 +23,7 @@ export interface LocalAuthOptions {
   sessions: ReadonlyMap<string, unknown>;
 }
 
-export class LocalAuthProvider {
+export class LocalAuthProvider implements AuthProvider {
   readonly #sessions = new Map<string, Actor>();
 
   constructor(options: LocalAuthOptions) {

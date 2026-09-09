@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { AuthenticationError, type LocalAuthProvider } from '@lessonquest/auth';
+import { AuthenticationError, type AuthProvider } from '@lessonquest/auth';
 import {
   addClassMemberInputSchema,
   assignmentSchema,
@@ -82,7 +82,7 @@ class ApiProblem extends Error {
 }
 
 export interface CreateAppOptions {
-  auth: LocalAuthProvider;
+  auth: AuthProvider;
   repository: TenantRepository;
   learningRepository: LearningRepository;
   rasaRepository?: RasaRepository;
@@ -331,7 +331,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       await next();
       return;
     }
-    context.set('actor', options.auth.resolve(context.req.header('authorization')));
+    context.set('actor', await options.auth.resolve(context.req.header('authorization')));
     await next();
   });
   app.use('*', async (context, next) => {
