@@ -1,0 +1,14 @@
+# F02 live routing remediation — pre-implementation review
+
+2026-09-09. Review scope is the confirmed deployment blocker and test-harness gap in the live teacher workspace. Read the parent plan, PROJECT_CANON, memory rubric and the official converter evidence in .verification/f02-live-independent-routing.log. The parent implementation is not accepted while its final gate is failing.
+
+| Category                               |           Score | Evidence                                                                                                                                                                                                                                  |
+| -------------------------------------- | --------------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Requirements and scope coverage        |           25/25 | Restores the required session/health/F01 routes while keeping AI denied and preserving the existing live deployment until acceptance.                                                                                                     |
+| Architecture and interface quality     |           20/20 | Unnamed capture has a verified destination without query injection; the Fetch gateway's query/origin/path validation remains intact.                                                                                                      |
+| Security, privacy and tenant safety    |           20/20 | No new public routing parameter or forwarded-header authority, no runtime dependency, explicit missing-env isolation in tests and no remote data/configuration mutation.                                                                  |
+| Test and verification quality          |           20/20 | Official actual-config conversion fails before correction, then exercises allowed routes; the real browser/SQL harness also applies the conversion. Full check/live/audit/artifact validation and fresh independent review are specified. |
+| Execution readiness and recoverability |           14/15 | Exact files, pinned version and expected conversion are known; no data migration and no deployment until the gate. Real platform smoke remains a release prerequisite.                                                                    |
+| **Total**                              | **99/100 PASS** | **No critical blocker to this local corrective implementation. The failed final gate still blocks release until a fresh independent pass.**                                                                                               |
+
+This review authorizes only the documented local correction and validation. It does not mark the full F02 feature or any remote connection complete.

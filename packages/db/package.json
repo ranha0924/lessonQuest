@@ -23,6 +23,13 @@
         "default": "./dist/provisioning.js"
       },
       "default": null
+    },
+    "./runtime-readiness": {
+      "node": {
+        "types": "./dist/runtime-readiness.d.ts",
+        "default": "./dist/runtime-readiness.js"
+      },
+      "default": null
     }
   },
   "files": [

@@ -7,6 +7,7 @@ export default tseslint.config(
       '**/.worktrees/**',
       '**/coverage/**',
       '**/dist/**',
+      '**/dist-live*/**',
       '**/dist-preview/**',
       '**/dist-normal-check/**',
       '**/node_modules/**',

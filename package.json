@@ -19,7 +19,8 @@
     "build": "pnpm -r --sort --if-present build",
     "check": "pnpm deps:build && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
     "test:preview": "pnpm deps:build && VITE_DEMO_MODE=false VITE_DEV_PREVIEW=false pnpm --filter @lessonquest/web build --outDir dist-normal-check --base /normal-build/ && VITE_DEMO_MODE=false VITE_DEV_PREVIEW=true pnpm --filter @lessonquest/web build --outDir dist-preview && playwright test --config playwright.preview.config.ts",
-    "test:postgres": "pnpm deps:build && node scripts/test-postgres.js"
+    "test:postgres": "pnpm deps:build && node scripts/test-postgres.js",
+    "test:live": "pnpm deps:build && VITE_LIVE_MODE=true VITE_DEMO_MODE=false VITE_DEV_PREVIEW=false pnpm --filter @lessonquest/web build --outDir dist-live --base /live-build/ && pnpm --filter @lessonquest/web exec vite build --config vite.live-test.config.ts && playwright test --config playwright.live.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -33,6 +34,10 @@
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "typescript-eslint": "8.68.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "@vercel/routing-utils": "6.5.0"
+  },
+  "dependencies": {
+    "@lessonquest/api": "workspace:*"
   }
 }

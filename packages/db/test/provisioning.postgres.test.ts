@@ -1,3 +1,7 @@
+import { createApp } from '@lessonquest/api';
+import { createServerHandler } from '../../../services/api/src/server-runtime.js';
+import { FirebaseAuthProvider } from '../../auth/dist/firebase.js';
+import { TenantRepository, LearningRepository, TeacherSessionRepository } from '@lessonquest/db';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PostgresDatabase, postgresPoolConfig } from '../src/postgres.js';
@@ -6,6 +10,7 @@ import { FirebaseIdentityRepository } from '../src/firebase-identity-repository.
 import type { SqlDatabase } from '../src/sql.js';
 import { LessonInputRepository } from '../src/lesson-input-repository.js';
 
+import { requireRuntimeReadiness } from '../src/runtime-readiness.js';
 import { initialSchemaSql, initialSchemaChecksum } from '../src/migrations/0001.js';
 
 const projectId = 'lessonquest-test';
@@ -626,4 +631,122 @@ describe('dedicated versioned schema and explicit teacher provisioning', () => {
     await admin.exec(`GRANT UPDATE ON lessonquest.users TO ${role}`);
     await expect(migrateLessonQuest(admin, role)).rejects.toThrow('Provisioning failed');
   });
+});
+
+it('runtime readiness accepts only the restricted login, performs no writes, and rejects owner credentials', async () => {
+  await migrateLessonQuest(admin, role);
+  const db = appPool();
+  const sql: string[] = [];
+  await requireRuntimeReadiness({
+    query: async (statement, params) => {
+      sql.push(statement);
+      return db.query(statement, params);
+    },
+  });
+  expect(sql.every((statement) => /^\s*(SELECT|WITH)\b/i.test(statement))).toBe(true);
+  expect(sql.length).toBeLessThan(15);
+  await expect(requireRuntimeReadiness(admin)).rejects.toThrow('Runtime storage is unavailable');
+  await admin.exec(`GRANT SELECT ON lessonquest.lesson_inputs TO PUBLIC`);
+  await expect(requireRuntimeReadiness(db)).rejects.toThrow('Runtime storage is unavailable');
+});
+it('runtime readiness refuses missing schema and incoming role delegation', async () => {
+  const db = appPool();
+  await expect(requireRuntimeReadiness(db)).rejects.toThrow('Runtime storage is unavailable');
+  await migrateLessonQuest(admin, role);
+  const outsider = await extraRole();
+  await admin.exec(`GRANT ${role} TO ${outsider}`);
+  await expect(requireRuntimeReadiness(db)).rejects.toThrow('Runtime storage is unavailable');
+});
+
+it('routes verified synthetic teacher sessions through the live gateway into persistent restricted PostgreSQL', async () => {
+  await migrateLessonQuest(admin, role);
+  const registered = await bootstrapTeacher(admin, { projectId, uid, organizationName });
+  const db = appPool();
+  const origin = 'https://lessonquest.test';
+  const now = Math.floor(Date.now() / 1000);
+  const auth = new FirebaseAuthProvider({
+    projectId,
+    identities: new FirebaseIdentityRepository(db),
+    verifier: {
+      verifyIdToken: () =>
+        Promise.resolve({
+          uid,
+          sub: uid,
+          aud: projectId,
+          iss: `https://securetoken.google.com/${projectId}`,
+          email_verified: true,
+          firebase: { sign_in_provider: 'google.com' },
+          exp: now + 600,
+          iat: now,
+          auth_time: now,
+        }),
+    },
+  });
+  const app = createApp({
+    auth,
+    repository: new TenantRepository(db),
+    learningRepository: new LearningRepository(db),
+    teacherSessionRepository: new TeacherSessionRepository(db),
+    lessonInputRepository: new (await import('@lessonquest/db')).LessonInputRepository(db),
+    trustedOrigin: origin,
+    diagnostics: { record() {} },
+  });
+  const gateway = createServerHandler(() =>
+    Promise.resolve({
+      origin,
+      fetch: (request) => Promise.resolve(app.fetch(request)),
+      close: () => Promise.resolve(),
+    }),
+  );
+  const headers = {
+    origin,
+    authorization: 'Bearer synthetic.uid.signature',
+    'content-type': 'application/json',
+  };
+  const session = await gateway(new Request(origin + '/api/session', { headers }));
+  expect(session.status).toBe(200);
+  expect(await session.json()).toMatchObject({
+    userId: registered.userId,
+    organizations: [{ id: registered.organizationId }],
+  });
+  const path = `/api/organizations/${registered.organizationId}/lesson-inputs`;
+  expect((await gateway(new Request(origin + path))).status).toBe(401);
+  const saved = await gateway(
+    new Request(origin + path, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        mutationId: randomUUID(),
+        title: 'Persistent gateway lesson',
+        gradeBand: 'middle1',
+        learningContent: 'Synthetic only',
+        learningObjectives: ['Explain force'],
+      }),
+    }),
+  );
+  expect(saved.status).toBe(201);
+  const body = (await saved.json()) as { lessonInput: { id: string } };
+  const generated = await gateway(
+    new Request(origin + path + '/' + body.lessonInput.id + '/generations', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ mutationId: randomUUID(), expectedRevision: 1 }),
+    }),
+  );
+  expect(generated.status).toBe(403);
+  expect(await generated.json()).toMatchObject({ error: { code: 'AI_BILLING_NOT_CONFIGURED' } });
+  await db.close();
+  const fresh = appPool();
+  const actor = (await new FirebaseIdentityRepository(fresh).findActor(projectId, uid))!;
+  expect(
+    (
+      await new LessonInputRepository(fresh).get(
+        actor,
+        registered.organizationId,
+        body.lessonInput.id,
+        randomUUID(),
+      )
+    ).title,
+  ).toBe('Persistent gateway lesson');
+  auth.dispose();
 });

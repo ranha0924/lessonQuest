@@ -8,3 +8,5 @@ export * from './manifest.js';
 export * from './primitives.js';
 export * from './rasa.js';
 export * from './science.js';
+
+export * from './teacher-session.js';

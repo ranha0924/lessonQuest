@@ -16,7 +16,8 @@
     "@lessonquest/rasa": "workspace:*",
     "@noble/hashes": "catalog:",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "firebase": "catalog:"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",

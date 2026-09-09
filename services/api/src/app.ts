@@ -26,6 +26,7 @@ import {
   studentBossProgressSchema,
   teacherBossDetailSchema,
   uuidSchema,
+  teacherSessionSchema,
   type Actor,
 } from '@lessonquest/contracts';
 import {
@@ -41,6 +42,7 @@ import {
   type GamificationRepository,
   type ClassroomRepository,
   type LessonInputRepository,
+  type TeacherSessionRepository,
 } from '@lessonquest/db';
 import type { RasaHintProvider } from '@lessonquest/rasa';
 import { ScienceGenerationError } from '@lessonquest/science-studio';
@@ -90,6 +92,7 @@ export interface CreateAppOptions {
   gamificationRepository?: GamificationRepository;
   classroomRepository?: ClassroomRepository;
   lessonInputRepository?: LessonInputRepository;
+  teacherSessionRepository?: TeacherSessionRepository;
   rasaProvider?: RasaHintProvider;
   rasaTimeoutMs?: number;
   trustedOrigin: string;
@@ -314,6 +317,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
   app.use('*', secureHeaders());
   app.use('*', async (context, next) => {
     if (
+      context.req.path === '/session' ||
       isLessonInputPath(context.req.path) ||
       /^\/organizations\/[^/]+\/lesson-inputs\/[^/]+\/generations$/.test(context.req.path)
     ) {
@@ -389,6 +393,13 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
     }
     await next();
   });
+
+  if (options.teacherSessionRepository !== undefined) {
+    const sessions = options.teacherSessionRepository;
+    app.get('/session', async (context) =>
+      context.json(teacherSessionSchema.parse(await sessions.get(context.get('actor')))),
+    );
+  }
 
   app.get('/health', (context) => context.json({ status: 'ok' }));
 

@@ -1,160 +1,17 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { initialSchemaSql, initialSchemaChecksum } from './migrations/0001.js';
-import type { SqlDatabase, SqlTransaction } from './sql.js';
-
-class ProvisioningError extends Error {
-  constructor() {
-    super('Provisioning failed');
-    this.name = 'ProvisioningError';
-  }
-}
-const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-const readTables = [
-  'users',
-  'firebase_identities',
-  'organizations',
-  'organization_members',
-  'schema_migrations',
-];
-const insertTables = ['lesson_input_mutations', 'audit_logs'];
-const writeTables = ['lesson_inputs'];
-
-async function inventory(tx: SqlTransaction): Promise<string> {
-  const result = await tx.query<{ item: string }>(`
-    SELECT 'relation:'||relkind::text||':'||relname AS item FROM pg_catalog.pg_class
-      WHERE relnamespace='lessonquest'::regnamespace
-    UNION ALL SELECT 'function:'||proname||':'||pg_catalog.pg_get_function_identity_arguments(oid)
-      FROM pg_catalog.pg_proc WHERE pronamespace='lessonquest'::regnamespace
-    UNION ALL SELECT 'trigger:'||c.relname||':'||t.tgname FROM pg_catalog.pg_trigger t
-      JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace='lessonquest'::regnamespace AND NOT t.tgisinternal
-    ORDER BY item`);
-  return hash(JSON.stringify(result.rows));
-}
-async function requireVersion(tx: SqlTransaction): Promise<string> {
-  if (hash(initialSchemaSql) !== initialSchemaChecksum) throw new ProvisioningError();
-  const result = await tx.query<{
-    version: number;
-    checksum: string;
-    inventory_hash: string;
-    runtime_role: string;
-  }>(
-    'SELECT version,checksum,inventory_hash,runtime_role FROM lessonquest.schema_migrations ORDER BY version',
-  );
-  if (
-    result.rows.length !== 1 ||
-    result.rows[0]?.version !== 1 ||
-    result.rows[0].checksum !== initialSchemaChecksum ||
-    result.rows[0].inventory_hash !== (await inventory(tx)) ||
-    typeof result.rows[0].runtime_role !== 'string'
-  )
-    throw new ProvisioningError();
-  return result.rows[0].runtime_role;
-}
-async function requireOwner(tx: SqlTransaction): Promise<void> {
-  const result = await tx.query<{ owned: boolean }>(
-    "SELECT nspowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=current_user) AS owned FROM pg_catalog.pg_namespace WHERE nspname='lessonquest'",
-  );
-  if (result.rows[0]?.owned !== true) throw new ProvisioningError();
-}
-async function requireSafeRuntimeRole(tx: SqlTransaction, role: string): Promise<void> {
-  if (typeof role !== 'string' || !/^[a-z][a-z0-9_]{0,62}$/.test(role))
-    throw new ProvisioningError();
-  const result = await tx.query<{ safe: boolean }>(
-    `SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolbypassrls AND NOT rolreplication
-    AND rolname<>current_user AND NOT pg_catalog.pg_has_role(oid,current_user,'MEMBER')
-    AND oid<>(SELECT datdba FROM pg_catalog.pg_database WHERE datname=current_database())
-    AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=r.oid)
-    AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE roleid=r.oid
-      AND member<>(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=current_user)) AS safe
-    FROM pg_catalog.pg_roles r WHERE rolname=$1`,
-    [role],
-  );
-  if (result.rows[0]?.safe !== true) throw new ProvisioningError();
-}
-async function requireExactAcl(tx: SqlTransaction, role: string): Promise<void> {
-  const unexpected = await tx.query(
-    `
-    WITH expected AS (
-      SELECT (SELECT oid FROM pg_catalog.pg_roles WHERE rolname=current_user) AS owner,
-             (SELECT oid FROM pg_catalog.pg_roles WHERE rolname=$1) AS runtime
-    ), table_objects AS (
-      SELECT c.oid,c.relowner AS owner,c.relacl AS acl,c.relkind,
-        CASE WHEN c.relname=ANY($4::text[]) THEN ARRAY['SELECT','INSERT','UPDATE']
-          WHEN c.relname=ANY($3::text[]) THEN ARRAY['SELECT','INSERT']
-          WHEN c.relname=ANY($2::text[]) THEN ARRAY['SELECT'] ELSE ARRAY[]::text[] END AS allowed
-      FROM pg_catalog.pg_class c WHERE c.relnamespace='lessonquest'::regnamespace AND c.relkind IN ('r','p','S')
-    ), objects AS (
-      SELECT nspowner AS owner,COALESCE(nspacl,acldefault('n',nspowner)) AS acl,ARRAY['USAGE'] AS allowed
-        FROM pg_catalog.pg_namespace WHERE nspname='lessonquest'
-      UNION ALL SELECT owner,COALESCE(acl,acldefault(CASE WHEN relkind='S' THEN 's'::"char" ELSE 'r'::"char" END,owner)),
-        CASE WHEN relkind='S' THEN ARRAY[]::text[] ELSE allowed END FROM table_objects
-      UNION ALL SELECT t.owner,COALESCE(a.attacl,ARRAY[]::aclitem[]),t.allowed FROM pg_catalog.pg_attribute a
-        JOIN table_objects t ON t.oid=a.attrelid WHERE a.attnum>0 AND NOT a.attisdropped
-      UNION ALL SELECT proowner,COALESCE(proacl,acldefault('f',proowner)),ARRAY[]::text[]
-        FROM pg_catalog.pg_proc WHERE pronamespace='lessonquest'::regnamespace
-    )
-    SELECT 1 FROM objects o CROSS JOIN expected e LEFT JOIN LATERAL aclexplode(CASE WHEN cardinality(o.acl)>0 THEN o.acl ELSE NULL END) a ON true
-    WHERE o.owner<>e.owner OR (a.grantee IS NOT NULL AND (
-      a.grantor<>e.owner OR (a.grantee<>e.owner AND (
-        a.grantee<>e.runtime OR a.is_grantable OR NOT a.privilege_type=ANY(o.allowed)
-      ))
-    )) LIMIT 1`,
-    [role, readTables, insertTables, writeTables],
-  );
-  if (unexpected.rows.length !== 0) throw new ProvisioningError();
-}
-
-async function requireRuntimeGrants(tx: SqlTransaction, role: string): Promise<void> {
-  await requireSafeRuntimeRole(tx, role);
-  await requireExactAcl(tx, role);
-  const schema = await tx.query<{ usage: boolean; create: boolean }>(
-    "SELECT has_schema_privilege($1,'lessonquest','USAGE') AS usage,has_schema_privilege($1,'lessonquest','CREATE') AS create",
-    [role],
-  );
-  if (schema.rows[0]?.usage !== true || schema.rows[0].create !== false)
-    throw new ProvisioningError();
-  const tables = await tx.query<{ name: string; oid: number }>(
-    "SELECT relname AS name,oid FROM pg_catalog.pg_class WHERE relnamespace='lessonquest'::regnamespace AND relkind IN ('r','p')",
-  );
-  for (const table of tables.rows) {
-    const expected = new Set(
-      writeTables.includes(table.name)
-        ? ['SELECT', 'INSERT', 'UPDATE']
-        : insertTables.includes(table.name)
-          ? ['SELECT', 'INSERT']
-          : readTables.includes(table.name)
-            ? ['SELECT']
-            : [],
-    );
-    for (const privilege of [
-      'SELECT',
-      'INSERT',
-      'UPDATE',
-      'DELETE',
-      'TRUNCATE',
-      'REFERENCES',
-      'TRIGGER',
-    ]) {
-      const result = await tx.query<{ allowed: boolean }>(
-        'SELECT has_table_privilege($1,$2::oid,$3) AS allowed',
-        [role, table.oid, privilege],
-      );
-      if (result.rows[0]?.allowed !== expected.has(privilege)) throw new ProvisioningError();
-      if (['SELECT', 'INSERT', 'UPDATE', 'REFERENCES'].includes(privilege)) {
-        const columns = await tx.query<{ allowed: boolean }>(
-          'SELECT has_any_column_privilege($1,$2::oid,$3) AS allowed',
-          [role, table.oid, privilege],
-        );
-        if (columns.rows[0]?.allowed !== expected.has(privilege)) throw new ProvisioningError();
-      }
-    }
-  }
-  const functions = await tx.query(
-    "SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='lessonquest'::regnamespace AND has_function_privilege($1,oid,'EXECUTE')",
-    [role],
-  );
-  if (functions.rows.length !== 0) throw new ProvisioningError();
-}
+import type { SqlDatabase } from './sql.js';
+import {
+  ProvisioningError,
+  hash,
+  readTables,
+  insertTables,
+  inventory,
+  requireVersion,
+  requireOwner,
+  requireSafeRuntimeRole,
+  requireRuntimeGrants,
+} from './provisioning-validation.js';
 
 export async function migrateLessonQuest(
   database: SqlDatabase,
@@ -165,7 +22,9 @@ export async function migrateLessonQuest(
       await tx.query(
         "SELECT pg_catalog.pg_advisory_xact_lock(hashtextextended('lessonquest:migrations',0))",
       );
-      await requireSafeRuntimeRole(tx, runtimeRole);
+      const owner = (await tx.query<{ owner: string }>('SELECT current_user AS owner')).rows[0]!
+        .owner;
+      await requireSafeRuntimeRole(tx, runtimeRole, owner);
       if (hash(initialSchemaSql) !== initialSchemaChecksum) throw new ProvisioningError();
       const exists = await tx.query(
         "SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='lessonquest'",
@@ -173,7 +32,7 @@ export async function migrateLessonQuest(
       if (exists.rows.length) {
         await requireOwner(tx);
         if ((await requireVersion(tx)) !== runtimeRole) throw new ProvisioningError();
-        await requireRuntimeGrants(tx, runtimeRole);
+        await requireRuntimeGrants(tx, runtimeRole, owner);
         return { status: 'unchanged', version: 1 };
       }
       await tx.exec(
@@ -194,7 +53,7 @@ export async function migrateLessonQuest(
         [initialSchemaChecksum, await inventory(tx), runtimeRole],
       );
       await requireVersion(tx);
-      await requireRuntimeGrants(tx, runtimeRole);
+      await requireRuntimeGrants(tx, runtimeRole, owner);
       return { status: 'applied', version: 1 };
     });
   } catch {
@@ -224,10 +83,10 @@ export async function bootstrapTeacher(
     )
       throw new ProvisioningError();
     return await database.transaction(async (tx) => {
-      await requireOwner(tx);
+      const owner = await requireOwner(tx);
       const runtimeRole = await requireVersion(tx);
-      await requireSafeRuntimeRole(tx, runtimeRole);
-      await requireRuntimeGrants(tx, runtimeRole);
+      await requireSafeRuntimeRole(tx, runtimeRole, owner);
+      await requireRuntimeGrants(tx, runtimeRole, owner);
       await tx.exec('SET LOCAL search_path=lessonquest,pg_catalog');
       await tx.query('SELECT pg_catalog.pg_advisory_xact_lock(hashtextextended($1,0))', [
         `lessonquest:bootstrap:${input.projectId}:${input.uid}`,

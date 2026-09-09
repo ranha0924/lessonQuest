@@ -4,6 +4,20 @@ import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const environment = { ...loadEnv(mode, process.cwd(), 'VITE_'), ...process.env };
+  const live = environment['VITE_LIVE_MODE'] === 'true';
+  if (
+    Object.keys(environment).some((key) =>
+      /^VITE_.*(?:OPENAI|PRIVATE_KEY|SERVICE_ACCOUNT|DATABASE_URL|PGPASSWORD|POSTGRES|MIGRATION)/i.test(
+        key,
+      ),
+    )
+  )
+    throw new Error('Server credentials cannot be exposed to the browser');
+  if (
+    live &&
+    (environment['VITE_DEV_PREVIEW'] === 'true' || environment['VITE_DEMO_MODE'] === 'true')
+  )
+    throw new Error('Live mode cannot enable synthetic modes');
   const preview = environment['VITE_DEV_PREVIEW'] === 'true';
   if (preview && environment['VITE_DEMO_MODE'] === 'true')
     throw new Error('Demo and development preview modes cannot be enabled together');

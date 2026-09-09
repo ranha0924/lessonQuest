@@ -17,12 +17,14 @@ catalog:
   '@types/pg': 8.23.1
   async-exit-hook: 2.0.1
   embedded-postgres: 18.4.0-beta.17
+  firebase: 12.18.0
   firebase-admin: 14.3.0
   pg: 8.23.0
 
 catalogMode: strict
 
 overrides:
+  '@vercel/routing-utils@6.5.0>path-to-regexp': 6.3.0
   gaxios@6.7.1>uuid: 11.1.1
   teeny-request@9.0.0>uuid: 11.1.1
 

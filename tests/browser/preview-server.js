@@ -65,16 +65,26 @@ createServer(async (request, response) => {
     // The production CSP already blocks cross-origin connections. Relax only the
     // disposable test harness and worker so the response-origin cache guard is
     // exercised independently as defense in depth.
-    const responseHeaders =
-      requestUrl.searchParams.has('cross-origin-cache-test') || pathname === '/service-worker.js'
+    const fixtureHeaders =
+      selectedDirectory === directory
         ? {
             ...headers,
             'Content-Security-Policy': headers['Content-Security-Policy'].replace(
+              "script-src 'self'",
+              "script-src 'self' 'wasm-unsafe-eval'",
+            ),
+          }
+        : headers;
+    const responseHeaders =
+      requestUrl.searchParams.has('cross-origin-cache-test') || pathname === '/service-worker.js'
+        ? {
+            ...fixtureHeaders,
+            'Content-Security-Policy': fixtureHeaders['Content-Security-Policy'].replace(
               "connect-src 'self'",
               "connect-src 'self' http://127.0.0.1:4180",
             ),
           }
-        : headers;
+        : fixtureHeaders;
     response.writeHead(200, {
       ...responseHeaders,
       'content-type': mime[extname(file)] ?? 'application/octet-stream',

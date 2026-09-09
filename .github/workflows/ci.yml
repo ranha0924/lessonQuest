@@ -47,3 +47,6 @@ jobs:
 
       - name: Verify actual service development preview in Chromium
         run: pnpm test:preview
+
+      - name: Verify live teacher workspace with synthetic authentication
+        run: pnpm test:live

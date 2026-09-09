@@ -7,3 +7,5 @@ export * from './schema.js';
 export * from './firebase-identity-repository.js';
 export * from './tenant-repository.js';
 export type { SqlDatabase, SqlQueryable, SqlTransaction } from './sql.js';
+
+export * from './teacher-session-repository.js';
