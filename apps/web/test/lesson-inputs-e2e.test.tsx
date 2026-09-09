@@ -168,9 +168,18 @@ describe('lesson input real preview boundary', () => {
     try {
       const first = render(studio());
       expectGeneratedTrailUnchanged(sampleText);
+      expect(screen.getByRole('button', { name: 'AI 초안 생성' })).toHaveProperty('disabled', true);
+      expect(
+        screen.getByText('결제 연동 준비 중입니다. 수업 내용은 계속 저장할 수 있습니다.'),
+      ).toBeTruthy();
       fillLessonInput();
       fireEvent.click(screen.getByRole('button', { name: '수업 자료 저장' }));
       await screen.findByText('수업 자료를 저장했습니다. 개정 1');
+      expect(screen.getByRole('button', { name: 'AI 초안 생성' })).toHaveProperty('disabled', true);
+      fireEvent.click(screen.getByRole('button', { name: 'AI 초안 생성' }));
+      expect(fixture.deliveries.some((delivery) => delivery.path.endsWith('/generations'))).toBe(
+        false,
+      );
       expectGeneratedTrailUnchanged(sampleText);
 
       const firstRows = await fixture.database.query<{
@@ -237,6 +246,7 @@ describe('lesson input real preview boundary', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: '수업 자료 다시 열기' }));
       await screen.findByText('서버 저장본을 다시 열었습니다. 개정 2');
+      expect(screen.getByRole('button', { name: 'AI 초안 생성' })).toHaveProperty('disabled', true);
       expect(screen.getByLabelText('학습 내용')).toHaveProperty(
         'value',
         '수정한 합성 자료로 운동 변화를 비교한다.',

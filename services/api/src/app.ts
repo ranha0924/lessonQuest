@@ -50,6 +50,7 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { ZodError } from 'zod';
 import { z } from 'zod';
+import { registerAiGenerationRoutes } from './ai-generation-routes.js';
 import { registerClassroomRoutes } from './classroom-routes.js';
 import { registerLessonInputRoutes } from './lesson-input-routes.js';
 
@@ -312,7 +313,10 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
   });
   app.use('*', secureHeaders());
   app.use('*', async (context, next) => {
-    if (isLessonInputPath(context.req.path)) {
+    if (
+      isLessonInputPath(context.req.path) ||
+      /^\/organizations\/[^/]+\/lesson-inputs\/[^/]+\/generations$/.test(context.req.path)
+    ) {
       context.header('Cache-Control', 'no-store');
     }
     await next();
@@ -394,6 +398,18 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
 
   if (options.lessonInputRepository !== undefined) {
     registerLessonInputRoutes(app, options.lessonInputRepository, { readJson, parseRouteUuid });
+    registerAiGenerationRoutes(app, options.lessonInputRepository, {
+      readJson,
+      parseRouteUuid,
+      denyGeneration() {
+        throw new ApiProblem({
+          status: 403,
+          code: 'AI_BILLING_NOT_CONFIGURED',
+          message: 'AI 생성은 결제 연동이 준비된 뒤 이용할 수 있습니다.',
+          retryable: false,
+        });
+      },
+    });
   }
 
   app.post('/organizations', async (context) => {

@@ -101,3 +101,7 @@ RED/GREEN은 엄격한 계약 → 제공자 오류·시간 초과·출력 검증
 - Vercel PostgreSQL 연결: https://vercel.com/docs/postgres
 - Vercel Node 서버: https://vercel.com/docs/functions/runtimes/node-js
 - Cloudflare D1의 SQLite 경계: https://developers.cloudflare.com/d1/sql-api/sql-statements/
+
+## 기본 차단 구현 단위
+
+사용자의 결제 서비스 미정 선택을 반영하는 구체 계획은 `docs/superpowers/plans/2026-09-09-f02-ai-default-deny.md`이다. 저장된 수업의 생성 API는 현재 자료 접근권한을 확인한 후 결제 미연동 오류로 종료하며 키나 관리자 우회를 제공하지 않는다. 화면은 생성 준비 중 상태를 알리고 수업 저장은 유지한다. 실제 제공자·결제 이용권·생성 작업은 이 차단 단위의 완료 범위가 아니다.

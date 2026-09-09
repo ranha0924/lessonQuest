@@ -446,12 +446,18 @@ export function LessonInputWorkspace({
             <button className="primary" type="submit" disabled={saveDisabled}>
               {loaded === null ? '수업 자료 저장' : '수정 내용 저장'}
             </button>
+            <button type="button" disabled aria-describedby="lesson-ai-access-notice">
+              AI 초안 생성
+            </button>
             {recovery === 'conflict' ? (
               <button type="button" onClick={() => openSelected(true)} disabled={busy}>
                 서버 저장본 다시 불러오기
               </button>
             ) : null}
           </div>
+          <p id="lesson-ai-access-notice">
+            결제 연동 준비 중입니다. 수업 내용은 계속 저장할 수 있습니다.
+          </p>
         </form>
       </div>
 
