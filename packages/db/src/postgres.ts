@@ -8,6 +8,7 @@ export interface PostgresOptions {
   connectionString: string;
   mode?: 'production' | 'test';
   max?: number;
+  schema?: 'lessonquest';
 }
 
 export class DatabaseError extends Error {
@@ -50,7 +51,8 @@ export function postgresPoolConfig(options: PostgresOptions): PoolConfig {
       !Number.isInteger(max) ||
       max < 1 ||
       max > 10 ||
-      !['production', 'test'].includes(mode)
+      !['production', 'test'].includes(mode) ||
+      (options.schema !== undefined && options.schema !== 'lessonquest')
     )
       throw new Error();
     if (mode === 'test') {
@@ -94,7 +96,9 @@ export function postgresPoolConfig(options: PostgresOptions): PoolConfig {
       idle_in_transaction_session_timeout: 15000,
       application_name: 'LessonQuest',
       // A nonempty value also prevents ambient PGOPTIONS from replacing session settings.
-      options: '-c client_encoding=UTF8',
+      options:
+        '-c client_encoding=UTF8' +
+        (options.schema === undefined ? '' : ' -c search_path=lessonquest,pg_catalog'),
     };
   } catch {
     throw new Error('Invalid PostgreSQL configuration');

@@ -16,6 +16,13 @@
         "default": "./dist/postgres.js"
       },
       "default": null
+    },
+    "./provisioning": {
+      "node": {
+        "types": "./dist/provisioning.d.ts",
+        "default": "./dist/provisioning.js"
+      },
+      "default": null
     }
   },
   "files": [

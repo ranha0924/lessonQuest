@@ -156,18 +156,15 @@ async function writeAudit(
 }
 
 // Serialize mutation-ledger decisions for this actor and tenant across server instances.
-// Full current authority is checked after acquiring the lock, including any wait.
+// Authorization tables stay read-only; current authority is checked after any wait.
 async function lockTeacherMutations(
   queryable: SqlQueryable,
   actor: Actor,
   organizationId: string,
 ): Promise<void> {
-  await queryable.query(
-    `SELECT user_id FROM organization_members
-     WHERE organization_id = $1 AND user_id = $2 AND status = 'ACTIVE'
-     FOR UPDATE`,
-    [organizationId, actor.userId],
-  );
+  await queryable.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `lessonquest:lesson-input:${organizationId}:${actor.userId}`,
+  ]);
 }
 
 async function requireTeacherScope(
@@ -243,7 +240,7 @@ async function readAuthorizedLessonInput(
       AND u.platform_role IN ('TEACHER', 'SUPER_ADMIN')
      WHERE li.organization_id = $2
        AND li.id = $3
-       AND (li.owner_teacher_id = $1 OR m.role = 'ORG_ADMIN')${lock ? ' FOR UPDATE' : ''}`,
+       AND (li.owner_teacher_id = $1 OR m.role = 'ORG_ADMIN')${lock ? ' FOR UPDATE OF li' : ''}`,
     [actor.userId, organizationId, lessonInputId],
   );
   const row = result.rows[0];
@@ -524,6 +521,8 @@ export class LessonInputRepository {
         }
 
         await readAuthorizedLessonInput(transaction, actor, organizationId, lessonInputId, true);
+        // A row-lock wait may outlive an authority change seen by the joined snapshot.
+        await readAuthorizedLessonInput(transaction, actor, organizationId, lessonInputId);
         const now = this.now().toISOString();
         const updated = await transaction.query<LessonInputRow>(
           `UPDATE lesson_inputs

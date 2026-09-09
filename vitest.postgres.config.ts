@@ -5,7 +5,10 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 15_000,
     hookTimeout: 30_000,
-    include: ['packages/db/test/postgres.test.ts'],
+    include: [
+      'packages/db/test/postgres.test.ts',
+      'packages/db/test/provisioning.postgres.test.ts',
+    ],
     fileParallelism: false,
   },
 });
