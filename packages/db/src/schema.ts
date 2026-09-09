@@ -1,4 +1,4 @@
-import type { PGliteInterface } from '@electric-sql/pglite';
+import type { SqlDatabase } from './sql.js';
 
 const schemaSql = `
   CREATE TABLE IF NOT EXISTS users (
@@ -622,7 +622,7 @@ const schemaSql = `
     FOR EACH ROW EXECUTE FUNCTION enforce_boss_job_transition();
 `;
 
-export async function initializeSchema(database: PGliteInterface): Promise<void> {
+export async function initializeSchema(database: SqlDatabase): Promise<void> {
   await database.transaction(async (transaction) => {
     await transaction.exec(schemaSql);
   });

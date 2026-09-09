@@ -1,6 +1,6 @@
+import type { SqlDatabase, SqlQueryable } from './sql.js';
 import { randomUUID } from 'node:crypto';
 
-import type { PGliteInterface, Transaction } from '@electric-sql/pglite';
 import {
   actorSchema,
   bossCampaignPolicySchema,
@@ -25,7 +25,7 @@ import {
 import { withDecisionAudit } from './decision-audit.js';
 import { ConflictError, ResourceNotFoundError } from './tenant-repository.js';
 
-type Queryable = Pick<PGliteInterface, 'query'> | Pick<Transaction, 'query'>;
+type Queryable = SqlQueryable;
 const json = <T>(value: unknown): T => (typeof value === 'string' ? JSON.parse(value) : value) as T;
 
 export class GamificationRepository {
@@ -33,7 +33,7 @@ export class GamificationRepository {
   private readonly now: () => Date;
   private drainQueue: Promise<void> = Promise.resolve();
   constructor(
-    private readonly database: PGliteInterface,
+    private readonly database: SqlDatabase,
     options: { createId?: () => string; now?: () => Date } = {},
   ) {
     this.createId = options.createId ?? randomUUID;

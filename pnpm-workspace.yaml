@@ -5,6 +5,8 @@ packages:
   - experiences/*
 
 allowBuilds:
+  '@embedded-postgres/darwin-arm64@18.4.0-beta.17': true
+  '@embedded-postgres/linux-x64@18.4.0-beta.17': true
   '@firebase/util': false
   protobufjs: false
 
@@ -12,7 +14,11 @@ catalog:
   '@electric-sql/pglite': 0.5.8
   '@noble/hashes': 2.4.0
   '@types/emscripten': 1.41.5
+  '@types/pg': 8.23.1
+  async-exit-hook: 2.0.1
+  embedded-postgres: 18.4.0-beta.17
   firebase-admin: 14.3.0
+  pg: 8.23.0
 
 catalogMode: strict
 

@@ -1,6 +1,6 @@
+import type { SqlDatabase, SqlQueryable, SqlTransaction } from './sql.js';
 import { randomUUID } from 'node:crypto';
 
-import type { PGliteInterface, Transaction } from '@electric-sql/pglite';
 import {
   actorSchema,
   clientLearningEventSchema,
@@ -34,7 +34,7 @@ import {
 
 import { ConflictError, ResourceNotFoundError } from './tenant-repository.js';
 
-type Queryable = Pick<PGliteInterface, 'query'> | Pick<Transaction, 'query'>;
+type Queryable = SqlQueryable;
 
 interface VersionRow {
   id: string;
@@ -337,7 +337,7 @@ export class LearningRepository {
   private readonly now: () => Date;
 
   constructor(
-    private readonly database: PGliteInterface,
+    private readonly database: SqlDatabase,
     options: { now?: () => Date } = {},
   ) {
     this.now = options.now ?? (() => new Date());
@@ -353,7 +353,7 @@ export class LearningRepository {
       fallbackResourceId: string | null;
     },
     operation: (
-      transaction: Transaction,
+      transaction: SqlTransaction,
     ) => Promise<{ value: T; resourceId: string | null; outcome?: LearningAuditOutcome }>,
   ): Promise<T> {
     try {
@@ -1332,7 +1332,7 @@ export class LearningRepository {
   }
 
   private async rebuildProgress(
-    transaction: Transaction,
+    transaction: SqlTransaction,
     organizationId: string,
     assignmentId: string,
     studentId: string,

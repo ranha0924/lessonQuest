@@ -1,6 +1,6 @@
+import type { SqlDatabase, SqlQueryable } from './sql.js';
 import { randomUUID } from 'node:crypto';
 
-import type { PGliteInterface, Transaction } from '@electric-sql/pglite';
 import {
   actorSchema,
   createClassInputSchema,
@@ -9,7 +9,7 @@ import {
   type Actor,
 } from '@lessonquest/contracts';
 
-type Queryable = Pick<PGliteInterface, 'query'> | Pick<Transaction, 'query'>;
+type Queryable = SqlQueryable;
 
 interface OrganizationRow {
   id: string;
@@ -134,7 +134,7 @@ async function writeAudit(
 }
 
 export class TenantRepository {
-  constructor(private readonly database: PGliteInterface) {}
+  constructor(private readonly database: SqlDatabase) {}
 
   async upsertUser(actorInput: Actor): Promise<void> {
     const actor = parseActor(actorInput);

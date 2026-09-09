@@ -1,8 +1,8 @@
-import type { PGliteInterface } from '@electric-sql/pglite';
+import type { SqlQueryable } from './sql.js';
 import { actorSchema, type Actor } from '@lessonquest/contracts';
 
 export class FirebaseIdentityRepository {
-  constructor(private readonly database: Pick<PGliteInterface, 'query'>) {}
+  constructor(private readonly database: SqlQueryable) {}
   async findActor(projectId: string, uid: string): Promise<Actor | null> {
     if (
       typeof projectId !== 'string' ||

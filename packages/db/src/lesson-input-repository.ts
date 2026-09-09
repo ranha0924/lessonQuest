@@ -1,6 +1,6 @@
+import type { SqlDatabase, SqlQueryable, SqlTransaction } from './sql.js';
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { PGliteInterface, Transaction } from '@electric-sql/pglite';
 import {
   actorSchema,
   contentHashSchema,
@@ -19,7 +19,7 @@ import {
 
 import { ConflictError, ResourceNotFoundError } from './tenant-repository.js';
 
-type Queryable = Pick<PGliteInterface, 'query'> | Pick<Transaction, 'query'>;
+type Queryable = SqlQueryable;
 type LessonInputOperation = 'CREATE' | 'UPDATE';
 type LessonInputAuditAction =
   | 'LESSON_INPUT_CREATE'
@@ -155,6 +155,21 @@ async function writeAudit(
   );
 }
 
+// Serialize mutation-ledger decisions for this actor and tenant across server instances.
+// Full current authority is checked after acquiring the lock, including any wait.
+async function lockTeacherMutations(
+  queryable: SqlQueryable,
+  actor: Actor,
+  organizationId: string,
+): Promise<void> {
+  await queryable.query(
+    `SELECT user_id FROM organization_members
+     WHERE organization_id = $1 AND user_id = $2 AND status = 'ACTIVE'
+     FOR UPDATE`,
+    [organizationId, actor.userId],
+  );
+}
+
 async function requireTeacherScope(
   queryable: Queryable,
   actor: Actor,
@@ -242,7 +257,7 @@ export class LessonInputRepository {
   private readonly now: () => Date;
 
   constructor(
-    private readonly database: PGliteInterface,
+    private readonly database: SqlDatabase,
     options: { now?: () => Date } = {},
   ) {
     this.now = options.now ?? (() => new Date());
@@ -258,7 +273,7 @@ export class LessonInputRepository {
       fallbackResourceId: string | null;
     },
     operation: (
-      transaction: Transaction,
+      transaction: SqlTransaction,
     ) => Promise<{ value: T; resourceId: string | null; outcome?: AuditOutcome }>,
   ): Promise<T> {
     try {
@@ -322,6 +337,7 @@ export class LessonInputRepository {
         fallbackResourceId: null,
       },
       async (transaction) => {
+        await lockTeacherMutations(transaction, actor, organizationId);
         await requireTeacherCreatorScope(transaction, actor, organizationId);
         const replay = await transaction.query<LessonInputMutationRow>(
           `SELECT operation, request_hash, lesson_input_id
@@ -478,6 +494,7 @@ export class LessonInputRepository {
         fallbackResourceId: lessonInputId,
       },
       async (transaction) => {
+        await lockTeacherMutations(transaction, actor, organizationId);
         await requireTeacherScope(transaction, actor, organizationId);
         const replay = await transaction.query<LessonInputMutationRow>(
           `SELECT operation, request_hash, lesson_input_id

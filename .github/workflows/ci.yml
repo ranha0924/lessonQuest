@@ -33,6 +33,9 @@ jobs:
       - name: Run full verification
         run: pnpm check
 
+      - name: Verify real PostgreSQL persistence and concurrency
+        run: pnpm test:postgres
+
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
 

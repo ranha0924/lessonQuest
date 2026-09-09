@@ -9,6 +9,13 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./postgres": {
+      "node": {
+        "types": "./dist/postgres.d.ts",
+        "default": "./dist/postgres.js"
+      },
+      "default": null
     }
   },
   "files": [
@@ -22,6 +29,7 @@
     "@lessonquest/contracts": "workspace:*",
     "@lessonquest/gamification": "workspace:*",
     "@lessonquest/rasa": "workspace:*",
-    "@lessonquest/science-studio": "workspace:*"
+    "@lessonquest/science-studio": "workspace:*",
+    "pg": "catalog:"
   }
 }

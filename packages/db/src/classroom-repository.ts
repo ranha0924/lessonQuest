@@ -1,5 +1,5 @@
+import type { SqlDatabase, SqlTransaction } from './sql.js';
 import { createHash, randomUUID } from 'node:crypto';
-import type { PGliteInterface, Transaction } from '@electric-sql/pglite';
 import {
   actorSchema,
   uuidSchema,
@@ -65,7 +65,7 @@ const parseScope = (actor: Actor, organizationId: string, traceId: string): Scop
 export class ClassroomRepository {
   private readonly now: () => Date;
   constructor(
-    private readonly database: PGliteInterface,
+    private readonly database: SqlDatabase,
     options: { now?: () => Date } = {},
   ) {
     this.now = options.now ?? (() => new Date());
@@ -75,7 +75,7 @@ export class ClassroomRepository {
     scope: Scope,
     action: Action,
     resourceId: string | null,
-    operation: (tx: Transaction) => Promise<T>,
+    operation: (tx: SqlTransaction) => Promise<T>,
   ): Promise<T> {
     return withDecisionAudit(
       this.database,
@@ -92,7 +92,7 @@ export class ClassroomRepository {
   }
 
   private async audit(
-    tx: Transaction,
+    tx: SqlTransaction,
     scope: Scope,
     action: Action,
     resourceId: string | null,
@@ -112,7 +112,11 @@ export class ClassroomRepository {
     );
   }
 
-  private async requireTeacher(tx: Transaction, scope: Scope, classId: string): Promise<ClassRow> {
+  private async requireTeacher(
+    tx: SqlTransaction,
+    scope: Scope,
+    classId: string,
+  ): Promise<ClassRow> {
     const result = await tx.query<ClassRow>(
       `SELECT c.id,c.organization_id,c.name FROM classes c
       JOIN organizations o ON o.id=c.organization_id AND o.status='ACTIVE'
