@@ -1,0 +1,30 @@
+# F02 Neon deployment credential isolation
+
+## Evidence and scope
+
+The prior97-point DB/configuration review explicitly required a later deployment check. That check failed on actual Git-linked Preview42aaf34/dpl_7CMNZR8thE7P1j8mtrm1NxeAwVG4: its deployment env-name list contains all eight owner-secret names even though project-level metadata no longer contains them. Preserve this RED evidence and the prior bounded review; do not treat project metadata alone as deployed isolation.
+
+Change only the automatic resource-to-project association between Neon neon-aero-jacket/store_GvbUJAfzYi7mdcmb (installation icfg_rCfLt7LInxesWF4TqJWx9kfK) and Vercel web/prj_LzEIlAOSVRxc4upq58WKd12OdoTf in ranha0924s-projects. Keep the Neon resource, team integration installation, existing main/Preview/checkpoint branches, DB roles/data, billing plan, restricted app URL, Firebase/OpenAI configuration and other projects. Manual restricted PostgreSQL connectivity remains in place. Preview stays unconfigured and no longer needs automatic database branching.
+
+This supersedes only the earlier remote plan's prohibition on disconnecting this specific resource association; it does not authorize uninstalling an integration, deleting a resource, disconnecting all projects, changing credentials or buying anything. Existing user authorization covers LessonQuest setup and delivery. No production application code or migration changes are needed.
+
+## Ordered operations and checks
+
+1. Reconfirm exact resource ID/name/installation/projects=[web] from the official CLI. Snapshot name/type/scope metadata, the target integration resource list and other resource associations for collateral comparison. Do not retrieve secret values. Require the independently reviewed restricted DB readiness and Production app URL before changing the association.
+2. Use the documented command with the explicit project name after verifying its ID through the project API: `vercel integration resource disconnect neon-aero-jacket web --scope ranha0924s-projects --yes --format json`. Never use remove, --all, integration uninstall or a command with an omitted project. Capture output privately and print only the returned resource/project operation result. If response is uncertain, re-read association state before any retry.
+3. Check web has no association to the target while the resource still exists and every other resource association is unchanged. Accept automatic removal only of the18 original Neon-generated variable names documented in the earlier metadata. Preserve every other variable's exact name/type/target/configuration ID; LESSONQUEST_DATABASE_URL and OPENAI_API_KEY must remain sensitive Production-only. Confirm the restricted DB still passes readiness and six rollback permission probes; main and recovery branch IDs must still exist. No role/password/migration repair.
+4. Obtain a fresh non-implementing independent final review of the actual scoped operation and evidence, score86+. Commit the documentation and push the existing branch after this gate to obtain one Git-linked Preview using the new configuration. Preserve the prior failed deployed check. No duplicate manual deployment or production merge is needed for this check.
+5. The new matching READY deployment must expose an env-name list with none of the eight owner-secret names and no Production LESSONQUEST_* or OPENAI_API_KEY in Preview. Fail closed if name metadata is unavailable or ambiguous; never inspect values. Recheck project variable metadata after the deployment and verify session503/unknown404/no-store. Require new-head CI and deployed-SHA proof before production integration. A final review addendum must record actual deployed isolation before this correction is called complete.
+6. Firebase JSON key handoff, explicit teacher UID and actual login/save/relogin remain separate pending activation steps. AI remains unconditionally denied.
+
+## Recovery and verification boundary
+
+Disconnecting this association preserves the database/resource and can be reversed through the documented resource connect command for this exact resource/project if a separately reviewed need arises. Reconnection would restore automatic credential injection, so do not perform it reflexively or release while owner credentials return. Prefer retaining the verified restricted app configuration and previous production deployment. Existing deployment environment snapshots are immutable and are not represented as sanitized by this change.
+
+Use the actual failing deployment exclusion check as RED, read-only metadata and existing actual DB checks as regression coverage, and the matching new deployment as GREEN. No mirrored low-impact tests or full application rerun are needed locally because code is unchanged; the required existing CI still runs on the pushed commit. The prior corrected-code CI34322965044 passed, and42aaf34 changes documentation only. The current config step does not execute DDL or release production while its newer CI is pending.
+
+Primary source: [Vercel integration resource disconnect](https://vercel.com/docs/cli/integration#vercel-integration-resource-disconnect), checked2026-09-15 alongside installed CLI59.13.1 help. The documentation distinguishes scoped disconnect from resource removal and advertises project names or IDs. The installed version only matches names, as corrected below; execution uses web with a separate exact-ID guard. Account-specific scope and the failure are established by captured CLI/API metadata, not by the documentation.
+
+### Installed CLI correction before retry
+
+CLI59.13.1 rejected the documented project-ID form with exit1; after-state confirms the association and variables were unchanged. Its installed commands-bulk.js:57536–57547 actually matches only `projectName === project.name` and returns before mutation when passed an ID. Use the documented project-name form `web`, guarded by a fresh project API check that it resolves to prj_LzEIlAOSVRxc4upq58WKd12OdoTf. Preserve attempt1 and never change the CLI or omit the project. This is the same exact approved association and scope.
