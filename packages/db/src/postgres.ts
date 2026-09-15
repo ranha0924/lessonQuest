@@ -90,7 +90,8 @@ export function postgresPoolConfig(options: PostgresOptions): PoolConfig {
       ssl: mode === 'production' ? { rejectUnauthorized: true } : false,
       enableChannelBinding: mode === 'production',
       max,
-      connectionTimeoutMillis: 5000,
+      // Allow a suspended database to wake while keeping connection attempts bounded.
+      connectionTimeoutMillis: 15000,
       idleTimeoutMillis: 10000,
       statement_timeout: 10000,
       idle_in_transaction_session_timeout: 15000,

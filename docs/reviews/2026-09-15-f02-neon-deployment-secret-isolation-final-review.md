@@ -2,7 +2,7 @@
 
 Reviewer: newly assigned independent agent `f02_neon_injection_final`, 2026-09-15. The reviewer did not implement or execute the scoped disconnect and made no external configuration changes.
 
-**96/100 PASS for the bounded configuration stage, with no critical blocker to obtaining one Git-linked verification Preview.** The initial 98-point assessment is revised after disclosure of a second intermittent parent runtime-smoke failure, preserved below. This decision permits the documentation commit and existing-branch push specified by the approved plan. It does not certify deployed credential isolation or stable runtime availability, authorize production integration, or complete F02 activation. The matching deployment check and independent addendum below remain mandatory.
+**96/100 PASS for the bounded credential-isolation correction.** The initial 98-point assessment was revised after disclosure of a second intermittent parent runtime-smoke failure, preserved below. The pre-Preview gate permitted the documentation commit and existing-branch push specified by the approved plan. The subsequent independent addendum now confirms exclusion on the matching READY Preview. It does not certify stable runtime availability, authorize production integration, or complete F02 activation. New-head CI was still running when the addendum was written.
 
 ## Inspected requirements and actual change
 
@@ -34,13 +34,15 @@ The current independent post-disconnect execution did pass all checks. It establ
 
 Inspected the implementer's read-only diagnostic helper `/tmp/lessonquest-runtime-stage-check.mjs` and `.verification/f02-runtime-staged-readonly-20260915.log`. The helper retains the actual runtime target and pool configuration, wraps the existing `requireRuntimeReadiness` queries with safe stage/timing output, and exposes neither SQL rows nor raw error messages. All eight readiness queries passed; query 1 took 1972 ms and total elapsed time was 3918 ms. The configured connection timeout was 5000 ms; it is not a total-readiness deadline. This diagnostic probes the readiness queries, not every gate and owner-refusal step in the original operator. It did not reproduce the failure or identify its cause.
 
+A subsequent separate idle diagnostic did reproduce a connection timeout. Inspected `.verification/f02-neon-idle-before-diagnostic.log`: the exact main endpoint was idle before the probe. In `.verification/f02-runtime-staged-idle-20260915.log`, configuration validation passed with a 5000 ms connection timeout, then readiness query 1 failed after 5004 ms with `isConnectTimeout: true` (5008 ms total). This establishes the failed stage and timeout condition for that observed execution. It does not retrospectively establish the cause of either earlier generic failure. A proposed connection-wait adjustment is separate follow-up work requiring its own plan, regression evidence and independent gate; no such code change is covered by this review.
+
 Preserve the failed executions and investigate the failed stage before treating actual runtime availability as production-ready. The isolated, intentionally unconfigured verification Preview remains a valid next check for credential injection: it receives no Production DB/auth/OpenAI variables, does not query the actual DB, and must fail closed with session 503. Its expected 503 cannot diagnose the DB failures. This report's limited 96-point pass therefore remains valid for that Preview only and must not be expanded into a production-readiness finding. The independent passing full smoke, successful diagnostic and successful HEAD CI do not erase the failed executions.
 
 ## Findings, boundaries and remaining checks
 
 No correctness, authorization, tenant-isolation or collateral-change blocker was found in the applied scoped configuration. The documentation inconsistency about project-ID support was fixed during review.
 
-The actual symptom remains unverified until a newly created, matching READY Preview has a deployment env-name list with none of the eight owner-secret names and no Production `LESSONQUEST_*` or `OPENAI_API_KEY`. Absence from project metadata alone must not substitute for this check. Recheck project metadata after deployment and verify session 503, unknown-route 404 and no-store responses; require successful matching-head CI before production integration. Record the deployed SHA and independent addendum before calling this correction complete.
+At the pre-Preview assessment, the actual symptom remained unverified until a newly created, matching READY Preview had a deployment env-name list with none of the eight owner-secret names and no Production `LESSONQUEST_*` or `OPENAI_API_KEY`. Project metadata alone was insufficient. The independent addendum below now records that deployed exclusion, the post-deployment project metadata and session 503/unknown-route 404/no-store checks. Successful matching-head CI remains required before production integration.
 
 Existing deployment environment snapshots are immutable and have not been sanitized by this operation. Reconnecting this exact association would restore automatic credential injection; do not reconnect reflexively. The database, restricted application connection, previous production deployment and recovery branch are retained. Recovery is not restore-tested. Firebase credentials, explicit teacher UID, real Google login/save/re-login and production delivery remain separate pending requirements. AI remains unconditionally blocked.
 
@@ -53,8 +55,31 @@ Existing deployment environment snapshots are immutable and have not been saniti
 | Security, privacy and tenant isolation     |           20/20 | No secret-value output, no credential/role/schema changes, Production-only app secret retained, actual owner refusal and six restricted permission denials.                                        |
 | Test and verification evidence             |           17/20 | Actual RED, independent metadata/API and real DB checks pass, but two parent runtime failures remain unexplained; no stable-availability claim. Matching deployment GREEN is separately mandatory. |
 | Operability, recoverability and provenance |           14/15 | Source/hash and both attempts preserved; scoped reversible association and retained resource/checkpoint; no restore exercise.                                                                      |
-| **Total**                                  | **96/100 PASS** | **Revised from 98 after the additional failed-run evidence. No critical blocker to the bounded verification Preview; deployed isolation and runtime-availability conclusions remain outstanding.** |
+| **Total**                                  | **96/100 PASS** | **Revised from 98 after the additional failed-run evidence. The later addendum confirms Preview credential isolation; runtime availability and production integration remain outside this pass.**  |
 
 ## Matching deployment addendum
 
-Pending. This report does not yet establish deployment-level credential exclusion or production release readiness.
+Independently verified on 2026-09-15 through fresh official Vercel API/CLI reads and actual authenticated Preview requests:
+
+- Deployment `dpl_HHhVFoHvPLeRhtFhpmpuC63jxP6b` is READY, targets Preview (`target: null`), belongs to `prj_LzEIlAOSVRxc4upq58WKd12OdoTf`, and records branch `codex/f02-live-authoring` with exact Git SHA `680161a33030599f3874964ac1b0c148a976821d`.
+- Verified URL: [matching credential-isolated Preview](https://web-iwqtpoe8m-ranha0924s-projects.vercel.app). The commit contains documentation only relative to the accepted implementation; no application implementation was changed to obtain this result.
+- The actual deployment `env` field is a nonempty list of valid variable names. None of the eight prohibited owner-secret names is present, and no `LESSONQUEST_*` or `OPENAI_API_KEY` is present. Only names were inspected. This is the required deployed GREEN against the preserved earlier actual RED.
+- A separate fresh project API read after deployment exactly matches the prior eight-variable metadata snapshot, including name/type/target/configuration ID. Sensitive Production-only app/OpenAI configuration is preserved.
+
+| Independent actual request | HTTP | Error code           | Headers                        |
+| -------------------------- | ---: | -------------------- | ------------------------------ |
+| `/api/session`             |  503 | `SERVER_NOT_READY`   | `application/json`, `no-store` |
+| `/api/independent-unknown` |  404 | `RESOURCE_NOT_FOUND` | `application/json`, `no-store` |
+| `/api/session?path=forged` |  404 | `RESOURCE_NOT_FOUND` | `application/json`, `no-store` |
+
+All three CLI requests exited 0. Their statuses and bodies show expected fail-closed application behavior rather than the previous function initialization failure. This intentionally unconfigured Preview does not verify actual Firebase authentication or DB readiness. No DB query was performed during this addendum, preserving the implementer's separate idle-readiness investigation.
+
+Evidence: `.verification/f02-neon-injection-independent-deployed-green.log` contains the fresh matching deployment metadata, name-only exclusion proof and actual response checks. The implementer's separate records are `f02-deployment-isolation-green-candidate.log`, `f02-env-after-isolated-preview.log` and `f02-isolated-preview-hosted-api.log`.
+
+Independently read GitHub run `34925315548`: it matches SHA `680161a33030599f3874964ac1b0c148a976821d` and was `in_progress`, with no conclusion, at the check recorded in `.verification/f02-neon-injection-independent-ci-680.log`. This report does not claim that run passed. It must complete successfully before production integration; any later implementation changes require their applicable review and verification gates.
+
+**Addendum decision: 96/100 PASS remains valid for the scoped credential-isolation correction, now with independently confirmed deployment-level GREEN on this Preview.** No scoped isolation blocker was found. The two generic runtime failures cannot be retrospectively diagnosed from these checks; the separately observed idle connection timeout has not been fixed within this scope. Old deployment snapshots are not sanitized, and no main merge or production-release readiness is certified. Firebase server credentials, selected teacher UID and actual login/save/re-login remain separate pending activation work.
+
+### CI completion addendum
+
+Later on 2026-09-15, independently re-read GitHub run `34925315548`: exact isolation SHA `680161a33030599f3874964ac1b0c148a976821d` is now `completed` / `success`, and every recorded job step succeeded. Preserved the earlier in-progress observation; this new result supersedes its pending CI status. Fresh independent evidence is `.verification/f02-neon-injection-independent-ci-680-complete.log`, consistent with the implementer's `f02-isolation-head-ci.log`. The scoped isolation decision remains **96/100 PASS**. This completes the matching-head CI condition for this isolation commit only; it does not review subsequent connection-timeout code changes or certify production activation.

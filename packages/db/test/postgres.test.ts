@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createConnection, createServer, type Socket } from 'node:net';
 
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -30,12 +31,14 @@ function testUrl(): string {
 }
 
 const pools: PostgresDatabase[] = [];
+const closeRelays: (() => Promise<void>)[] = [];
 function pool(max = 5): PostgresDatabase {
   const database = new PostgresDatabase({ connectionString: testUrl(), mode: 'test', max });
   pools.push(database);
   return database;
 }
 afterEach(async () => {
+  await Promise.all(closeRelays.splice(0).map((close) => close()));
   await Promise.all(pools.splice(0).map((database) => database.close()));
 });
 
@@ -46,6 +49,79 @@ function deferred() {
   });
   return { promise, resolve };
 }
+
+// Delay the actual wire handshake; PostgreSQL and the production adapter remain real.
+async function firstConnectionRelay(first: 'delayed' | 'stalled'): Promise<string> {
+  const target = new URL(testUrl());
+  const upstreamPort = Number(target.port);
+  const sockets = new Set<Socket>();
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  let connections = 0;
+  const server = createServer((incoming) => {
+    sockets.add(incoming);
+    incoming.on('error', () => incoming.destroy());
+    incoming.on('close', () => sockets.delete(incoming));
+    connections += 1;
+    const forward = () => {
+      if (incoming.destroyed) return;
+      const upstream = createConnection({ host: '127.0.0.1', port: upstreamPort });
+      sockets.add(upstream);
+      upstream.on('error', () => incoming.destroy());
+      upstream.on('close', () => {
+        sockets.delete(upstream);
+        incoming.destroy();
+      });
+      incoming.on('close', () => upstream.destroy());
+      incoming.pipe(upstream).pipe(incoming);
+    };
+    if (connections !== 1) forward();
+    else if (first === 'delayed') timers.add(setTimeout(forward, 6000));
+  });
+  closeRelays.push(async () => {
+    for (const timer of timers) clearTimeout(timer);
+    for (const socket of sockets) socket.destroy();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Relay did not bind loopback');
+  target.port = String(address.port);
+  return target.href;
+}
+
+describe('PostgreSQL connection establishment', () => {
+  it('accepts a real handshake that takes longer than five seconds', async () => {
+    const database = new PostgresDatabase({
+      connectionString: await firstConnectionRelay('delayed'),
+      mode: 'test',
+      max: 1,
+    });
+    pools.push(database);
+    expect((await database.query('SELECT 42 AS value')).rows).toEqual([{ value: 42 }]);
+  });
+
+  it('bounds a stalled handshake, sanitizes its error and permits pool recovery', async () => {
+    const database = new PostgresDatabase({
+      connectionString: await firstConnectionRelay('stalled'),
+      mode: 'test',
+      max: 1,
+    });
+    pools.push(database);
+    const started = Date.now();
+    await expect(
+      database.query("SELECT 'synthetic_private_connection_fixture' AS value"),
+    ).rejects.toMatchObject({ name: 'DatabaseError', message: 'Database operation failed' });
+    const elapsed = Date.now() - started;
+    expect(elapsed).toBeGreaterThanOrEqual(14_000);
+    expect(elapsed).toBeLessThan(20_000);
+    expect((await database.query('SELECT 42 AS value')).rows).toEqual([{ value: 42 }]);
+  }, 25_000);
+});
 
 describe('PostgreSQL persistence and transaction boundaries', () => {
   it('persists typed rows across independent pools and restart', async () => {
@@ -190,7 +266,7 @@ describe('PostgreSQL configuration', () => {
       database: 'lessonquest',
       ssl: { rejectUnauthorized: true },
       max: 5,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 15000,
       statement_timeout: 10000,
       idle_in_transaction_session_timeout: 15000,
       application_name: 'LessonQuest',
