@@ -389,6 +389,8 @@ test('an offline answer survives a player remount and sends once when online', a
   await ready(page);
   await publish(page, '오프라인 재전송 탐험');
   await enterStudent(page, '오프라인 재전송 탐험');
+  // The quiz is visible before its durable start record finishes delivery.
+  await expect(page.getByRole('button', { name: '질량 2 kg 선택' })).toBeEnabled();
   let queuedRecord: StoredOfflineRecord | undefined;
   await context.setOffline(true);
   try {
