@@ -6,11 +6,14 @@
   },
   "include": [
     "vitest.config.ts",
+    "vitest.postgres.config.ts",
     "playwright.config.ts",
     "playwright.preview.config.ts",
     "packages/**/*.ts",
     "services/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "api/**/*.ts",
+    "playwright.live.config.ts"
   ],
   "exclude": ["**/.worktrees/**", "**/coverage/**", "**/dist/**", "**/node_modules/**"]
 }

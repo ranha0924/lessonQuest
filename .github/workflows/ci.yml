@@ -12,7 +12,7 @@ jobs:
   verify:
     name: Verify contracts
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,6 +33,9 @@ jobs:
       - name: Run full verification
         run: pnpm check
 
+      - name: Verify real PostgreSQL persistence and concurrency
+        run: pnpm test:postgres
+
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
 
@@ -44,3 +47,6 @@ jobs:
 
       - name: Verify actual service development preview in Chromium
         run: pnpm test:preview
+
+      - name: Verify live teacher workspace with synthetic authentication
+        run: pnpm test:live

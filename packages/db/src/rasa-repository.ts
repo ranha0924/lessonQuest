@@ -1,6 +1,6 @@
+import type { SqlDatabase } from './sql.js';
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { PGliteInterface } from '@electric-sql/pglite';
 import {
   actorSchema,
   rasaHintRequestSchema,
@@ -47,7 +47,7 @@ export class RasaRequestError extends Error {
 const json = <T>(value: unknown): T => (typeof value === 'string' ? JSON.parse(value) : value) as T;
 
 export class RasaRepository {
-  constructor(private readonly database: PGliteInterface) {}
+  constructor(private readonly database: SqlDatabase) {}
 
   async requestHint(
     actorInput: Actor,

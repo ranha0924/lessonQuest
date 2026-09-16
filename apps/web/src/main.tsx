@@ -27,15 +27,47 @@ if (rootElement === null) {
 }
 
 const environment = import.meta.env as unknown as Record<string, unknown>;
+const liveMode = import.meta.env.VITE_LIVE_MODE === 'true';
 const demoMode = environment['VITE_DEMO_MODE'] === 'true';
 const developmentPreview = import.meta.env.VITE_DEV_PREVIEW === 'true';
-const session = window.lessonQuestSession;
+if (liveMode && (demoMode || developmentPreview)) throw new Error('Incompatible application modes');
+const session = liveMode ? undefined : window.lessonQuestSession;
 void registerLessonQuestServiceWorker(developmentPreview || (!demoMode && session !== undefined))
   .then((registration) =>
     registration === null ? undefined : warmLessonQuestServiceWorker().catch(() => undefined),
   )
   .catch(() => undefined);
-if (developmentPreview) {
+if (liveMode) {
+  const root = createRoot(rootElement);
+  root.render(
+    <main className="configuration-notice">
+      <h1>LessonQuest Studio</h1>
+      <p role="status">로그인 화면을 불러오고 있습니다.</p>
+    </main>,
+  );
+  void Promise.all([import('./live-teacher-workspace.js'), import('./firebase-browser-auth.js')])
+    .then(([{ LiveTeacherWorkspace }, { createFirebaseBrowserAuth }]) => {
+      let auth: ReturnType<typeof createFirebaseBrowserAuth> | null = null;
+      try {
+        auth = createFirebaseBrowserAuth(environment);
+      } catch {
+        /* Render safe setup state. */
+      }
+      root.render(
+        <StrictMode>
+          <LiveTeacherWorkspace auth={auth} />
+        </StrictMode>,
+      );
+    })
+    .catch(() => {
+      root.render(
+        <main className="configuration-notice">
+          <h1>연결을 확인해 주세요.</h1>
+          <button onClick={() => window.location.reload()}>다시 불러오기</button>
+        </main>,
+      );
+    });
+} else if (developmentPreview) {
   const root = createRoot(rootElement);
   root.render(
     <main className="configuration-notice">

@@ -1,0 +1,174 @@
+.lesson-input-workspace {
+  --lesson-input-badge-ink: #10233f;
+  --lesson-input-error-ink: #a3312c;
+  --lesson-input-library-surface: rgba(223, 243, 255, 0.78);
+  --lesson-input-alert-surface: rgb(251.4, 217.8, 215.4);
+  --lesson-input-status-surface: rgb(226.53, 233.16, 249.67);
+  margin: 26px 0;
+  padding: 22px;
+  min-width: 0;
+  color: var(--navy);
+  background: var(--white);
+  border: 2px solid var(--navy);
+  border-radius: 18px;
+}
+
+.cosmic-service .lesson-input-workspace {
+  --lesson-input-badge-ink: #10233f;
+  --lesson-input-error-ink: #ffbca2;
+  --lesson-input-library-surface: rgba(11, 18, 48, 0.78);
+  --lesson-input-alert-surface: rgb(74.12, 62.04, 77.84);
+  --lesson-input-status-surface: rgb(18.95, 49.36, 82.93);
+}
+
+.lesson-input-workspace .lesson-input-workspace__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.lesson-input-workspace .lesson-input-workspace__heading p,
+.lesson-input-workspace .lesson-input-workspace__heading h2 {
+  margin: 0;
+}
+
+.lesson-input-workspace .lesson-input-workspace__heading p {
+  color: var(--cobalt);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.lesson-input-workspace .lesson-input-workspace__heading h2 {
+  margin-top: 3px;
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+}
+
+.lesson-input-workspace .lesson-input-workspace__revision {
+  flex: none;
+  padding: 6px 11px;
+  color: var(--lesson-input-badge-ink);
+  background: var(--amber);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.lesson-input-workspace .lesson-input-workspace__grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.8fr);
+  gap: 18px;
+  align-items: start;
+  min-width: 0;
+}
+
+.lesson-input-workspace .lesson-input-workspace__library,
+.lesson-input-workspace .lesson-input-workspace__editor {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.lesson-input-workspace .lesson-input-workspace__library {
+  padding: 16px;
+  background: var(--lesson-input-library-surface);
+  border: 1px solid color-mix(in srgb, var(--navy) 28%, transparent);
+  border-radius: 13px;
+}
+
+.lesson-input-workspace .lesson-input-workspace__library p {
+  margin: 5px 0 0;
+  color: inherit;
+  opacity: 0.72;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.lesson-input-workspace .lesson-input-workspace__library-actions,
+.lesson-input-workspace .lesson-input-workspace__save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.lesson-input-workspace .lesson-input-workspace__library-actions button,
+.lesson-input-workspace .lesson-input-workspace__save-actions button {
+  flex: 1 1 170px;
+}
+
+.lesson-input-workspace :is(button, input, textarea, select) {
+  min-height: 44px;
+}
+
+.lesson-input-workspace :is(input, textarea, select) {
+  width: 100%;
+  min-width: 0;
+}
+
+.lesson-input-workspace select {
+  padding: 10px 12px;
+  color: var(--navy);
+  background: var(--white);
+  border: 2px solid color-mix(in srgb, var(--navy) 48%, transparent);
+  border-radius: 10px;
+}
+
+.lesson-input-workspace :is(button, input, textarea, select):focus-visible {
+  outline: 4px solid var(--amber);
+  outline-offset: 3px;
+}
+
+.lesson-input-workspace textarea {
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.lesson-input-workspace .lesson-input-workspace__field-error {
+  margin: -3px 0 4px;
+  color: var(--lesson-input-error-ink);
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.lesson-input-workspace .lesson-input-workspace__alert,
+.lesson-input-workspace .lesson-input-workspace__status {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+  font-size: 0.86rem;
+}
+
+.lesson-input-workspace .lesson-input-workspace__alert {
+  color: var(--navy);
+  background: var(--lesson-input-alert-surface);
+  border: 1px solid var(--coral);
+}
+
+.lesson-input-workspace .lesson-input-workspace__status {
+  color: var(--navy);
+  background: var(--lesson-input-status-surface);
+  border: 1px solid color-mix(in srgb, var(--cobalt) 54%, transparent);
+}
+
+@media (max-width: 900px) {
+  .lesson-input-workspace .lesson-input-workspace__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .lesson-input-workspace {
+    padding: 16px;
+  }
+
+  .lesson-input-workspace .lesson-input-workspace__heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}

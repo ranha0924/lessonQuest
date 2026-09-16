@@ -1,0 +1,14 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'node',
+    testTimeout: 15_000,
+    hookTimeout: 30_000,
+    include: [
+      'packages/db/test/postgres.test.ts',
+      'packages/db/test/provisioning.postgres.test.ts',
+    ],
+    fileParallelism: false,
+  },
+});

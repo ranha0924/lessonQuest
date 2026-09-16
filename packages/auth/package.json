@@ -9,6 +9,13 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./firebase": {
+      "node": {
+        "types": "./dist/firebase.d.ts",
+        "default": "./dist/firebase.js"
+      },
+      "default": null
     }
   },
   "files": [
@@ -18,6 +25,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@lessonquest/contracts": "workspace:*"
+    "@lessonquest/contracts": "workspace:*",
+    "firebase-admin": "catalog:"
   }
 }

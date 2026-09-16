@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { AuthenticationError, type LocalAuthProvider } from '@lessonquest/auth';
+import { AuthenticationError, type AuthProvider } from '@lessonquest/auth';
 import {
   addClassMemberInputSchema,
   assignmentSchema,
@@ -26,6 +26,7 @@ import {
   studentBossProgressSchema,
   teacherBossDetailSchema,
   uuidSchema,
+  teacherSessionSchema,
   type Actor,
 } from '@lessonquest/contracts';
 import {
@@ -40,18 +41,23 @@ import {
   RasaRequestError,
   type GamificationRepository,
   type ClassroomRepository,
+  type LessonInputRepository,
+  type TeacherSessionRepository,
 } from '@lessonquest/db';
 import type { RasaHintProvider } from '@lessonquest/rasa';
 import { ScienceGenerationError } from '@lessonquest/science-studio';
-import { Hono, type Context } from 'hono';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import { ZodError } from 'zod';
 import { z } from 'zod';
+import { registerAiGenerationRoutes } from './ai-generation-routes.js';
 import { registerClassroomRoutes } from './classroom-routes.js';
+import { registerLessonInputRoutes } from './lesson-input-routes.js';
 
 const defaultMaxBodyBytes = 64 * 1024;
+const defaultLessonInputMaxBodyBytes = 256 * 1024;
 
 type Variables = {
   actor: Actor;
@@ -79,12 +85,14 @@ class ApiProblem extends Error {
 }
 
 export interface CreateAppOptions {
-  auth: LocalAuthProvider;
+  auth: AuthProvider;
   repository: TenantRepository;
   learningRepository: LearningRepository;
   rasaRepository?: RasaRepository;
   gamificationRepository?: GamificationRepository;
   classroomRepository?: ClassroomRepository;
+  lessonInputRepository?: LessonInputRepository;
+  teacherSessionRepository?: TeacherSessionRepository;
   rasaProvider?: RasaHintProvider;
   rasaTimeoutMs?: number;
   trustedOrigin: string;
@@ -117,13 +125,17 @@ function diagnosticResourceIds(context: AppContext): {
   organizationId: string | null;
   resourceId: string | null;
 } {
-  const match = /^\/organizations\/([^/]+)(?:\/classes\/([^/]+))?/.exec(
-    new URL(context.req.url).pathname,
-  );
+  const path = new URL(context.req.url).pathname;
+  const lessonInputMatch = /^\/organizations\/([^/]+)\/lesson-inputs\/([^/]+)$/.exec(path);
+  const match = /^\/organizations\/([^/]+)(?:\/classes\/([^/]+))?/.exec(path);
   return {
-    organizationId: diagnosticUuid(match?.[1]),
-    resourceId: diagnosticUuid(match?.[2]),
+    organizationId: diagnosticUuid(lessonInputMatch?.[1] ?? match?.[1]),
+    resourceId: diagnosticUuid(lessonInputMatch?.[2] ?? match?.[2]),
   };
+}
+
+function isLessonInputPath(path: string): boolean {
+  return /^\/organizations\/[^/]+\/lesson-inputs(?:\/[^/]+)?$/.test(path);
 }
 
 function errorResponse(
@@ -290,6 +302,7 @@ async function readJson(context: AppContext): Promise<unknown> {
 
 export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
   const maxBodyBytes = options.maxBodyBytes ?? defaultMaxBodyBytes;
+  const lessonInputMaxBodyBytes = options.maxBodyBytes ?? defaultLessonInputMaxBodyBytes;
   validateConfiguration(options.trustedOrigin, maxBodyBytes);
 
   const app = new Hono<AppEnvironment>();
@@ -302,11 +315,21 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
     context.header('x-trace-id', traceId);
   });
   app.use('*', secureHeaders());
+  app.use('*', async (context, next) => {
+    if (
+      context.req.path === '/session' ||
+      isLessonInputPath(context.req.path) ||
+      /^\/organizations\/[^/]+\/lesson-inputs\/[^/]+\/generations$/.test(context.req.path)
+    ) {
+      context.header('Cache-Control', 'no-store');
+    }
+    await next();
+  });
   app.use(
     '*',
     cors({
       origin: options.trustedOrigin,
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
       allowHeaders: ['Authorization', 'Content-Type'],
       maxAge: 600,
     }),
@@ -316,7 +339,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
       await next();
       return;
     }
-    context.set('actor', options.auth.resolve(context.req.header('authorization')));
+    context.set('actor', await options.auth.resolve(context.req.header('authorization')));
     await next();
   });
   app.use('*', async (context, next) => {
@@ -332,19 +355,29 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
     }
     await next();
   });
-  app.use(
-    '*',
-    bodyLimit({
-      maxSize: maxBodyBytes,
-      onError: () => {
-        throw new ApiProblem({
-          status: 413,
-          code: 'PAYLOAD_TOO_LARGE',
-          message: '요청 내용이 너무 큽니다.',
-          retryable: false,
-        });
-      },
-    }),
+  const payloadTooLarge = () => {
+    throw new ApiProblem({
+      status: 413,
+      code: 'PAYLOAD_TOO_LARGE',
+      message: '요청 내용이 너무 큽니다.',
+      retryable: false,
+    });
+  };
+  const defaultBodyLimit: MiddlewareHandler<AppEnvironment> = bodyLimit({
+    maxSize: maxBodyBytes,
+    onError: payloadTooLarge,
+  });
+  const lessonInputBodyLimit: MiddlewareHandler<AppEnvironment> = bodyLimit({
+    maxSize: lessonInputMaxBodyBytes,
+    onError: payloadTooLarge,
+  });
+  app.use('*', (context, next) =>
+    (isLessonInputPath(context.req.path) ? lessonInputBodyLimit : defaultBodyLimit)(
+      // Hono's bodyLimit erases its request-input generic; the app context is unchanged at runtime.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      context as AppContext,
+      next,
+    ),
   );
   app.use('*', async (context, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(context.req.method)) {
@@ -361,10 +394,33 @@ export function createApp(options: CreateAppOptions): Hono<AppEnvironment> {
     await next();
   });
 
+  if (options.teacherSessionRepository !== undefined) {
+    const sessions = options.teacherSessionRepository;
+    app.get('/session', async (context) =>
+      context.json(teacherSessionSchema.parse(await sessions.get(context.get('actor')))),
+    );
+  }
+
   app.get('/health', (context) => context.json({ status: 'ok' }));
 
   if (options.classroomRepository !== undefined) {
     registerClassroomRoutes(app, options.classroomRepository, { readJson, parseRouteUuid });
+  }
+
+  if (options.lessonInputRepository !== undefined) {
+    registerLessonInputRoutes(app, options.lessonInputRepository, { readJson, parseRouteUuid });
+    registerAiGenerationRoutes(app, options.lessonInputRepository, {
+      readJson,
+      parseRouteUuid,
+      denyGeneration() {
+        throw new ApiProblem({
+          status: 403,
+          code: 'AI_BILLING_NOT_CONFIGURED',
+          message: 'AI 생성은 결제 연동이 준비된 뒤 이용할 수 있습니다.',
+          retryable: false,
+        });
+      },
+    });
   }
 
   app.post('/organizations', async (context) => {

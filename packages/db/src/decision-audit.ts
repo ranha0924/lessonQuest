@@ -1,6 +1,5 @@
+import type { SqlDatabase } from './sql.js';
 import { randomUUID } from 'node:crypto';
-
-import type { PGliteInterface } from '@electric-sql/pglite';
 
 import { ConflictError, ResourceNotFoundError } from './tenant-repository.js';
 
@@ -26,7 +25,7 @@ interface DecisionAudit {
 // Call only after repository input parsing, with an operation that owns its
 // transaction. The catch runs after rollback, so the decision survives it.
 export async function withDecisionAudit<T>(
-  database: PGliteInterface,
+  database: SqlDatabase,
   audit: DecisionAudit,
   operation: () => Promise<T>,
 ): Promise<T> {

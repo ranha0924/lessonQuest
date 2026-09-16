@@ -1,0 +1,16 @@
+# F02 live routing remediation
+
+2026-09-09. The independent live-workspace review confirmed that named Vercel rewrite captures are appended to the destination query. Official @vercel/routing-utils6.5.0 converts /api/:path* → /api into /api?path=$1; the gateway intentionally refuses query strings, so deployed session/health/F01 requests cannot reach the handler. Preserve the failed independent report and .verification/f02-live-independent-routing.log. Do not deploy the failed candidate.
+
+## Bounded correction
+
+1. Pin @vercel/routing-utils6.5.0 as a root development-only dependency and update the lockfile. This official compiler is used only for tests, never runtime/browser artifacts. The reviewer verified this exact version in an owned temporary directory; no new hosted or paid resource is involved.
+2. Before changing vercel.json, add a failing regression in tests/vercel-api.test.ts that compiles the actual checked-in rewrite using convertRewrites, proves it adds no routing query parameter, and exercises session/health/F01 GET and mutation paths through the transformed-query Fetch boundary. Keep negative query/method/origin tests; do not weaken allowed() or trust a browser-provided routing header/parameter. Explicitly stub the database environment key away in the real unconfigured-entry test so operator shell credentials cannot trigger remote access during tests.
+3. Change only the API rewrite source to the unnamed /api/(.*), with destination /api. The official conversion has already been independently reproduced as dest /api without a query string. Keep the API rule ahead of SPA, existing security headers and the exact gateway whitelist. Root /api itself remains denied by the gateway.
+4. Make the disposable live browser server compile the actual rewrite and apply its appended query parameters before forwarding the original URL to the gateway. This closes the old fixture gap: reintroducing the named capture now breaks both unit routing and actual React→HTTP→Hono→SQL browser tests.
+5. Record RED/GREEN conversion evidence, rerun full check for the new development dependency/tests plus live4 browser cases, production and complete dependency audits and browser/server artifact/export containment. Existing71 PostgreSQL,80 integration,80E2E,12demo and42preview evidence remains applicable because production runtime/database/UI code is unchanged. Rerun any additionally affected check if findings require more changes.
+6. Update the runbook and verification record, freeze the complete unit manifest including this remediation, and assign a new independent reviewer who did not implement the change. The original failed report remains preserved. No acceptance/commit/push/deployment until a fresh score86+ with no critical blocker. Actual configured Vercel endpoint smoke remains a release requirement; local compiler tests do not claim a remote deployment occurred.
+
+No Firebase/Neon credentials, student data, reference repositories or external settings are accessed. Rollback is to keep the current live deployment unchanged; no database change is part of this correction.
+
+Sources checked2026-09-09: https://vercel.com/docs/project-configuration/vercel-json (named parameters pass through query strings), official @vercel/routing-utils6.5.0 compiler, and the independent probe under the reviewer's owned temporary directory.

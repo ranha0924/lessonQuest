@@ -1,0 +1,7 @@
+# Pinned dependency compatibility patches
+
+`jwks-rsa@4.1.0.patch` changes only how the existing jose6.2.12 module is loaded in two CommonJS entry paths. Vercel's Node runtime rejects synchronous require(esm); native asynchronous import works without a runtime flag override. Key filtering, algorithms, verification dependencies and callback results remain unchanged. The passport provider's internal implementation is async; callers continue to receive its existing callback.
+
+The package is authored by Auth0 and licensed under [MIT](https://github.com/auth0/node-jwks-rsa/blob/master/LICENSE). This locally authored minimal diff is based on inspecting the pinned package's src/utils.js and src/integrations/passport.js. [Issue507](https://github.com/auth0/node-jwks-rsa/issues/507) and the still-open [PR508](https://github.com/auth0/node-jwks-rsa/pull/508) corroborate the same compatibility defect; this patch does not import or represent that unmerged PR as a released fix.
+
+pnpm-workspace.yaml restricts the patch to exactly4.1.0 and the lockfile verifies its patch hash during frozen installation. The Node-flag regression exercises the actual Firebase/server import plus real loopback JWKS RSA/EC retrieval, signature verification, negative keys and passport callbacks. Do not remove the patch or change crypto versions until a reviewed upstream release and hosted smoke pass. No third-party repository is modified.

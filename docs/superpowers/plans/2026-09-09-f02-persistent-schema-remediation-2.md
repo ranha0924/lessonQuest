@@ -1,0 +1,12 @@
+# F02 persistent schema final-gate remediation 2
+
+2026-09-09; unaccepted candidate, base4a0e414. Attempt2 independently proved that granting the runtime role to an unrelated role permits inherited lesson access while fresh migration, repeat migration and bootstrap all certify the configuration. The previous ACL/identity fixes passed their probes; preserve both failed reviews and manifests. No remote execution or acceptance.
+
+## Correction and evidence
+
+- Extend requireSafeRuntimeRole in provisioning.ts to reject incoming memberships where roleid is the runtime role and member is not the current schema owner/migration principal, regardless of INHERIT, SET or ADMIN options. Rejecting the first incoming edge also closes multilevel inheritance. A membership granted solely to the already trusted current owner is allowed because PostgreSQL can automatically grant ADMIN membership to a nonsuperuser role creator; this does not add a new data principal. Keep the existing outgoing membership, current-user/database-owner and privileged-role checks; add explicit REPLICATION flag rejection.
+- Invoke safe-role validation inside the shared final grant-validation boundary, after fresh grants and before bootstrap/unchanged acceptance, rather than relying only on the early pre-DDL check. No repair/revocation is performed; drift is refused.
+- Real PostgreSQL RED tests: outsider inherits runtime before fresh migrate; outsider receives runtime after healthy migrate then repeat fails; bootstrap after the same drift fails without adding rows; membership with INHERIT false/SET true or ADMIN-only still fails; replication runtime fails; owner-only creator membership remains valid. Prove outsider effective read capability in the original failed condition. Existing prior ACL/grant-option/owner/default/identity/member regressions must remain green.
+- Run focused owned PostgreSQL RED/GREEN, then final full check, PostgreSQL, integration/E2E/preview, audit and fresh export/artifact containment. Freeze a third manifest, retain original/Attempt2 evidence, and assign another new nonimplementing reviewer for Attempt3.86/100+ and no blocker are mandatory. No external data, credentials, migration or deployment is accessed.
+
+This does not claim protection against a malicious database superuser/owner rewriting privileges after a check. It closes delegation to additional ordinary principals in the configuration actually certified by the reviewed operation.

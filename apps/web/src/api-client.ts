@@ -1,4 +1,6 @@
 import {
+  teacherSessionSchema,
+  type TeacherSession,
   assignmentSchema,
   attemptSessionSchema,
   createdScienceExperienceSchema,
@@ -16,11 +18,15 @@ import {
   createdClassSchema,
   classDashboardSchema,
   issuedClassInvitationSchema,
+  lessonInputListSchema,
+  lessonInputMutationResultSchema,
+  lessonInputSchema,
   revokedClassInvitationSchema,
   redeemedClassInvitationSchema,
   type ClassroomSummary,
   type ClassDashboard,
   type IssuedClassInvitation,
+  type CreateLessonInputInput,
   type RedeemedClassInvitation,
   type Assignment,
   type AttemptSession,
@@ -36,11 +42,15 @@ import {
   type StudentProgress,
   type RasaHintRequest,
   type RasaHintResult,
+  type LessonInput,
+  type LessonInputMutationResult,
+  type LessonInputSummary,
   type StudentBossProgress,
   type TeacherBossDetail,
   type CreateBossCampaignInput,
   type EndBossCampaignInput,
   type StudentScienceBlockSpec,
+  type UpdateLessonInputInput,
 } from '@lessonquest/contracts';
 
 export type ValidationReport = ScienceValidationReportContract;
@@ -70,6 +80,24 @@ export interface ClassroomApi {
     organizationId: string,
     input: { code: string },
   ): Promise<RedeemedClassInvitation>;
+}
+
+export interface TeacherSessionApi {
+  getTeacherSession(): Promise<TeacherSession>;
+}
+
+export interface LessonInputApi {
+  listLessonInputs(organizationId: string): Promise<LessonInputSummary[]>;
+  createLessonInput(
+    organizationId: string,
+    input: CreateLessonInputInput,
+  ): Promise<LessonInputMutationResult>;
+  getLessonInput(organizationId: string, lessonInputId: string): Promise<LessonInput>;
+  updateLessonInput(
+    organizationId: string,
+    lessonInputId: string,
+    input: UpdateLessonInputInput,
+  ): Promise<LessonInputMutationResult>;
 }
 
 export interface LessonQuestApi {
@@ -155,27 +183,45 @@ function readErrorEnvelope(value: unknown): { code: string; message: string; ret
 
 export function createHttpLessonQuestApi(options: {
   readonly baseUrl: string;
-  readonly getAuthorization: () => string | null;
+  readonly getAuthorization: () => string | null | Promise<string | null>;
+  readonly pathPrefix?: '/api';
+  readonly assertSession?: () => void;
+  readonly signal?: AbortSignal;
+  readonly secureTransport?: boolean;
   readonly fetch?: typeof fetch;
-}): LessonQuestApi & ClassroomApi {
+}): LessonQuestApi & ClassroomApi & LessonInputApi & TeacherSessionApi {
   const request = async <T>(
     path: string,
     schema: RuntimeSchema<T>,
     init: RequestInit = {},
   ): Promise<T> => {
     const headers = new Headers(init.headers);
-    const authorization = options.getAuthorization();
+    options.assertSession?.();
+    const pendingAuthorization = options.getAuthorization();
+    const authorization =
+      typeof pendingAuthorization === 'string' || pendingAuthorization === null
+        ? pendingAuthorization
+        : await pendingAuthorization;
+    options.assertSession?.();
     if (authorization !== null) {
       headers.set('authorization', authorization);
     }
     if (init.body !== undefined) {
       headers.set('content-type', 'application/json');
     }
-    const response = await (options.fetch ?? fetch)(new URL(path, options.baseUrl), {
-      ...init,
-      headers,
-    });
+    const response = await (options.fetch ?? fetch)(
+      new URL(`${options.pathPrefix ?? ''}${path}`, options.baseUrl),
+      {
+        ...init,
+        headers,
+        ...(options.signal ? { signal: options.signal } : {}),
+        ...(options.secureTransport
+          ? ({ credentials: 'omit', cache: 'no-store', redirect: 'error' } as const)
+          : {}),
+      },
+    );
     const value: unknown = await response.json();
+    options.assertSession?.();
     if (!response.ok) {
       const envelope = readErrorEnvelope(value);
       throw new LessonQuestApiError(
@@ -189,6 +235,25 @@ export function createHttpLessonQuestApi(options: {
   };
 
   return {
+    getTeacherSession: () => request('/session', teacherSessionSchema),
+    listLessonInputs: (organizationId) =>
+      request(`/organizations/${organizationId}/lesson-inputs`, lessonInputListSchema),
+    createLessonInput: (organizationId, input) =>
+      request(`/organizations/${organizationId}/lesson-inputs`, lessonInputMutationResultSchema, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    getLessonInput: (organizationId, lessonInputId) =>
+      request(`/organizations/${organizationId}/lesson-inputs/${lessonInputId}`, lessonInputSchema),
+    updateLessonInput: (organizationId, lessonInputId, input) =>
+      request(
+        `/organizations/${organizationId}/lesson-inputs/${lessonInputId}`,
+        lessonInputMutationResultSchema,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      ),
     listClasses: (organizationId) =>
       request(`/organizations/${organizationId}/classes`, classroomListSchema),
     createClass: (organizationId, input) =>
